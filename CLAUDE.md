@@ -18,7 +18,9 @@ Read `HANDOFF.md` first. It holds current status and next actions.
 
 ## Conventions
 
-- **Stack:** Next.js (App Router) PWA + Postgres + Prisma + S3-compatible blob storage. TypeScript everywhere. Boring, common frameworks by deliberate choice.
+- **Stack:** .NET 10 API + Azure SQL (EF Core) + React/TypeScript PWA wrapped in Capacitor, on Azure Container Apps, files in Azure Blob. Chosen for developer fluency and because AXA is a Microsoft/Azure shop that will support this after handover.
+- **Stored procedures surgically, not everywhere.** EF Core migrations + LINQ for the app's own domain — requirements are still moving and iteration speed wins. Reserve procs for the outbox dequeue, direct writes into NEXT3's database, and bulk/reporting queries.
+- **All NEXT3 writes go through the transactional outbox.** Document row and outbox row commit in one transaction. Pushes must be idempotent via a stable `clientRef`. **Never delete a blob before its push is confirmed `sent`.**
 - **The NEXT3 client always sits behind an interface**, with a fake implementation kept working. Never let the build block on AXA's API availability, and never call NEXT3 directly from feature code.
 - **Car photos are capture-only** — upload must be disabled for those buckets (Insured Car Photo, TP Car Photo, and the garage equivalent). Documents allow both upload and capture.
 - **Do not invent client data.** Insurance types, email routing recipients, NEXT3 field names and document-type codes are all unanswered (`docs/open-questions.md`). Use obvious placeholders and keep them in one config file.

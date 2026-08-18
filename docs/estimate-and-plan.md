@@ -9,7 +9,7 @@
 | 3 | Expert: voice note, car diagram, quality check + retry, visa/plate search, report upload. **Swap fake → real NEXT3** |
 | 4 | Garage declaration + submit; Claim Officer review, visa search, approve/reject, approval image; web push. **Client demo → 30% payment** |
 | 5 | Post-approval repair uploads, rejection paths, Broker Option 1 + email routing |
-| 6 | Hardening: retry queue, audit log, file size limits, error states. Real-device pass on 3–4 handsets |
+| 6 | Hardening: outbox retry, failed-push admin screen, audit log, file size limits, error states. **Capacitor wrapper + store/MDM build. Real-device pass on 3–4 handsets — this is the checkpoint where push and camera get validated, and where Flutter would be reconsidered if they fail.** |
 | 7 | **UAT round 1** + fixes |
 | 8 | UAT round 2, deploy, handover docs, training session |
 
@@ -31,7 +31,26 @@ Three things force the decision, not developer preference:
 
 Volumes are not in the BRD. Assumed **~100 claims/day, ~15 photos each at ~1.5 MB, ~200 users**. Revise once question #20 is answered.
 
-### Option A — lean cloud (recommended)
+### Option A2 — CURRENT PLAN (Azure, post-architecture decisions)
+
+Reflects: NEXT3 as system of record (files held days only), Azure Blob over R2, Container Apps `minReplicas: 1`, .NET 10 + Azure SQL.
+
+| Item | Monthly |
+|---|---|
+| Container Apps (min 1 replica) | $20 – 30 |
+| Container Apps Job (outbox worker) | $3 – 5 |
+| Azure SQL (S1 or serverless GP) | $30 – 50 |
+| Azure Blob (~11 GB steady state) | ~$0.25 |
+| Container Registry Basic | $5 |
+| App Insights | ~$10 |
+| SMS OTP | $25 – 70 |
+| **Total (no WAF)** | **~$105 – 165 / month** |
+
+A managed **WAF** sits on top and can add ~$330 (Front Door Premium) — more than the entire rest of the application. That is AXA's call, not the developer's (question #38).
+
+**Note how this was achieved:** the bill halved from the earlier $230–300 estimate through *architecture decisions*, not by haggling over instance sizes. Per-claim cost at 3,000 claims/month is roughly **$0.04**, against an estimated **$0.50/claim** for the manual email process it replaces — that comparison, not the monthly total, is the number to put in front of the client.
+
+### Option A — lean cloud (original proposal, superseded)
 
 | Item | Monthly |
 |---|---|

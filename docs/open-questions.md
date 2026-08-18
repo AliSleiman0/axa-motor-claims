@@ -2,7 +2,7 @@
 
 **None of these have been answered yet.** Do not invent values for any TBC item.
 
-Send **#1, #2, #21, #23 today** — those four decide whether 2 months is real.
+Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. Add **#23, #28–30** (mobile delivery) and **#37** (Azure access) to the same email; all are on the critical path.
 
 ## Blocking — needed in week 1, or delivery slips day-for-day
 
@@ -45,6 +45,34 @@ Send **#1, #2, #21, #23 today** — those four decide whether 2 months is real.
 | 25 | UAT — who participates, when, how many rounds, what counts as acceptance? | TBC |
 | 26 | Does the existing email process run in parallel after go-live, and for how long? | TBC |
 | 27 | Support after handover — hours, duration, paid or not? | TBC |
+
+## Mobile delivery — needed before week 6 (added 2026-08-18)
+
+| # | Question | Answer |
+|---|---|---|
+| 28 | **What is the device mix across the expert and garage network — roughly what share is Android vs iOS?** If 80%+ Android, the iOS push risk shrinks sharply and Android-only Capacitor needs no Mac at all. | TBC |
+| 29 | Should the apps go to the public App Store / Play Store, or be distributed internally via MDM? Internal distribution removes review cycles entirely. | TBC |
+| 30 | Does AXA already hold an Apple Developer / Enterprise account? If not, provisioning one is a multi-week corporate process. | TBC |
+
+## NEXT3 platform — added 2026-08-18
+
+| # | Question | Answer |
+|---|---|---|
+| 31 | **Is NEXT3 a commercial product (which vendor and version?) or developed in-house? Who maintains it, and will the API work be done by your team or a third-party vendor — is it already budgeted and scheduled?** Tells us whether "they'll provide endpoints" means two weeks or two months. | TBC |
+| 32 | **Does NEXT3 deduplicate on a client-supplied reference ID?** Required for safe retries — on the critical path for the outbox. | TBC |
+| 33 | What is NEXT3's expected availability, and are there maintenance windows? Sizes the retry backoff. | TBC |
+| 34 | **How does the app learn a new visa was assigned?** The BRD says a *"back-office engine triggers the process"* without saying how it reaches the app — webhook from NEXT3 (preferred) or the app polls. Genuine hole in the BRD. | TBC |
+| 35 | Does AXA have a preferred or mandated database platform for apps in their tenant, given their team supports this after handover? (Currently assuming Azure SQL.) | TBC |
+| 36 | If integration turns out to be directory + database inserts rather than an API — what database engine does NEXT3 run on? | TBC |
+
+## Azure / hosting — added 2026-08-18
+
+| # | Question | Answer |
+|---|---|---|
+| 37 | **Contributor access to an Azure resource group** — often slower to obtain in a governed tenant than API credentials, and it is on the critical path. Request in week 1. | TBC |
+| 38 | Which security baseline applies — is a managed **WAF** required? Front Door Premium is ~$330/month, more than the entire rest of the application. | TBC |
+| 39 | Is the Enterprise Agreement discount available for this workload? | TBC |
+| 40 | Azure Communication Services SMS coverage — confirm it covers the target countries (Lebanon in particular). If not, a local aggregator is needed, which changes the auth integration. | TBC |
 
 ## Noted gaps in the BRD (raise, but not blocking)
 
