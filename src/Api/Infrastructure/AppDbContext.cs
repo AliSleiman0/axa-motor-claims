@@ -1,4 +1,6 @@
 using Api.Modules.Broker;
+using Api.Modules.Claims;
+using Api.Modules.Expert;
 using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +28,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<BrokerRequest> BrokerRequests => Set<BrokerRequest>();
 
     public DbSet<PublicLinkToken> PublicLinkTokens => Set<PublicLinkToken>();
+
+    /// <summary>The one NEXT3 cache (§4) — disposable, never edited locally.</summary>
+    public DbSet<CachedClaim> CachedClaims => Set<CachedClaim>();
+
+    public DbSet<ExpertAssignment> ExpertAssignments => Set<ExpertAssignment>();
 
     // Deliberately no DbSet<AuditLog>: the only sanctioned write path is AuditWriter
     // (tests read via Set<AuditLog>()); the DB trigger enforces append-only.

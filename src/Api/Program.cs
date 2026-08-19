@@ -1,5 +1,6 @@
 using Api.Composition;
 using Api.Modules.Broker;
+using Api.Modules.Expert;
 using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 
@@ -29,6 +30,8 @@ app.MapAuthEndpoints();
 app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
+app.MapExpertEndpoints();
+app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();
 app.MapPublicEndpoints();
 

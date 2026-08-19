@@ -1,4 +1,5 @@
 using Api.Infrastructure;
+using Api.Integrations;
 using Api.Integrations.Sms;
 using Api.Modules.PublicSurface;
 using Api.Tests.Integrations;
@@ -39,6 +40,15 @@ public sealed class ApiFixture : IAsyncLifetime
         (MutableOptionsMonitor<PublicLinkOptions>)Services
             .GetRequiredService<IOptionsMonitor<PublicLinkOptions>>();
 
+    /// <summary>
+    /// The live <see cref="FakeOptions"/>, mutable mid-test — the only way to make the booted app's
+    /// NEXT3 fail. One caution: <c>FakeBehavior</c> is a single instance shared by NEXT3 <em>and</em>
+    /// all three senders, and the integration classes run as one serialized collection, so a test
+    /// that raises the failure rate must restore it or it will poison every test that follows.
+    /// </summary>
+    public MutableOptionsMonitor<FakeOptions> Fake =>
+        (MutableOptionsMonitor<FakeOptions>)Services.GetRequiredService<IOptionsMonitor<FakeOptions>>();
+
     private WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("Fixture not initialized.");
 
@@ -74,6 +84,11 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<PublicLinkOptions>>(sp =>
                     new MutableOptionsMonitor<PublicLinkOptions>(
                         sp.GetRequiredService<IOptions<PublicLinkOptions>>().Value)));
+                // Same trick for failure injection: without it there is no way to make the booted
+                // app's NEXT3 go down, and §4's staleness path could only be tested outside the host.
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<FakeOptions>>(sp =>
+                    new MutableOptionsMonitor<FakeOptions>(
+                        sp.GetRequiredService<IOptions<FakeOptions>>().Value)));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test

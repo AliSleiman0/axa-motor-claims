@@ -44,4 +44,7 @@ public static class NotificationTemplates
 {
     public const string OtpCode = "otp_code";
     public const string Invite = "invite";
+
+    /// <summary>The BRD's primary trigger: "a popup message will show on the expert mobile" (§8).</summary>
+    public const string AssignmentReceived = "assignment_received";
 }

@@ -81,14 +81,14 @@
 
 ## Week 2 — Expert core
 
-### ☐ 2.1 Claim cache + assignments
+### ☑ 2.1 Claim cache + assignments
 **Goal:** an assignment arrives (from the fake) and an expert sees their claim.
 **Refs:** design.md §4 (`claim`, `expert_assignment`), §5.1 (flow + writes), §6.2 (`IAssignmentSource` handler).
 **Prompt:**
 > Slice 2.1 — implement the assignment path per design.md §5.1 and §6.2: the `claim` cache and `expert_assignment` tables per §4, the single idempotent `AssignmentReceived` handler (dedupe per §6.2), claim-cache refresh rule per §4's `claim` row, and the fake assignment source injecting synthetic assignments on demand. API: expert claim list + claim detail. Push notification via the fake `IPushSender`.
 **DoD:** injecting a fake assignment produces the row, the cache fetch, the notification log entry, and it appears in that expert's list only; `dotnet test` green.
 **Test focus:** duplicate/replayed assignment is a no-op; stale-cache banner path when the fake NEXT3 is "down"; assignment invisible to other experts.
-**Notes:** _
+**Notes:** done 2026-08-20 (167 tests, +34). Four things worth carrying forward. (1) **`IAssignmentSource.Subscribe` hands back no result**, so the demo endpoint could not both use the real delivery path and report an outcome. Split cleanly: the endpoint calls `AssignmentHandler` directly for its typed 200/422, and the tests call `FakeAssignmentSource.Inject` through DI so the startup subscription is what they exercise — same handler either way, which is §6.2's single-funnel guarantee. Resist widening the 1.4 interface for this. (2) **Ordering is the design, not an accident:** the assignment row commits alone, then the cache fetch and the push happen best-effort on top. Both failure paths are tested (`WhenNext3IsDown_TheAssignmentIsStillRecorded`, `WhenThePushFails_...`), because an outage that loses an assignment is the exact bug this project exists to fix. `notified_at` stays null on a failed push — the `notification` row is the record. (3) **`ApiFixture` now swaps `IOptionsMonitor<FakeOptions>` too**, copying the 1.5 `PublicLinkOptions` trick — before this there was no way to make the *booted* app's NEXT3 fail, only a hand-built client. One `FakeBehavior` is shared by NEXT3 and all three senders and the collection is serialized, so `WithNext3Down` restores the old value in a `finally`; forget that and every later test breaks. (4) **The clock is 15 minutes wide.** Two tests failed as 401s, not assertion failures: `Time.Advance(1 hour)` outran `Auth.Jwt.AccessTokenMinutes` with `ClockSkew` zero. Any test travelling further than that must re-login first. Also: `expert_assignment` has **no FK to `claim`** (the cache must stay disposable, or a NEXT3 outage costs assignments), the arrival columns are created now and written in 2.4, and an unmapped `next3_id` is audited and dropped rather than retried — a poller would otherwise loop on data the app cannot fix (#8).
 
 ### ☐ 2.2 The outbox
 **Goal:** the load-bearing piece, test-first.

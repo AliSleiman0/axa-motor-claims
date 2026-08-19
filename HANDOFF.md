@@ -3,14 +3,16 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-19 (evening):** **Week 1 complete.** Slices 1.1 (scaffold + arch tests), 1.2 (phone-OTP auth, JWT, roles, invites), 1.3 (admin CRUD ×4 + append-only audit log + browser admin pages) and 1.4 (the five ports + fakes) committed; **slice 1.5 (Option 2 schema + public-surface skeleton) complete and reviewed 2026-08-20 — uncommitted, awaiting the developer's test-diff review.** 133 tests green; app boots on pure fakes. The review found one real gap and closed it: §9.1's "each link accepts exactly one submission" was a read-then-write with no guard, so simultaneous submits both succeeded — `public_link_token` now carries a `rowversion` and the losing submit leaves through the same uniform 404. The 1.5 migration was regenerated rather than stacked, since it was still uncommitted. **No client answers received; §8 communications still unsent.**
+**Status as of 2026-08-20:** **Week 1 complete and committed** (1.1 scaffold + arch tests, 1.2 phone-OTP auth, 1.3 admin CRUD ×4 + append-only audit log + browser admin pages, 1.4 the five ports + fakes, 1.5 Option 2 schema + public-surface skeleton — all in git through commit `71023c9`). **Week 2 started: slice 2.1 (claim cache + expert assignments) is complete and uncommitted, awaiting the developer's test-diff review.** 167 tests green; app boots on pure fakes. 2.1 closes the loop the BRD opens with: NEXT3 assigns a claim → the app records it exactly once (unique index on `next3_assignment_ref`, not a read-then-write) → caches the claim → pushes the expert's popup → it appears in that expert's list and nobody else's. **No client answers received; §8 communications still unsent.**
 
-> ## ⏭️ NEXT SESSION: commit slice 1.5, then week 2 — slice 2.1 (claim cache + assignments)
-> Build proceeds per `docs/build-playbook.md` — week 1 is 1.1 ☑ 1.2 ☑ 1.3 ☑ 1.4 ☑ 1.5 ☑ (pending commit); next unticked slice is **2.1**. Slice learnings are in the playbook's Notes lines.
+> ## ⏭️ NEXT SESSION: commit slice 2.1, then slice 2.2 (the outbox)
+> Build proceeds per `docs/build-playbook.md` — week 1 is 1.1–1.5 ☑ (committed), week 2 is 2.1 ☑ (pending commit); next unticked slice is **2.2**. Slice learnings are in the playbook's Notes lines.
 >
-> **Review 1.5 with these five in mind** (all recorded in the playbook's 1.5 Notes, design.md and scope-decisions.md): the **`rowversion` on `public_link_token`** is the one change made during the 2026-08-20 review — §9.1's one-submission rule was a read-then-write that two simultaneous POSTs both passed, and the guard belongs in the schema, not in the check (the same trap is waiting in 2.2's outbox and 5.2's send-email transition); architecture rule 2 forced the module split — `AuthPolicies` lives in `Api.Modules.Users`, which the public module may not reference, so B3 sits in a new `Api.Modules.Broker` and a `Rule2_IsNotVacuous` test now stops that rule passing on an empty namespace again; the body-size cap is **middleware, not an endpoint filter**, because filters run after model binding and had already read the body; rate-limit options are read per request so they can be lowered in tests without a second host; and EF quietly defaulted the `broker_request → app_user` FK to **Cascade** until it was pinned to `Restrict`.
+> **Review 2.1 with these four in mind** (all in the playbook's 2.1 Notes and scope-decisions.md): the **unique index on `next3_assignment_ref`** is the dedupe guard §6.2 asks for — the handler inserts and catches, it does not check-then-insert, and a 4-way concurrent test proves it; **write ordering is deliberate** — the assignment row commits alone, then the claim cache and the push are best-effort on top, because a NEXT3 outage or a failed push must never cost an expert the job (`notified_at` stays null and the `notification` row carries the failure); `ApiFixture` now swaps `IOptionsMonitor<FakeOptions>` the same way 1.5 swapped `PublicLinkOptions`, which is the only way to make the **booted** app's NEXT3 fail — and because one `FakeBehavior` is shared by NEXT3 and all three senders, `WithNext3Down` restores it in a `finally`; and **`Time.Advance` beyond 15 minutes expires the access token** (`ClockSkew` zero), which surfaces as a 401 rather than an assertion failure — that cost two red tests here.
 >
-> Also landed: `TokenHashing` in `Api.Infrastructure` now backs invites, refresh tokens and public links — the SHA-256 helper had been copy-pasted twice and was about to be a third time. The 1.2 auth suite passes unchanged against it.
+> **2.2 inherits the standing trap:** a read-then-write on a state column is not a state machine. It bit `public_link_token` in 1.5 and it is waiting in the outbox dequeue and 5.2's send-email transition. Put the guard in the schema.
+>
+> Carried from 1.5: `TokenHashing` in `Api.Infrastructure` backs invites, refresh tokens and public links; architecture rule 2 keeps `Api.Modules.PublicSurface` clear of `Users` and `Next3`, and a `Rule2_IsNotVacuous` test stops that rule passing on an empty namespace. Note rule 2 is scoped to the public module only — `Api.Modules.Expert` may and does reference both.
 > Still outstanding and getting more urgent as week 1 burns down: **§7A** (Capacitor research → `docs/research-capacitor.md`, validates the provisional Capacitor decision — needed before week 6, ideally sooner) and **§8** (blocking questions, scope letter, OpenAPI proposal — all still unsent; the scope letter must precede real client exposure).
 >
 > **Schedule decision 2026-08-19 (design.md §11):** Broker Option 2 stays IN scope; the calendar **holds at 8 weeks** — paid for by dropping **damage-diagram polish** and the **second UAT round**, plus pipeline reuse. No descope lever remains; any further slip moves the date day-for-day. `scope-decisions.md` and `estimate-and-plan.md` were reconciled to match the same day. Do not re-litigate Option 2 or the re-cut.
@@ -290,7 +292,11 @@ AxaMotorClaims.sln          Week-1 solution (slices 1.1–1.3)
 src/
   Api/                      .NET 10 minimal API. Modules/Users (auth, profiles, admin CRUD),
                             Modules/Audit (append-only audit_log + AuditWriter), Modules/Notifications
-                            (notification log + NotificationLog writer), Modules/Broker (broker_request
+                            (notification log + NotificationLog writer), Modules/Claims (the `claim`
+                            NEXT3 cache + ClaimCache, §4's refresh-on-open rule — shared with the
+                            officer's lookup in 4.2), Modules/Expert (expert_assignment, the single
+                            idempotent AssignmentHandler + its startup subscription, E1/E2 read
+                            endpoints, admin dev-injection endpoint), Modules/Broker (broker_request
                             + B3 create-link), Modules/PublicSurface (the ONLY unauthenticated surface:
                             public_link_token, /public/* endpoints, chained per-IP/per-token rate
                             limiter, body-size cap — may not reference Users or Next3, arch rule 2),
@@ -298,7 +304,7 @@ src/
                             Push, Sms; FakeBehavior = shared latency/failure injection), Outbox/ (shell),
                             appsettings.Placeholders.json (Appendix A — ALL client-value placeholders)
   Api.Tests/                xUnit: NetArchTest boundary rules (with planted-violation self-tests) +
-                            integration tests on LocalDB via WebApplicationFactory (85 tests)
+                            integration tests on LocalDB via WebApplicationFactory (167 tests)
   Web/                      React 19 + TS + Vite. Router, localStorage JWT + refresh-on-401 client,
                             admin pages (login, per-kind profile list/form). Dev proxy → API :5180
 .claude/

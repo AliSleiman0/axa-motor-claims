@@ -6,6 +6,8 @@ using Api.Integrations.Next3;
 using Api.Integrations.Push;
 using Api.Integrations.Sms;
 using Api.Modules.Audit;
+using Api.Modules.Claims;
+using Api.Modules.Expert;
 using Api.Modules.Notifications;
 using Api.Modules.PublicSurface;
 using Api.Modules.Users;
@@ -36,6 +38,11 @@ public static class ServiceRegistration
         services.Configure<PublicLinkOptions>(configuration.GetSection(PublicLinkOptions.SectionName));
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
+        services.AddScoped<ClaimCache>();
+        services.AddScoped<AssignmentHandler>();
+        // Subscribes the single idempotent handler to whichever assignment source is configured
+        // (§6.2). Fails at startup rather than at first delivery if the source is unimplemented.
+        services.AddHostedService<AssignmentIngestion>();
         services.AddScoped<OtpService>();
         services.AddScoped<TokenService>();
         services.AddScoped<InviteService>();
