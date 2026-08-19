@@ -9,7 +9,14 @@ public sealed partial class CapturingSmsSender : ISmsSender
 {
     private readonly ConcurrentQueue<(string Phone, string Message)> _sent = new();
 
-    public Task Send(string phone, string message, CancellationToken ct)
+    // Writes no `notification` rows — tests asserting the send log must exercise the real
+    // FakeSmsSender, not this double (see SenderNotificationTests).
+    public Task Send(
+        string phone,
+        string message,
+        string templateName,
+        Guid? recipientUserId,
+        CancellationToken ct)
     {
         _sent.Enqueue((phone, message));
         return Task.CompletedTask;

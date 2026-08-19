@@ -24,6 +24,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Deliberately no DbSet<AuditLog>: the only sanctioned write path is AuditWriter
     // (tests read via Set<AuditLog>()); the DB trigger enforces append-only.
 
+    // Same for Notification: the only write path is NotificationLog, called by the senders
+    // (tests read via Set<Notification>()). Nothing in a feature flow reads it back.
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 }

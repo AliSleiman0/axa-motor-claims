@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Api.Infrastructure;
 using Api.Integrations.Sms;
 using Api.Modules.Audit;
+using Api.Modules.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -49,7 +50,8 @@ public sealed class InviteService(
         });
         await db.SaveChangesAsync(ct);
 
-        await sms.Send(user.Phone, $"Your registration invite token is {raw}", ct);
+        await sms.Send(
+            user.Phone, $"Your registration invite token is {raw}", NotificationTemplates.Invite, userId, ct);
         return raw;
     }
 

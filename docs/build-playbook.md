@@ -32,7 +32,7 @@
 
 ## Week 1 — Foundation
 
-### ☐ 1.1 Solution scaffold + guardrails
+### ☑ 1.1 Solution scaffold + guardrails
 **Goal:** the repo compiles, tests run, and the architecture rules are executable.
 **Refs:** CLAUDE.md (source layout), design.md §3 (boundaries), §10 (build conventions).
 **Prompt:**
@@ -41,7 +41,7 @@
 **Test focus:** the three architecture rules; nothing else yet.
 **Notes:** _
 
-### ☐ 1.2 Auth — phone OTP, JWT, roles
+### ☑ 1.2 Auth — phone OTP, JWT, roles
 **Goal:** all five roles can log in; the §2 policy skeleton exists.
 **Refs:** design.md §4 (`app_user`, `otp_challenge`, `invite`), §9 (auth model), §2 (role matrix).
 **Prompt:**
@@ -50,23 +50,23 @@
 **Test focus:** OTP expiry, max-attempt lockout, replay/consumed-code rejection, deactivated-user token invalidation, role policy denies cross-role access.
 **Notes:** _
 
-### ☐ 1.3 Admin CRUD + audit log
+### ☑ 1.3 Admin CRUD + audit log
 **Goal:** the four profile CRUDs and the append-only audit trail.
 **Refs:** design.md §5.4 (A1), §4 (profile tables, `audit_log`), §9 (audit events).
 **Prompt:**
 > Slice 1.3 — implement Admin A1 per design.md §5.4: CRUD for the four profile types with the §4 field sets, create-issues-invite (via slice 1.2's flow), deactivate semantics as §5.4 specifies. Add the `audit_log` table per §4 and a small append-only audit writer; wire the §9 audit events that exist so far (login success/failure, admin CRUD). Admin screens are browser-only React pages — functional, no styling effort.
 **DoD:** create→invite→deactivate round-trip for each profile type; audit rows written; `dotnet test` green.
 **Test focus:** deactivation leaves in-flight data untouched; audit rows are append-only (no update/delete path); NEXT3-ID uniqueness on expert/garage profiles.
-**Notes:** _
+**Notes:** done 2026-08-19 (60 tests). Manual browser pass caught two bugs the suite missed: GET-by-id 500'd on every profile type (EF can't translate a filter composed *after* a client-evaluated projection — filter before projecting; GET list/detail tests added) and System.Text.Json's default encoder escapes `+` to `\u002B`, breaking audit-detail phone searches (relaxed encoder in `AuditWriter`). Lesson: the round-trip DoD tests exercised POST but never GET — spec the read side explicitly in future slice test plans. Registration (S1) has no web UI yet, so browser round-trips need API-side activation. Extras recorded in scope-decisions: reissue-invite endpoint, no reactivate/hard-delete, phone immutable, `entity_id` nullable, DB trigger (not an arch rule) enforces append-only. Web gained router + localStorage-JWT/refresh client — 2.4 reuses it.
 
-### ☐ 1.4 The five ports + fakes
+### ☑ 1.4 The five ports + fakes
 **Goal:** every external dependency behind its interface with a working, failure-injectable fake.
 **Refs:** design.md §6.2 (interface + fake contract), §3 (senders), §8 (notification log).
 **Prompt:**
 > Slice 1.4 — create the five ports per design.md §6.2 and §3: `INext3Client` (§6.2 signature verbatim), `IAssignmentSource`, `IEmailSender`, `IPushSender`, `ISmsSender`. Implement fakes for all five: seeded claim data for the NEXT3 fake, config-driven failure injection (`Fake:FailureRate`, `Fake:LatencyMs`), senders logging to the `notification` table (§4). Config selection per §6.2 (`Next3:Mode`, `Next3:AssignmentSource`). No real implementations yet. Register in DI so the arch tests from 1.1 now bind against real namespaces.
 **DoD:** app boots fully on fakes; failure injection demonstrably causes retries downstream (assert via a throwaway harness test); arch tests green.
 **Test focus:** fake NEXT3 honors `clientRef` dedupe (so outbox tests in 2.2 have a realistic target); notification rows logged per send.
-**Notes:** _
+**Notes:** done 2026-08-19 (85 tests, +25). Three things worth carrying forward. (1) **Dedupe order is load-bearing:** the fake checks the `clientRef` sent-log *before* rolling the injected failure, and a *failed* push does not consume the ref. Get that backwards and a transient error either loses the document forever or duplicates it — 2.2's outbox is written against exactly this. (2) **Senders can't hold a DbContext:** they are singletons, `AppDbContext` is scoped, so `NotificationLog` creates its own scope per call and commits its own transaction (unlike `AuditWriter`, which joins the caller's — a send already happened externally and must not vanish on rollback). The plan's `AddDbContextFactory` swap was dropped as unnecessary risk to the 1.2/1.3 suite. (3) **SMS bodies are never logged:** every SMS carries a live credential (OTP code, invite token) that §9 deliberately hashes, so `notification.payload` stays null for SMS — recorded in §4. Also: CA1716 rejects `template` and `to` as interface parameter names (use `templateName`/`recipient`), and `ISmsSender.Send` gaining `templateName` + `recipientUserId` touched OtpService, InviteService and the `CapturingSmsSender` double — that double writes no rows, so send-log tests must use the real fake.
 
 ### ☐ 1.5 Option 2 schema + public-surface skeleton
 **Goal:** the public surface exists on day one — cheap now, expensive to retrofit.

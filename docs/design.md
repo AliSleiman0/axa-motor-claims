@@ -153,7 +153,7 @@ Conventions: `uniqueidentifier` PKs (client-generatable, sortable enough with se
 | Table | Ownership | Purpose / key columns |
 |---|---|---|
 | `app_user` | Authoritative | One row per authenticated identity. `id`, `phone` (unique, E.164), `role` (expert/garage/claim_officer/broker/admin), `display_name`, `status` (invited/active/inactive), `inactivated_at`, `created_at` |
-| `expert_profile` | **Hybrid** — seeded from NEXT3 `GET /experts`, app-authoritative for app fields | `user_id` FK, `next3_id`, `email`, `active`, `inactivated_at`. Seed/sync job matches on `next3_id`; NEXT3 wins on identity fields, app wins on app status (#8 decides one-time vs synced) |
+| `expert_profile` | **Hybrid** — seeded from NEXT3 `GET /experts`, app-authoritative for app fields | `user_id` FK, `next3_id` (nullable until mapped; filtered unique index — same on `garage_profile`; realized 2026-08-19, slice 1.3), `email`, `active`, `inactivated_at`. Seed/sync job matches on `next3_id`; NEXT3 wins on identity fields, app wins on app status (#8 decides one-time vs synced) |
 | `garage_profile` | Authoritative | `user_id`, `contact_name`, `phone`, `mobile`, `email`, `next3_id`, `address`, `opening_hours` (nvarchar — display text, not structured), `active`, `inactivated_at` |
 | `claim_officer_profile` | Authoritative | `user_id`, `next3_user`, `email` |
 | `broker_profile` | Authoritative | `user_id`, `iris_code` (placeholder semantics — #15), `email` |
@@ -168,8 +168,8 @@ Conventions: `uniqueidentifier` PKs (client-generatable, sortable enough with se
 | `broker_request` | Authoritative | Both options. `id`, `broker_user_id`, `option` (1/2), `state` (§5.3), `insured_name`, `insurance_type` (from placeholder list — #14), `insured_address`, `car_value`, `estimated_premium` (customer-entered in Option 2 per §1), `effective_date`, `customer_mobile?` (Option 2), `submitted_at`, `emailed_at`, `email_recipient` (resolved from routing placeholder — #13) |
 | `public_link_token` | Authoritative | Option 2 token (§9). `id`, `broker_request_id`, `token_hash` (SHA-256 of the 256-bit token; raw token never stored), `expires_at`, `locked_at` (set on successful submission), `created_at` |
 | `next3_outbox` | Authoritative | Verbatim from HANDOFF §3 — the integration core (§6): `id uniqueidentifier`, `claim_id uniqueidentifier`, `operation 'upload_document'\|'update_arrival'\|'push_approval'`, `payload nvarchar(max)` (JSON: blob keys, field values), `status 'pending'\|'processing'\|'sent'\|'failed'`, `attempts int`, `last_error nvarchar(max)`, `next_retry_at datetime2`, `created_at datetime2`, `sent_at datetime2` |
-| `notification` | Authoritative | Log of every push/SMS/email attempt. `id`, `channel` (push/sms/email), `recipient_user_id?`, `recipient_address`, `template`, `payload`, `status` (queued/sent/failed), `sent_at`, `error` |
-| `audit_log` | Authoritative | `id`, `actor_user_id?` (null = public customer or system), `action`, `entity_kind`, `entity_id`, `detail` (JSON), `at`. Append-only; the InfoSec answer to "who uploaded which photo, when" (§9) |
+| `notification` | Authoritative | Log of every push/SMS/email attempt. `id`, `channel` (push/sms/email), `recipient_user_id?`, `recipient_address`, `template`, `payload`, `status` (queued/sent/failed), `sent_at`, `error`, `created_at` (realized 2026-08-19, slice 1.4 — a `failed` row never sets `sent_at`, so without it a failure has no timestamp). Written only by `NotificationLog`, which commits its own transaction rather than joining the caller's: a send already happened externally and its record must not vanish with a later rollback. **`payload` is null for SMS by rule** — every SMS this app sends carries a live credential (OTP code, invite token), and §9 hashes those precisely so a DB leak yields no working logins; copying the body here would hand that back |
+| `audit_log` | Authoritative | `id`, `actor_user_id?` (null = public customer or system), `action`, `entity_kind`, `entity_id?` (null when the event has no entity, e.g. failed login for an unknown phone — realized 2026-08-19, slice 1.3), `detail` (JSON), `at`. Append-only, enforced by a DB trigger (`INSTEAD OF UPDATE, DELETE`), not convention; the only code write path is `AuditWriter.Append`, which joins the caller's transaction. The InfoSec answer to "who uploaded which photo, when" (§9) |
 
 Cross-cutting rules:
 - `document` + `next3_outbox` rows for the same media item are written **in one transaction** — if they can't commit together we get either documents never pushed or pushes for documents that don't exist, both of which surface weeks later as "AXA is missing photos", i.e. the exact problem this project exists to solve.
@@ -535,6 +535,12 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
     }
   },
   "Retention": { "BlobDays": 7, "BrokerBlobDays": 30 },   // (#4)
-  "Outbox": { "MaxAttempts": 8, "BackoffCeilingHours": 6 } // (#33)
+  "Outbox": { "MaxAttempts": 8, "BackoffCeilingHours": 6 }, // (#33)
+  "Fake": {                                  // §6.2 failure injection (realized 2026-08-19, slice 1.4)
+    "FailureRate": 0.0,                      // [0,1] chance any fake call throws FakeTransientException
+    "LatencyMs": 0                           // artificial latency before a fake call completes
+  }
 }
 ```
+
+`Fake:*` is not client data — it is the knob that makes the §6.2 fakes demonstrably realistic. It lives here because the placeholder file is loaded with `reloadOnChange`, so the week-4 demo can "kill NEXT3 mid-flow" and show the queue drain on recovery without a restart. Defaults are zero, so nothing is flaky unless asked.

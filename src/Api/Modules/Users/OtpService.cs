@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Api.Infrastructure;
 using Api.Integrations.Sms;
+using Api.Modules.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -123,7 +124,8 @@ public sealed class OtpService(AppDbContext db, ISmsSender sms, IOptions<AuthOpt
         });
         await db.SaveChangesAsync(ct);
 
-        await sms.Send(phone, $"Your verification code is {code}", ct);
+        // No user id: an OTP is requested by phone, and the phone need not belong to an account.
+        await sms.Send(phone, $"Your verification code is {code}", NotificationTemplates.OtpCode, null, ct);
     }
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;

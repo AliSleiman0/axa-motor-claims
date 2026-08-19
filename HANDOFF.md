@@ -3,11 +3,13 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-19 (later same day):** Pre-kickoff. BRD analysed, stack and architecture decided. **Design document written (`docs/design.md`, §7 done). Week-0 Claude Code scaffolding in place (`.claude/`). No code written. No client answers received.**
+**Status as of 2026-08-19 (evening):** **Week-1 coding underway.** Slices 1.1 (scaffold + arch tests), 1.2 (phone-OTP auth, JWT, roles, invites) and 1.3 (admin CRUD ×4 + append-only audit log + browser admin pages) committed; **slice 1.4 (the five ports + fakes) complete — uncommitted, awaiting the developer's test-diff review.** 85 tests green; app boots on pure fakes. **No client answers received; §8 communications still unsent.**
 
-> ## ⏭️ NEXT SESSION: Capacitor research (§7A) + send the client communications (§8)
-> The design document is **done** — `docs/design.md` (2026-08-19), all 12 sections of §7, plus `docs/research-claude-workflow.md` (how to drive the build with Claude Code). §7 below is kept as the spec it was written against.
-> Remaining before week 1 coding: **§7A** (Capacitor research → `docs/research-capacitor.md`, validates the provisional Capacitor decision) and **§8** (blocking questions, scope letter, OpenAPI proposal — all still unsent).
+> ## ⏭️ NEXT SESSION: commit slice 1.4, then slice 1.5 (Option 2 schema + public-surface skeleton)
+> Build proceeds per `docs/build-playbook.md` — 1.1 ☑ 1.2 ☑ 1.3 ☑ 1.4 ☑ (pending commit), next unticked slice is **1.5**. Slice learnings are in the playbook's Notes lines.
+>
+> **Review 1.4 with these three in mind** (all recorded in the playbook's 1.4 Notes and in design.md): the fake's `clientRef` dedupe runs *before* the failure roll and a failed push does not consume the ref — slice 2.2's outbox is written against that; `notification.payload` is deliberately null for SMS because every SMS body carries a live OTP code or invite token; and `ISmsSender.Send` gained `templateName` + `recipientUserId`, which touched the 1.2 auth call sites.
+> Still outstanding and getting more urgent as week 1 burns down: **§7A** (Capacitor research → `docs/research-capacitor.md`, validates the provisional Capacitor decision — needed before week 6, ideally sooner) and **§8** (blocking questions, scope letter, OpenAPI proposal — all still unsent; the scope letter must precede real client exposure).
 >
 > **Schedule decision 2026-08-19 (design.md §11):** Broker Option 2 stays IN scope; the calendar **holds at 8 weeks** — paid for by dropping **damage-diagram polish** and the **second UAT round**, plus pipeline reuse. No descope lever remains; any further slip moves the date day-for-day. `scope-decisions.md` and `estimate-and-plan.md` were reconciled to match the same day. Do not re-litigate Option 2 or the re-cut.
 
@@ -124,7 +126,7 @@ Known remaining costs: Apple Developer account ($99/yr, AXA's), Google Play ($25
 - **2026-08-19: Broker Option 2 moved INTO scope** by the developer, knowing it costs ~1.5–2.5 weeks and was the primary negotiating chip. The chip is spent — the remaining give is offline mode (already out), damage-diagram polish, and the second UAT round. Say so early if the date moves.
 - **IP ownership is unresolved and worth money.** "He owns the software" would transfer full IP for $5,000. Propose instead: AXA gets full source, a perpetual unlimited licence, and the right to modify — developer retains the right to reuse **generic, non-AXA-specific components** (auth, upload pipeline, outbox) in future work. AXA loses nothing they care about; that reuse is worth more than this contract. If they insist on full transfer, price it rather than give it away silently.
 - Payment: **40% up front / 30% at week-4 demo / 30% at handover.**
-- **Two UAT rounds**, capped in writing.
+- ~~Two UAT rounds~~ **One UAT round** (2026-08-19 — the second round was spent to fund Broker Option 2; see design.md §11), tightly defined and capped in writing.
 - Define "handover complete": source in their repo, deployment runbook, account ownership transferred, one training session. Otherwise "he owns it" becomes unpaid support forever.
 - All third-party costs (SMS, hosting, domain, developer accounts) on **AXA accounts, AXA card**.
 
@@ -278,9 +280,22 @@ docs/
                             deliberate - do not restore them without asking.
   client-email-2026-08-18.md  Covering email to Ramy, NOT yet sent
   design.md                 Internal engineering design (§7) — WRITTEN 2026-08-19. The build contract.
-  build-playbook.md         ~25 ordered build slices with per-session prompts + milestone checklists — written 2026-08-19
+  build-playbook.md         ~25 ordered build slices with per-session prompts + milestone checklists — written 2026-08-19.
+                            Progress ticks + per-slice Notes live here (1.1–1.3 done as of 2026-08-19)
   research-claude-workflow.md  How to drive the build with Claude Code — written 2026-08-19
-  research-capacitor.md     ← still unwritten (§7A). Next research item; validates the Capacitor decision
+  research-capacitor.md     ← still unwritten (§7A). Validates the Capacitor decision; needed before week 6
+AxaMotorClaims.sln          Week-1 solution (slices 1.1–1.3)
+src/
+  Api/                      .NET 10 minimal API. Modules/Users (auth, profiles, admin CRUD),
+                            Modules/Audit (append-only audit_log + AuditWriter), Modules/Notifications
+                            (notification log + NotificationLog writer), Modules/PublicSurface (anchor),
+                            Integrations/ (the 5 ports + fakes: Next3 incl. IAssignmentSource, Email,
+                            Push, Sms; FakeBehavior = shared latency/failure injection), Outbox/ (shell),
+                            appsettings.Placeholders.json (Appendix A — ALL client-value placeholders)
+  Api.Tests/                xUnit: NetArchTest boundary rules (with planted-violation self-tests) +
+                            integration tests on LocalDB via WebApplicationFactory (85 tests)
+  Web/                      React 19 + TS + Vite. Router, localStorage JWT + refresh-on-401 client,
+                            admin pages (login, per-kind profile list/form). Dev proxy → API :5180
 .claude/
   settings.json             Hook registrations (post-edit format check, on-stop test run)
   hooks/                    Guarded PowerShell hooks — no-op until the solution exists in week 1

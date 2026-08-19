@@ -6,5 +6,9 @@ namespace Api.Tests.Architecture.Fixtures.Rule3;
 public sealed class ViolatingPushCaller(INext3Client client)
 {
     public Task PushOutsideOutbox() =>
-        client.RecordArrival("PLACEHOLDER-VISA-0000", new ArrivalInfo(), "PLACEHOLDER-REF", CancellationToken.None);
+        client.RecordArrival(
+            "PLACEHOLDER-VISA-0000",
+            new ArrivalInfo(new DateOnly(2026, 1, 1), new TimeOnly(12, 0), 0, 0),
+            "PLACEHOLDER-REF",
+            CancellationToken.None);
 }
