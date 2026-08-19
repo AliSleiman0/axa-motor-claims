@@ -11,6 +11,13 @@ $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
 $file = $payload.tool_input.file_path
 if (-not $file -or $file -notmatch '\.cs$') { exit 0 }
 
+# dotnet format --include silently ignores absolute paths (matches nothing, exits 0);
+# it needs a path relative to the workspace root. String math, not Path.GetRelativePath:
+# this runs under Windows PowerShell 5.1 (.NET Framework), which lacks that method.
+if ($file.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $file = $file.Substring($repoRoot.Length).TrimStart('\', '/')
+}
+
 $out = dotnet format $sln --include $file --verify-no-changes --verbosity quiet 2>&1
 if ($LASTEXITCODE -ne 0) {
     # exit 2 feeds the output back to Claude so it fixes formatting before moving on

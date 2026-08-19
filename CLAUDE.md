@@ -21,7 +21,9 @@ Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next 
 - `src/Api` — .NET 10 API (+ outbox worker host); placeholders in `src/Api/appsettings.Placeholders.json`
 - `src/Api.Tests` — xUnit test project
 - `src/Web` — React + TypeScript (Vite), Capacitor shell around the same build
-- Build/test commands: `dotnet build` / `dotnet test` at root; web commands TBD week 1 — update this file when they stabilize.
+- Build/test commands: `dotnet build` / `dotnet test` at root; web: `npm run build` (tsc + ESLint + Vite, lint failures fail the build) and `npm run dev`, both in `src/Web`.
+- EF migrations: `dotnet ef` is a local tool (`.config/dotnet-tools.json`); use the `add-ef-migration` skill.
+- Line endings are **LF everywhere** (`.editorconfig` + `.gitattributes`); the Write tool emits LF, so this keeps the `dotnet format` hook quiet. Don't switch to CRLF.
 
 ## Domain glossary
 

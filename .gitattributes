@@ -1,0 +1,6 @@
+# LF everywhere, overriding core.autocrlf on checkout — keeps the working tree byte-identical
+# to what .editorconfig (end_of_line = lf) and the dotnet format hook expect.
+* text=auto eol=lf
+
+*.png binary
+*.docx binary
