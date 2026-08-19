@@ -1,10 +1,14 @@
 using Api.Infrastructure;
 using Api.Integrations.Sms;
+using Api.Modules.PublicSurface;
+using Api.Tests.Integrations;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Api.Tests.Integration;
@@ -25,6 +29,15 @@ public sealed class ApiFixture : IAsyncLifetime
     public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 8, 19, 12, 0, 0, TimeSpan.Zero));
 
     public IServiceProvider Services => Factory.Services;
+
+    /// <summary>
+    /// The live <see cref="PublicLinkOptions"/>, mutable mid-test. Changing a limit only affects
+    /// rate-limit partitions created afterwards, so a test that lowers one must also use a fresh
+    /// token and a fresh <c>X-Test-Ip</c>.
+    /// </summary>
+    public MutableOptionsMonitor<PublicLinkOptions> PublicLink =>
+        (MutableOptionsMonitor<PublicLinkOptions>)Services
+            .GetRequiredService<IOptionsMonitor<PublicLinkOptions>>();
 
     private WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("Fixture not initialized.");
@@ -54,6 +67,14 @@ public sealed class ApiFixture : IAsyncLifetime
             {
                 services.Replace(ServiceDescriptor.Singleton<ISmsSender>(Sms));
                 services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time));
+
+                // The rate limiter reads PublicLinkOptions per request, so swapping the monitor for
+                // a mutable one lets a test lower §9.1's limits without booting a second host.
+                // Seeded from the real bound values, so every other test sees production numbers.
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<PublicLinkOptions>>(sp =>
+                    new MutableOptionsMonitor<PublicLinkOptions>(
+                        sp.GetRequiredService<IOptions<PublicLinkOptions>>().Value)));
+                services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test
     }

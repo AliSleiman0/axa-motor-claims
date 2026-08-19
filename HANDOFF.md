@@ -3,12 +3,14 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-19 (evening):** **Week-1 coding underway.** Slices 1.1 (scaffold + arch tests), 1.2 (phone-OTP auth, JWT, roles, invites) and 1.3 (admin CRUD ×4 + append-only audit log + browser admin pages) committed; **slice 1.4 (the five ports + fakes) complete — uncommitted, awaiting the developer's test-diff review.** 85 tests green; app boots on pure fakes. **No client answers received; §8 communications still unsent.**
+**Status as of 2026-08-19 (evening):** **Week 1 complete.** Slices 1.1 (scaffold + arch tests), 1.2 (phone-OTP auth, JWT, roles, invites), 1.3 (admin CRUD ×4 + append-only audit log + browser admin pages) and 1.4 (the five ports + fakes) committed; **slice 1.5 (Option 2 schema + public-surface skeleton) complete and reviewed 2026-08-20 — uncommitted, awaiting the developer's test-diff review.** 133 tests green; app boots on pure fakes. The review found one real gap and closed it: §9.1's "each link accepts exactly one submission" was a read-then-write with no guard, so simultaneous submits both succeeded — `public_link_token` now carries a `rowversion` and the losing submit leaves through the same uniform 404. The 1.5 migration was regenerated rather than stacked, since it was still uncommitted. **No client answers received; §8 communications still unsent.**
 
-> ## ⏭️ NEXT SESSION: commit slice 1.4, then slice 1.5 (Option 2 schema + public-surface skeleton)
-> Build proceeds per `docs/build-playbook.md` — 1.1 ☑ 1.2 ☑ 1.3 ☑ 1.4 ☑ (pending commit), next unticked slice is **1.5**. Slice learnings are in the playbook's Notes lines.
+> ## ⏭️ NEXT SESSION: commit slice 1.5, then week 2 — slice 2.1 (claim cache + assignments)
+> Build proceeds per `docs/build-playbook.md` — week 1 is 1.1 ☑ 1.2 ☑ 1.3 ☑ 1.4 ☑ 1.5 ☑ (pending commit); next unticked slice is **2.1**. Slice learnings are in the playbook's Notes lines.
 >
-> **Review 1.4 with these three in mind** (all recorded in the playbook's 1.4 Notes and in design.md): the fake's `clientRef` dedupe runs *before* the failure roll and a failed push does not consume the ref — slice 2.2's outbox is written against that; `notification.payload` is deliberately null for SMS because every SMS body carries a live OTP code or invite token; and `ISmsSender.Send` gained `templateName` + `recipientUserId`, which touched the 1.2 auth call sites.
+> **Review 1.5 with these five in mind** (all recorded in the playbook's 1.5 Notes, design.md and scope-decisions.md): the **`rowversion` on `public_link_token`** is the one change made during the 2026-08-20 review — §9.1's one-submission rule was a read-then-write that two simultaneous POSTs both passed, and the guard belongs in the schema, not in the check (the same trap is waiting in 2.2's outbox and 5.2's send-email transition); architecture rule 2 forced the module split — `AuthPolicies` lives in `Api.Modules.Users`, which the public module may not reference, so B3 sits in a new `Api.Modules.Broker` and a `Rule2_IsNotVacuous` test now stops that rule passing on an empty namespace again; the body-size cap is **middleware, not an endpoint filter**, because filters run after model binding and had already read the body; rate-limit options are read per request so they can be lowered in tests without a second host; and EF quietly defaulted the `broker_request → app_user` FK to **Cascade** until it was pinned to `Restrict`.
+>
+> Also landed: `TokenHashing` in `Api.Infrastructure` now backs invites, refresh tokens and public links — the SHA-256 helper had been copy-pasted twice and was about to be a third time. The 1.2 auth suite passes unchanged against it.
 > Still outstanding and getting more urgent as week 1 burns down: **§7A** (Capacitor research → `docs/research-capacitor.md`, validates the provisional Capacitor decision — needed before week 6, ideally sooner) and **§8** (blocking questions, scope letter, OpenAPI proposal — all still unsent; the scope letter must precede real client exposure).
 >
 > **Schedule decision 2026-08-19 (design.md §11):** Broker Option 2 stays IN scope; the calendar **holds at 8 weeks** — paid for by dropping **damage-diagram polish** and the **second UAT round**, plus pipeline reuse. No descope lever remains; any further slip moves the date day-for-day. `scope-decisions.md` and `estimate-and-plan.md` were reconciled to match the same day. Do not re-litigate Option 2 or the re-cut.
@@ -288,7 +290,10 @@ AxaMotorClaims.sln          Week-1 solution (slices 1.1–1.3)
 src/
   Api/                      .NET 10 minimal API. Modules/Users (auth, profiles, admin CRUD),
                             Modules/Audit (append-only audit_log + AuditWriter), Modules/Notifications
-                            (notification log + NotificationLog writer), Modules/PublicSurface (anchor),
+                            (notification log + NotificationLog writer), Modules/Broker (broker_request
+                            + B3 create-link), Modules/PublicSurface (the ONLY unauthenticated surface:
+                            public_link_token, /public/* endpoints, chained per-IP/per-token rate
+                            limiter, body-size cap — may not reference Users or Next3, arch rule 2),
                             Integrations/ (the 5 ports + fakes: Next3 incl. IAssignmentSource, Email,
                             Push, Sms; FakeBehavior = shared latency/failure injection), Outbox/ (shell),
                             appsettings.Placeholders.json (Appendix A — ALL client-value placeholders)

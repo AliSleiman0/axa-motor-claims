@@ -1,3 +1,5 @@
+using Api.Modules.Broker;
+using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +22,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ClaimOfficerProfile> ClaimOfficerProfiles => Set<ClaimOfficerProfile>();
 
     public DbSet<BrokerProfile> BrokerProfiles => Set<BrokerProfile>();
+
+    public DbSet<BrokerRequest> BrokerRequests => Set<BrokerRequest>();
+
+    public DbSet<PublicLinkToken> PublicLinkTokens => Set<PublicLinkToken>();
 
     // Deliberately no DbSet<AuditLog>: the only sanctioned write path is AuditWriter
     // (tests read via Set<AuditLog>()); the DB trigger enforces append-only.

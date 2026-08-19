@@ -7,6 +7,7 @@ using Api.Integrations.Push;
 using Api.Integrations.Sms;
 using Api.Modules.Audit;
 using Api.Modules.Notifications;
+using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 using Api.Outbox;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -32,6 +33,9 @@ public static class ServiceRegistration
         AddPorts(services, configuration);
 
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
+        services.Configure<PublicLinkOptions>(configuration.GetSection(PublicLinkOptions.SectionName));
+        services.AddPublicRateLimiting();
+        services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<OtpService>();
         services.AddScoped<TokenService>();
         services.AddScoped<InviteService>();

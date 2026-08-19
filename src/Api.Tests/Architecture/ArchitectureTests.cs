@@ -23,6 +23,17 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Rule2_IsNotVacuous_ThePublicModuleActuallyHasTypes()
+    {
+        // An empty namespace passes rule 2 trivially, which is how the rule sat green through
+        // slices 1.1–1.4 while proving nothing. Slice 1.5 gave it real types; this asserts they
+        // are still there, so deleting the module can never look like passing the boundary test.
+        var types = ArchitectureRules.TypesInPublicModule(ArchitectureRules.ApiAssembly);
+
+        Assert.NotEmpty(types);
+    }
+
+    [Fact]
     public void Rule3_OnlyOutbox_CallsPushOperations()
     {
         var result = ArchitectureRules.OnlyOutboxCallsPushOperations(

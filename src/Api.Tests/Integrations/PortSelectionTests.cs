@@ -1,7 +1,9 @@
 using Api.Composition;
 using Api.Integrations.Next3;
+using Api.Modules.PublicSurface;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Api.Tests.Integrations;
 
@@ -26,6 +28,25 @@ public sealed class PortSelectionTests
         var client = Resolve<INext3Client>(("Next3:Mode", "real"));
 
         Assert.IsType<RealNext3Client>(client);
+    }
+
+    [Fact]
+    public void PublicLinkOptions_BindFromTheirSection()
+    {
+        // Catches a typo'd SectionName without booting a host: silently-zero limits would mean an
+        // unlimited public surface (§9.1) and a MaxFiles of 0 rejecting every submission.
+        var options = Resolve<IOptions<PublicLinkOptions>>(
+            ("PublicLink:ValidityDays", "7"),
+            ("PublicLink:MaxFiles", "15"),
+            ("PublicLink:MaxFileMb", "10"),
+            ("PublicLink:RateLimit:PerIpPermitsPerMinute", "60"),
+            ("PublicLink:RateLimit:PerTokenPermitsPerMinute", "20")).Value;
+
+        Assert.Equal(7, options.ValidityDays);
+        Assert.Equal(15, options.MaxFiles);
+        Assert.Equal(10, options.MaxFileMb);
+        Assert.Equal(60, options.RateLimit.PerIpPermitsPerMinute);
+        Assert.Equal(20, options.RateLimit.PerTokenPermitsPerMinute);
     }
 
     [Fact]

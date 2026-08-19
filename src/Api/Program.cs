@@ -1,4 +1,6 @@
 using Api.Composition;
+using Api.Modules.Broker;
+using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +14,13 @@ builder.Services.AddAxaMotorClaims(builder.Configuration);
 
 var app = builder.Build();
 
+// Before authentication: abuse of the public surface is shed before any work is done for it (§9.1).
+app.UseRateLimiter();
+app.UseWhen(
+    http => http.Request.Path.StartsWithSegments(
+        PublicRateLimiting.PathPrefix, StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseMiddleware<PublicBodySizeMiddleware>());
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -20,6 +29,8 @@ app.MapAuthEndpoints();
 app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
+app.MapBrokerLinkEndpoints();
+app.MapPublicEndpoints();
 
 await AdminSeeder.Seed(app.Services);
 

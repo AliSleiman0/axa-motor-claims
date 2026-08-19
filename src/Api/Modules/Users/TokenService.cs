@@ -104,8 +104,7 @@ public sealed class TokenService(AppDbContext db, IOptions<AuthOptions> options,
         return raw;
     }
 
-    private static string HashToken(string raw) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+    private static string HashToken(string raw) => TokenHashing.Hash(raw);
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;
 }

@@ -32,6 +32,12 @@ public static class ArchitectureRules
             .ShouldNot().HaveDependencyOnAny(Next3Namespace, UsersModuleNamespace)
             .GetResult();
 
+    /// <summary>The types rule 2 is actually checking — empty means the rule proves nothing.</summary>
+    public static IEnumerable<Type> TypesInPublicModule(Assembly assembly) =>
+        Types.InAssembly(assembly)
+            .That().ResideInNamespace(PublicModuleNamespace)
+            .GetTypes();
+
     // Rule 3: only the outbox worker namespace calls push operations on INext3Client.
     // Method-level, so a custom Cecil rule: reads are legitimate feature-code calls (§5.1 search).
     public static TestResult OnlyOutboxCallsPushOperations(Assembly assembly, string allowedNamespace) =>

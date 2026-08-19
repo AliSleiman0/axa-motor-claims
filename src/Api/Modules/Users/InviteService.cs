@@ -111,8 +111,7 @@ public sealed class InviteService(
         return (row.invite, row.user);
     }
 
-    private static string HashToken(string raw) =>
-        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(raw)));
+    private static string HashToken(string raw) => TokenHashing.Hash(raw);
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;
 }
