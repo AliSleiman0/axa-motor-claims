@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer">
       <Version>10.0.11</Version>
     </PackageReference>
@@ -9,6 +10,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <Version>10.0.11</Version>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WebApplicationFactory<Program> needs to see the generated (internal) Program class. -->
+    <InternalsVisibleTo Include="Api.Tests" />
   </ItemGroup>
 
 </Project>

@@ -158,7 +158,8 @@ Conventions: `uniqueidentifier` PKs (client-generatable, sortable enough with se
 | `claim_officer_profile` | Authoritative | `user_id`, `next3_user`, `email` |
 | `broker_profile` | Authoritative | `user_id`, `iris_code` (placeholder semantics — #15), `email` |
 | `invite` | Authoritative | Onboarding links. `id`, `user_id`, `token_hash`, `expires_at`, `used_at` |
-| `otp_challenge` | Authoritative | `id`, `phone`, `code_hash`, `expires_at`, `attempts`, `consumed_at`. TTL'd, purged by cleanup job |
+| `otp_challenge` | Authoritative | `id`, `phone`, `code_hash`, `expires_at`, `attempts`, `consumed_at`, `created_at` (drives the §9 resend throttle). TTL'd, purged by cleanup job |
+| `refresh_token` | Authoritative | §9's refresh token, realized (added 2026-08-19, slice 1.2). `id`, `user_id` FK, `token_hash` (SHA-256; raw token never stored), `expires_at`, `created_at`, `revoked_at`. Rotated on every use; presenting an already-rotated token revokes **all** the user's refresh tokens; all revoked on deactivation |
 | `claim` | **Cache of NEXT3** | Keyed `visa_no`. `policy_no`, `plate_no`, `insured_name`, `insured_phone`, `car_make_model`, `city`, `accident_date`, `fetched_at`. Refresh rule: re-fetch on open; if NEXT3 is down, serve stale with a staleness banner. Never edited locally; deletable at any time |
 | `expert_assignment` | Authoritative (event sourced from NEXT3) | `id`, `visa_no`, `expert_user_id`, `next3_assignment_ref` (dedupe key — §6), `received_at`, `notified_at`, `opened_at`, `arrived_at`, `arrival_lat/lng`. Timestamps, not a state enum — the BRD defines no expert-side lifecycle and we do not invent one |
 | `declaration` | Authoritative | The §5.2 state machine row. `id`, `garage_user_id`, `state` (draft/submitted/approved/rejected/repairs_in_progress/repair_docs_submitted), `plate_no`, `insured_name?`, `note?`, `visa_no?` (set at approval), `officer_user_id?`, `decided_at`, per-transition timestamps |
@@ -516,7 +517,23 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
     "MinHeight": 768,
     "BlurVarianceThreshold": 100
   },
-  "Auth": { "OtpTtlMinutes": 5, "OtpMaxAttempts": 5 },
+  "Auth": {
+    "OtpTtlMinutes": 5,
+    "OtpMaxAttempts": 5,
+    "OtpResendSeconds": 60,                  // §9 "resend throttled"
+    "InviteValidityDays": 7,
+    "Jwt": {
+      "Issuer": "PLACEHOLDER-axa-motor-claims",
+      "Audience": "PLACEHOLDER-axa-motor-claims",
+      "SigningKey": "PLACEHOLDER-dev-only-signing-key-0000000000000000",  // >= 32 bytes; prod overrides via Auth__Jwt__SigningKey env var
+      "AccessTokenMinutes": 15,
+      "RefreshTokenDays": 14
+    },
+    "SeedAdmin": {                           // §5.4: first admin seeded by deployment config
+      "Phone": "+999000000001",              // +999 = unassigned country code, obviously fake
+      "DisplayName": "PLACEHOLDER Admin"
+    }
+  },
   "Retention": { "BlobDays": 7, "BrokerBlobDays": 30 },   // (#4)
   "Outbox": { "MaxAttempts": 8, "BackoffCeilingHours": 6 } // (#33)
 }

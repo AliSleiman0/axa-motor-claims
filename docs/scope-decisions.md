@@ -55,6 +55,8 @@ The same split applies to the Garage module (documents vs car photos).
 | Garage declaration form fields (BRD defines none) | **Plate number (required)** — the officer's claim-search key — plus optional insured name and note. *Added 2026-08-19.* | — |
 | Expert "done" signal (BRD defines none) | None built — an assignment accumulates media indefinitely. *Added 2026-08-19.* | — |
 | Option 2 Estimated Premium | **Kept as the BRD writes it: the customer enters it** (decision 2026-08-19; flagged #24c — if AXA moves it broker-side the change is form-level). | — |
+| §9 "refresh token" (no storage/lifecycle defined) | Rotating `refresh_token` table (design.md §4): hash stored, rotated on every use, reuse of a rotated token revokes all the user's tokens, all revoked on deactivation. Deactivation also kills live access tokens via a per-request active-user check. Invite validity and OTP resend throttle are new placeholder knobs (`Auth.InviteValidityDays`, `Auth.OtpResendSeconds`). *Added 2026-08-19, slice 1.2.* | — |
+| Auth housekeeping deferred by slice | Login audit events → slice 1.3 (`audit_log` doesn't exist yet); SMS sends logged to `notification` → slice 1.4; `otp_challenge` purge job → slice 2.3 (cleanup-job infra). *Added 2026-08-19, slice 1.2.* | — |
 
 Each interpretation must appear in the scope letter, or it will be reinterpreted during UAT.
 

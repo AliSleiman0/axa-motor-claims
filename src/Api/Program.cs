@@ -1,4 +1,5 @@
 using Api.Composition;
+using Api.Modules.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,14 @@ builder.Services.AddAxaMotorClaims(builder.Configuration);
 
 var app = builder.Build();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapAuthEndpoints();
+app.MapRoleEndpoints();
+app.MapAdminUserEndpoints();
+
+await AdminSeeder.Seed(app.Services);
 
 app.Run();
