@@ -23,6 +23,15 @@ public sealed partial class CapturingSmsSender : ISmsSender
         return SixDigits().Match(message).Value;
     }
 
+    public string LastInviteTokenFor(string phone)
+    {
+        var message = _sent.Where(m => m.Phone == phone && m.Message.Contains("invite token")).Last().Message;
+        return InviteToken().Match(message).Groups[1].Value;
+    }
+
     [GeneratedRegex(@"\d{6}")]
     private static partial Regex SixDigits();
+
+    [GeneratedRegex(@"invite token is ([A-Za-z0-9_-]+)")]
+    private static partial Regex InviteToken();
 }

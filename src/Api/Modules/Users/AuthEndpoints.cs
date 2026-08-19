@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using Api.Infrastructure;
+using Api.Modules.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Modules.Users;
@@ -16,7 +16,7 @@ public sealed record InviteAcceptDto(string Token);
 
 public sealed record InviteVerifyDto(string Token, string Code);
 
-public static partial class AuthEndpoints
+public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
@@ -24,7 +24,7 @@ public static partial class AuthEndpoints
 
         group.MapPost("/otp/request", async (OtpRequestDto dto, OtpService otp, HttpContext http, CancellationToken ct) =>
         {
-            if (!E164().IsMatch(dto.Phone))
+            if (!Phone.IsValidE164(dto.Phone))
             {
                 return Results.BadRequest();
             }
@@ -34,11 +34,16 @@ public static partial class AuthEndpoints
         });
 
         group.MapPost("/otp/verify", async (
-            OtpVerifyDto dto, OtpService otp, TokenService tokens, AppDbContext db, CancellationToken ct) =>
+            OtpVerifyDto dto, OtpService otp, TokenService tokens, AppDbContext db, AuditWriter audit,
+            CancellationToken ct) =>
         {
-            // Uniform 401: wrong, expired, consumed, locked-out, and unknown-phone are indistinguishable.
+            // Uniform 401: wrong, expired, consumed, locked-out, and unknown-phone are indistinguishable
+            // to the client; the audit detail keeps the reasons apart (§9).
             if (!await otp.VerifyCode(dto.Phone, dto.Code, ct))
             {
+                audit.Append(null, AuditActions.LoginFailed, AuditEntityKinds.AppUser, null,
+                    new { dto.Phone, Reason = "code_rejected" });
+                await db.SaveChangesAsync(ct);
                 return Results.Unauthorized();
             }
 
@@ -46,9 +51,14 @@ public static partial class AuthEndpoints
                 .SingleOrDefaultAsync(u => u.Phone == dto.Phone && u.Status == UserStatus.Active, ct);
             if (user is null)
             {
+                audit.Append(null, AuditActions.LoginFailed, AuditEntityKinds.AppUser, null,
+                    new { dto.Phone, Reason = "no_active_user" });
+                await db.SaveChangesAsync(ct);
                 return Results.Unauthorized();
             }
 
+            // IssueTokens saves — the audit row and the refresh-token row commit together.
+            audit.Append(user.Id, AuditActions.LoginSucceeded, AuditEntityKinds.AppUser, user.Id);
             return Results.Ok(await tokens.IssueTokens(user, ct));
         });
 
@@ -84,8 +94,8 @@ public static partial class AuthEndpoints
 
         group.MapGet("/me", async (ClaimsPrincipal principal, AppDbContext db, CancellationToken ct) =>
         {
-            var sub = principal.FindFirst("sub")?.Value;
-            if (!Guid.TryParse(sub, out var userId))
+            var userId = principal.GetUserId();
+            if (userId is null)
             {
                 return Results.Unauthorized();
             }
@@ -104,7 +114,4 @@ public static partial class AuthEndpoints
         http.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
         return Results.StatusCode(StatusCodes.Status429TooManyRequests);
     }
-
-    [GeneratedRegex(@"^\+[1-9]\d{7,14}$")]
-    private static partial Regex E164();
 }

@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Api.Modules.Users;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -37,12 +38,27 @@ internal static class AuthFlows
         return user;
     }
 
-    /// <summary>Arranges an invite through DI — invite issuance has no endpoint until slice 1.3's A1 CRUD.</summary>
+    /// <summary>Issues an invite through the real A1 endpoint and reads the raw token from the SMS.</summary>
     public static async Task<string> IssueInvite(this ApiFixture fixture, Guid userId)
     {
-        await using var scope = fixture.Services.CreateAsyncScope();
-        var invites = scope.ServiceProvider.GetRequiredService<InviteService>();
-        return await invites.Issue(userId, CancellationToken.None);
+        string phone;
+        await using (var db = fixture.CreateDbContext())
+        {
+            phone = (await db.Users.AsNoTracking().SingleAsync(u => u.Id == userId)).Phone;
+        }
+
+        using var admin = await fixture.CreateAdminClient();
+        var response = await admin.PostAsync($"/api/admin/users/{userId}/invite", null);
+        response.EnsureSuccessStatusCode();
+        return fixture.Sms.LastInviteTokenFor(phone);
+    }
+
+    /// <summary>A fresh admin user logged in — the actor for A1 admin calls.</summary>
+    public static async Task<HttpClient> CreateAdminClient(this ApiFixture fixture)
+    {
+        var admin = await fixture.CreateUser(UserRole.Admin, UserStatus.Active);
+        var client = fixture.CreateClient();
+        return client.WithBearer((await fixture.Login(client, admin.Phone)).AccessToken);
     }
 
     public static async Task<TokenPairDto> Login(this ApiFixture fixture, HttpClient client, string phone)

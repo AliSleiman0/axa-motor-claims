@@ -1,6 +1,7 @@
 using System.Text;
 using Api.Infrastructure;
 using Api.Integrations.Sms;
+using Api.Modules.Audit;
 using Api.Modules.Users;
 using Api.Outbox;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -28,6 +29,7 @@ public static class ServiceRegistration
         services.AddScoped<OtpService>();
         services.AddScoped<TokenService>();
         services.AddScoped<InviteService>();
+        services.AddScoped<AuditWriter>();
         services.AddScoped<IAuthorizationHandler, ActiveUserHandler>();
 
         var jwt = configuration.GetSection("Auth:Jwt").Get<JwtOptions>()

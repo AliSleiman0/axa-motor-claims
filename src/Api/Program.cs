@@ -19,6 +19,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuthEndpoints();
 app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();
+app.MapAdminProfileEndpoints();
 
 await AdminSeeder.Seed(app.Services);
 

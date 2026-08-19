@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Api.Infrastructure;
 using Api.Integrations.Sms;
+using Api.Modules.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -30,6 +31,7 @@ public sealed class InviteService(
     OtpService otp,
     TokenService tokens,
     ISmsSender sms,
+    AuditWriter audit,
     IOptions<AuthOptions> options,
     TimeProvider time)
 {
@@ -81,7 +83,9 @@ public sealed class InviteService(
 
         user.Status = UserStatus.Active;
         invite.UsedAt = Now();
-        // IssueTokens saves — the activation, used_at, and refresh row commit together.
+        // Activation issues tokens, so it is a login — audited per §9 (recorded in scope-decisions.md).
+        audit.Append(user.Id, AuditActions.UserActivated, AuditEntityKinds.AppUser, user.Id);
+        // IssueTokens saves — the activation, used_at, audit row, and refresh row commit together.
         var pair = await tokens.IssueTokens(user, ct);
         return new InviteVerifyResult(InviteVerifyOutcome.Activated, pair);
     }
