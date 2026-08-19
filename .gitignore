@@ -25,3 +25,7 @@ desktop.ini
 
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local overrides
+.claude/settings.local.json
+.claude/worktrees/

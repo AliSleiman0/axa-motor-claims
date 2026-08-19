@@ -2,6 +2,27 @@
 
 Read `HANDOFF.md` first. It holds current status and next actions.
 
+**The build contract is `docs/design.md`** — 12 sections: scope, roles, architecture, data model, module state machines, NEXT3 integration, media pipeline, notifications, security, environments, week plan, blocked decisions. It is imported below so it is in context every session. Implement what it says; when it is silent, prefer the smaller interpretation and record it in `docs/scope-decisions.md`.
+
+@docs/design.md
+
+## How to build (spec-driven loop)
+
+Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next unticked slice, use its prompt, meet its definition of done.
+
+1. **Plan against the design doc first.** Before implementing a module, read its `design.md` §5.x and the §4 tables it touches; state the files, edge cases, and test plan; then implement.
+2. **Test-first on the four pure-logic cores:** declaration state machine (§5.2 transition table), outbox worker (§6.3 retry/backoff/idempotency), clarity gate (§7.2), Option 2 token lifecycle (§9.1). Write the failing tests from the design doc's tables, then implement to green.
+3. **Run the tests before any commit.** Never change a test to make it pass without saying so explicitly — the developer reviews test diffs at every gate.
+4. **Placeholder discipline:** any client-specific value (insurance types, recipients, NEXT3 codes, thresholds) exists only as a named key in the placeholder config (design.md Appendix A). A client literal anywhere else is a bug.
+
+## Source layout (decided week 0; created in week 1)
+
+- `AxaMotorClaims.sln` at repo root
+- `src/Api` — .NET 10 API (+ outbox worker host); placeholders in `src/Api/appsettings.Placeholders.json`
+- `src/Api.Tests` — xUnit test project
+- `src/Web` — React + TypeScript (Vite), Capacitor shell around the same build
+- Build/test commands: `dotnet build` / `dotnet test` at root; web commands TBD week 1 — update this file when they stabilize.
+
 ## Domain glossary
 
 | Term | Meaning |

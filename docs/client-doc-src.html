@@ -1,0 +1,106 @@
+<html><head><meta charset="utf-8"><title>AXA Motor Claims - Integration Questions and Running Costs</title>
+<style>
+body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1a1a1a;line-height:1.45;}
+h1{font-family:Calibri,Arial,sans-serif;font-size:20pt;color:#1F3864;margin-bottom:2pt;}
+h2{font-family:Calibri,Arial,sans-serif;font-size:14pt;color:#1F3864;margin-top:18pt;margin-bottom:4pt;border-bottom:1px solid #B4C6E7;padding-bottom:2pt;}
+h3{font-family:Calibri,Arial,sans-serif;font-size:11.5pt;color:#2E5496;margin-top:12pt;margin-bottom:3pt;}
+p{margin-top:0;margin-bottom:8pt;}
+table{border-collapse:collapse;width:100%;margin-top:6pt;margin-bottom:12pt;font-size:10pt;}
+th{background-color:#1F3864;color:#ffffff;text-align:left;padding:5pt 6pt;border:1px solid #1F3864;font-weight:bold;font-size:10pt;}
+td{padding:5pt 6pt;border:1px solid #B4C6E7;vertical-align:top;}
+td.num{width:34pt;text-align:center;font-weight:bold;color:#1F3864;}
+td.money{width:110pt;}
+/* NOTE: LibreOffice's HTML import IGNORES class-based background rules. This CSS line
+   is documentation only - the shading that actually survives comes from the bgcolor=""
+   ATTRIBUTE on each td. Do not strip those attributes. */
+tr.alt td{background-color:#F2F6FC;}
+ul{margin-top:0;margin-bottom:10pt;}
+li{margin-bottom:4pt;}
+</style></head><body>
+
+<h2>1. Purpose of this document</h2>
+<p>This document sets out the three things: access to NEXT3, the infrastructure and messaging accounts, and AXA&rsquo;s internal security review. It lists every open question arising from the BRD, and states the expected running cost of the application once live.</p>
+
+<h2>2. What is required, at a glance</h2>
+<ul>
+<li>A <b>NEXT3 sandbox environment</b>: URL, credentials, authentication method and test data</li>
+<li>A decision on <b>network connectivity to NEXT3</b></li>
+<li>The <b>choice of SMS provider</b> for login codes, and an account in AXA&rsquo;s name</li>
+<li><b>Azure subscription access</b></li>
+<li>The <b>expert master list</b> from NEXT3 (ID, name, mobile number), if that data already exists there</li>
+<li><b>Answers to the questions</b> in sections 3.2, 3.3 and 4</li>
+</ul>
+
+<h2>3. NEXT3 integration</h2>
+
+<h3>3.1 The endpoints the application needs</h3>
+<p>Set out here so that the NEXT3 side can be scoped precisely. The paths shown are illustrative &mdash;
+what matters is the operation and the data, not the naming. Eight operations cover the whole of the BRD.</p>
+<table>
+<tr><th>Endpoint</th><th>What the application needs it for</th></tr>
+<tr><td><b>Authentication</b><br><i>POST /auth/token</i></td><td>The application identifies itself to NEXT3 as a service. Whatever method NEXT3 already supports is fine &mdash; OAuth client credentials, an API key, or mutual TLS.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC"><b>Claim details</b><br><i>GET /claims/{visaNumber}</i></td><td bgcolor="#F2F6FC">Everything the expert sees on arriving at the scene: visa number, policy number, plate number, insured name and phone, car make and model, city, accident date.</td></tr>
+<tr><td><b>Claim search</b><br><i>GET /claims/search</i></td><td>Search by plate number or visa number, for the expert&rsquo;s &ldquo;search previous claims&rdquo; function and the claim officer&rsquo;s visa lookup.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC"><b>Record arrival</b><br><i>POST /claims/{visaNumber}/arrival</i></td><td bgcolor="#F2F6FC">Writes the &ldquo;Expert Arrived&rdquo; date, time and GPS location back to the claim.</td></tr>
+<tr><td><b>Upload a document or photograph</b><br><i>POST /claims/{visaNumber}/documents</i></td><td><b>The core of the whole application.</b> The file itself, plus its document type, the target folder (<i>Expert documents</i> or <i>Survey</i>), and a reference identifier supplied by the application so that a retry cannot create a duplicate (see Q3).</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC"><b>Expert list</b><br><i>GET /experts</i></td><td bgcolor="#F2F6FC">Identifier, name, mobile number and active status, so app users can be matched to their NEXT3 identity.</td></tr>
+<tr><td><b>Assignment notification</b><br><i>a call from NEXT3 to the application</i></td><td>Tells the application that a visa has been assigned to an expert, so the expert&rsquo;s phone can alert them. If NEXT3 cannot call outwards, the application will poll instead &mdash; see Q4.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC"><b>A sandbox of all of the above</b></td><td bgcolor="#F2F6FC">A non-production environment with representative test data, so the integration can be built and tested without touching live claims.</td></tr>
+</table>
+
+<h3>3.2 Access and connectivity</h3>
+<p>These two shape the sequence of the entire build.</p>
+<table>
+<tr><th>#</th><th>Question</th><th>What it decides</th></tr>
+<tr><td class="num">Q1</td><td>On what date can a NEXT3 <b>sandbox</b> be made available &mdash; URL, credentials, authentication method (OAuth, API key or mutual TLS), rate limits and representative test data?</td><td>The date development stops being able to run on a simulator.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC" class="num">Q2</td><td bgcolor="#F2F6FC">Is the integration a web API, or a shared directory for files plus record inserts into the NEXT3 database? The BRD prerequisites refer to <i>identifying the directory to upload photos and insert records</i>, which suggests the second. If it is the second: which database platform does NEXT3 use.</td><td bgcolor="#F2F6FC">These are two materially different builds. Confirming early avoids rework.</td></tr>
+</table>
+
+<h3>3.3 Further NEXT3 questions &mdash; required before week 3</h3>
+<p>Development can start without these, but each one is needed before the feature it concerns can be finished, and all of them before the real integration is wired in.</p>
+<table>
+<tr><th>#</th><th>Question</th><th>Why it matters</th></tr>
+<tr><td class="num">Q3</td><td>Does NEXT3 recognise a reference identifier supplied by the calling application, and reject or ignore a repeat submission carrying the same one?</td><td><b>Data integrity.</b> If a connection drops after NEXT3 has accepted a photograph but before it confirms, the application must retry. Without a reference that NEXT3 checks against, that retry creates a duplicate photograph in the claim file.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC" class="num">Q4</td><td bgcolor="#F2F6FC">How does the application learn that a new visa has been assigned to an expert? The BRD states that a back-office engine triggers the process, but not how that reaches the application. A notification sent from NEXT3 to the application is strongly preferred; otherwise the application must poll NEXT3 on a schedule.</td><td bgcolor="#F2F6FC">The expert flow begins with a notification on the expert&rsquo;s phone, so this must be resolved for the primary flow to work at all.</td></tr>
+<tr><td class="num">Q5</td><td>For the <i>Expert Arrived</i> update: which fields are written, by which endpoint, and in what date, time and coordinate formats?</td><td>Named explicitly in the BRD; cannot be implemented on assumption.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC" class="num">Q6</td><td bgcolor="#F2F6FC">The expert extract (NEXT3 identifier, name, mobile number): in what format, and is it supplied once or kept synchronised?</td><td bgcolor="#F2F6FC">Required for onboarding and for matching an app user to their NEXT3 identity.</td></tr>
+<tr><td class="num">Q7</td><td>Does NEXT3 accept audio files, and under which document type?</td><td>The BRD requires the expert to record a voice note. If NEXT3 cannot store audio, an alternative needs agreeing.</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC" class="num">Q8</td><td bgcolor="#F2F6FC">Is there an AXA-standard car damage diagram or set of damage codes, or is free-form marking acceptable?</td><td bgcolor="#F2F6FC">Affects whether the damage-marking screen must match an existing AXA convention.</td></tr>
+<tr><td class="num">Q9</td><td>When a claim officer finds that a visa does not yet exist, is it created directly in NEXT3 by the officer, or must the application create it?</td><td>The BRD implies the officer leaves the app and retries. Confirmation avoids building an unnecessary function.</td></tr>
+</table>
+
+<h2>4. Running cost of the application</h2>
+
+<h3>4.1 Assumed volumes</h3>
+<p>The BRD does not state volumes, so the figures below assume <b>approximately 100 claims per day</b> (about 3,000 per month), <b>15 photographs per claim</b> at around 1.5 MB each, and <b>approximately 200 users</b> across all four profiles. Cost scales with these numbers, so please correct them if they are wrong &mdash; they are the single largest influence on everything in this section.</p>
+
+<h3>4.2 Hosting and platform</h3>
+<p>Assumes deployment to Microsoft Azure.</p>
+<table>
+<tr><th>Component</th><th>Purpose</th><th>Monthly</th></tr>
+<tr><td>Container Apps</td><td>The application and its interface</td><td class="money">USD 20 &ndash; 30</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC">Container Apps Job</td><td bgcolor="#F2F6FC">Background transfer of photographs into NEXT3, including retries</td><td bgcolor="#F2F6FC" class="money">USD 3 &ndash; 5</td></tr>
+<tr><td>Azure SQL Database</td><td>Application data (users, claim tracking, audit trail)</td><td class="money">USD 30 &ndash; 50</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC">Blob Storage</td><td bgcolor="#F2F6FC">Short-term holding of photographs before transfer to NEXT3</td><td bgcolor="#F2F6FC" class="money">under USD 1</td></tr>
+<tr><td>Container Registry</td><td>Deployment artifacts</td><td class="money">USD 5</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC">Application Insights</td><td bgcolor="#F2F6FC">Monitoring, error alerting and support diagnostics</td><td bgcolor="#F2F6FC" class="money">USD 10</td></tr>
+<tr><td><b>Total hosting</b></td><td></td><td class="money"><b>USD 70 &ndash; 100</b></td></tr>
+</table>
+<p>Storage is deliberately small, and it stays small. Photographs are held only until NEXT3 confirms receipt, then removed &mdash; NEXT3 remains the system of record, exactly as it is today.</p>
+
+<h3>4.3 Environments &mdash; a decision required from AXA</h3>
+<p><b>Does AXA want one environment or two?</b> A single production environment is the cheaper option. Two &mdash; a test environment alongside production &mdash; means fixes and changes can be demonstrated and approved without touching live claim data, which AXA will almost certainly want once the application is in daily use. Two environments roughly doubles the figures in 4.2, and pairs naturally with a NEXT3 sandbox alongside NEXT3 production. <b>My recommendation is two.</b></p>
+
+<h3>4.4 SMS for login &mdash; a decision required from AXA</h3>
+<p>Users log in with their mobile number and a one-time code sent by SMS, as described in the BRD. This requires a messaging account. <b>I have deliberately not quoted a figure</b>, because the per-message rate varies by provider and by country to a degree that any estimate would be misleading &mdash; Lebanon in particular is priced very differently across providers.</p>
+
+<h3>4.5 Mobile distribution</h3>
+<p>Required only if the application is published through the public app stores. Both accounts should be held in AXA&rsquo;s name, as they carry the AXA identity under which the application is published.</p>
+<table>
+<tr><th>Item</th><th>Cost</th></tr>
+<tr><td>Apple Developer Program</td><td class="money">USD 99 per year</td></tr>
+<tr class="alt"><td bgcolor="#F2F6FC">Google Play developer registration</td><td bgcolor="#F2F6FC" class="money">USD 25 one-off</td></tr>
+</table>
+<p>If the application is instead distributed internally through AXA&rsquo;s own device management, app store review cycles are avoided altogether.</p>
+
+</body></html>

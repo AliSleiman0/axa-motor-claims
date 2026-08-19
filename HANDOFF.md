@@ -3,10 +3,13 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-18:** Pre-kickoff. BRD analysed, stack and architecture decided. **No code written. No client answers received.**
+**Status as of 2026-08-19 (later same day):** Pre-kickoff. BRD analysed, stack and architecture decided. **Design document written (`docs/design.md`, §7 done). Week-0 Claude Code scaffolding in place (`.claude/`). No code written. No client answers received.**
 
-> ## ⏭️ NEXT SESSION: research PWA + Capacitor
-> Jump to **§ 7 — Next session research brief** at the bottom. Everything above it is context for that work.
+> ## ⏭️ NEXT SESSION: Capacitor research (§7A) + send the client communications (§8)
+> The design document is **done** — `docs/design.md` (2026-08-19), all 12 sections of §7, plus `docs/research-claude-workflow.md` (how to drive the build with Claude Code). §7 below is kept as the spec it was written against.
+> Remaining before week 1 coding: **§7A** (Capacitor research → `docs/research-capacitor.md`, validates the provisional Capacitor decision) and **§8** (blocking questions, scope letter, OpenAPI proposal — all still unsent).
+>
+> **Schedule decision 2026-08-19 (design.md §11):** Broker Option 2 stays IN scope; the calendar **holds at 8 weeks** — paid for by dropping **damage-diagram polish** and the **second UAT round**, plus pipeline reuse. No descope lever remains; any further slip moves the date day-for-day. `scope-decisions.md` and `estimate-and-plan.md` were reconciled to match the same day. Do not re-litigate Option 2 or the re-cut.
 
 ---
 
@@ -110,7 +113,7 @@ Worker loop: pick `pending` where `next_retry_at <= now` → push → success ma
 
 Flutter is **deferred, not rejected** — revisit with evidence at the week-6 device-testing checkpoint if push or camera prove inadequate.
 
-Known remaining costs: Apple Developer account ($99/yr, AXA's), Google Play ($25 one-off), store review cycles, and **a Mac for iOS builds** — cloud macOS CI (Codemagic / Bitrise) is the likely answer. **All of this is what §7 needs to verify.**
+Known remaining costs: Apple Developer account ($99/yr, AXA's), Google Play ($25 one-off), and store review cycles. **The Mac question is largely answered (2026-08-18): Codemagic gives 500 free macOS M2 build minutes/month** — enough for this project — but *only on a personal account*, not a Team account, so the CI account stays in the developer's name while the store accounts are AXA's. Overflow is $0.10/min. Developer may also acquire a MacBook, and **owns an iPhone 17 Pro Max**, so real-device iOS testing at the week-6 checkpoint is covered at zero cost. §7 item 7 is therefore de-risked, not eliminated — still confirm the Capacitor iOS build actually runs on Codemagic's free tier before relying on it. **Not mentioned to the client: this costs AXA nothing.**
 
 ---
 
@@ -118,6 +121,7 @@ Known remaining costs: Apple Developer account ($99/yr, AXA's), Google Play ($25
 
 - **$5k / 2 months is already committed.** Independent estimates for the full BRD: ~300–430 person-days with a team, or 9–13 months solo. The commitment stands; the strategy is **scope control, not renegotiation** — don't spend the user's time re-deriving that gap.
 - Roughly **60–70% of the BRD** fits the timeframe. Exclusions in `docs/scope-decisions.md` must be agreed **in writing before code starts**.
+- **2026-08-19: Broker Option 2 moved INTO scope** by the developer, knowing it costs ~1.5–2.5 weeks and was the primary negotiating chip. The chip is spent — the remaining give is offline mode (already out), damage-diagram polish, and the second UAT round. Say so early if the date moves.
 - **IP ownership is unresolved and worth money.** "He owns the software" would transfer full IP for $5,000. Propose instead: AXA gets full source, a perpetual unlimited licence, and the right to modify — developer retains the right to reuse **generic, non-AXA-specific components** (auth, upload pipeline, outbox) in future work. AXA loses nothing they care about; that reuse is worth more than this contract. If they insist on full transfer, price it rather than give it away silently.
 - Payment: **40% up front / 30% at week-4 demo / 30% at handover.**
 - **Two UAT rounds**, capped in writing.
@@ -156,9 +160,47 @@ Sending this converts a vague promise into a reviewable, datable deliverable; ge
 
 ---
 
-## 7. ⏭️ NEXT SESSION — research brief: PWA + Capacitor
+## 7. ⏭️ NEXT SESSION — write the design document
 
-**Goal:** validate or kill the PWA + Capacitor decision in §4 **before** week 1 coding starts, and produce a concrete build/distribution plan. This decision underpins the whole 8-week schedule, so it is the right thing to de-risk first.
+**Deliverable: `docs/design.md`.** An *internal engineering* design document — the thing you build from. Not client-facing, so it can be blunt about unknowns and risk. A client-facing summary can be extracted from it later if AXA asks.
+
+**Why this now:** the BRD says *what*, `scope-decisions.md` says *how much*, and nothing yet says *how*. Four modules, four roles, a legacy integration and a public capture surface do not fit in one head; the first week of coding will otherwise be spent making architecture decisions ad hoc, in feature code, under time pressure.
+
+### What it must contain
+
+1. **Scope restatement** — one page. In scope, out of scope, and the simplifications from `docs/scope-decisions.md`. **Broker Option 2 is now in scope** (decided 2026-08-19).
+2. **Roles and permissions matrix** — Expert, Garage, Claim Officer, Broker, **Admin** (implied by the BRD, never listed as a profile, still real work), and the **unauthenticated customer** in Broker Option 2. Every screen mapped to who may open it.
+3. **System architecture** — components and their boundaries: React app (installed + browser), .NET API, background worker, Azure SQL, Blob, NEXT3 client behind its interface, email sender, push sender, SMS sender. Show which components the public Option 2 surface may and may not touch.
+4. **Data model** — tables with columns and keys. At minimum: profiles for the four types, users/auth, claim (cached NEXT3 detail), document, `next3_outbox` (already specified in §3), broker_request (+ its Option 2 link token), notification, audit log. Say explicitly which data is a cache of NEXT3 and which is ours and authoritative.
+5. **Module designs** — per module: screen inventory, the state machine, and what each transition writes. Treat **Garage + Claim Officer as ONE state machine with two views**, not two modules; the notifications between them are the part people forget to budget.
+6. **NEXT3 integration design** — the eight operations from `docs/client-doc-src.html` §3.1, the outbox, idempotency via `clientRef`, retry/backoff schedule, the failed-push admin screen, and how the fake implementation stays usable all the way to handover.
+7. **Media pipeline** — capture-only enforcement for car-photo buckets, the resolution + blur-variance quality check, blob lifecycle, and the rule that **no blob is deleted before its push is `sent`**.
+8. **Notifications** — push (assignment popup, approval/rejection), SMS (OTP + invite links + the Option 2 customer link), and the broker email routing table keyed by insurance type.
+9. **Security and data protection** — auth model, role enforcement, audit trail, and a dedicated subsection for **Broker Option 2**: token generation, expiry, single-use vs reusable, what the page exposes before submission, and rate limiting. This is the project's largest attack surface and the thing most likely to attract AXA Group InfoSec.
+10. **Environments** — one or two (test + production). Recommendation on record is two.
+11. **Revised week-by-week plan** — `docs/estimate-and-plan.md` is an 8-week plan that predates Option 2. Re-cut it with Option 2 included and say plainly what moved or dropped to make room.
+12. **Design decisions blocked on client answers** — which of the 41 open questions block which design choices, and the placeholder strategy for each (one config file, obvious fake values, never invented client data).
+
+### Rules for the session writing it
+
+- **Do not invent client data.** Insurance types, email recipients, NEXT3 field names, document-type codes and IRIS codes are all unanswered. Placeholders only, all in one config file, clearly marked.
+- **Prefer the smaller interpretation** of anything ambiguous, and record it in `scope-decisions.md` rather than silently designing the bigger thing.
+- **Design against the interface, not against AXA's availability.** The NEXT3 client is an interface with a working fake; nothing in the design may assume the real endpoints exist.
+- Where a decision is genuinely open, **write the recommendation and the reason**, not a list of options. This document exists to stop decisions being re-made.
+
+### Inputs to read first
+
+`docs/BRD-extracted-text.md` (the source of truth), `docs/diagrams/` (four flowcharts — broker Option 1 and 2 are diagrams 3 and 4), `docs/scope-decisions.md`, `docs/open-questions.md`, and §§ 2–6 of this file.
+
+### Explicitly NOT in this deliverable
+
+Visual design, mockups, branding, colour. AXA supplied none, and it is not in scope. Screen *inventories* and *flows* yes; pixels no.
+
+---
+
+## 7A. Deferred — research brief: PWA + Capacitor
+
+**Goal:** validate or kill the PWA + Capacitor decision in §4 **before** week 1 coding starts, and produce a concrete build/distribution plan. **Deferred behind the design doc (§7), but still needed before coding** — the design doc should record the Capacitor choice as provisional and flag anything that depends on it.
 
 ### Must answer
 
@@ -192,7 +234,7 @@ Questions **28, 29, 30** in `docs/open-questions.md` — device mix (iOS vs Andr
 ## 8. Immediate next actions (non-coding, still outstanding)
 
 1. **Send the blocking questions** — the 8 in `docs/open-questions.md` § Blocking, plus #21 (InfoSec/pen test), #23 (PWA acceptable), #28–30 (devices). Prioritise **#1, #2, #21, #31** — those decide whether 2 months is real.
-2. **Send the one-page scope letter** with the exclusions from `docs/scope-decisions.md` and dated client dependencies. Email acknowledgement is sufficient. *Still not drafted.*
+2. **Send the one-page scope letter** with the exclusions from `docs/scope-decisions.md` and dated client dependencies. Email acknowledgement is sufficient. *Still not drafted.* **Must now state that Broker Option 2 IS included** — it is the biggest thing you are giving them, so do not give it away silently.
 3. **Send the NEXT3 OpenAPI proposal** (§6). Fastest way to force clarity on the biggest unknown.
 4. **Agree payment milestones and the IP position** (§5).
 5. **Confirm all infra accounts are in AXA's name, on AXA's card.**
@@ -219,9 +261,32 @@ docs/
   source/                   Original client .docx (unmodified)
   diagrams/                 The client's 4 flowcharts as PNG
   scope-decisions.md        In scope / out of scope / simplifications
-  open-questions.md         31 questions for the client, prioritised
+  open-questions.md         40 questions for the client, prioritised
   estimate-and-plan.md      8-week plan, hosting options, monthly cost
-  research-capacitor.md     ← to be written next session (§7)
-CLAUDE.md                   Domain glossary + conventions
+  client-doc-src.html       SOURCE of the client Word document - edit content HERE
+  build-docx.ps1            Regenerates the .docx from that HTML. Never hand-edit the .docx:
+                            LibreOffice's HTML import breaks table widths, margins and the
+                            Word-version stamp, and this script patches all of it. Re-run as
+                            `pwsh -File docs\build-docx.ps1 -Version 0.3`
+  AXA-Motor-Claims-Questions-and-Costs-v0.4.docx   The client document (4pp), NOT yet sent
+                            v0.4 = client's own heavy cut of v0.3, folded back into the HTML
+                            source. Now covers ONLY: purpose, what's needed at a glance, NEXT3
+                            endpoints + 9 questions, and hosting/SMS/mobile cost. Client deleted
+                            the title block, the schedule statement, connectivity options, the
+                            OpenAPI note, the SMS provider options, and all of security /
+                            mobile delivery / remaining questions / next steps. Those cuts are
+                            deliberate - do not restore them without asking.
+  client-email-2026-08-18.md  Covering email to Ramy, NOT yet sent
+  design.md                 Internal engineering design (§7) — WRITTEN 2026-08-19. The build contract.
+  build-playbook.md         ~25 ordered build slices with per-session prompts + milestone checklists — written 2026-08-19
+  research-claude-workflow.md  How to drive the build with Claude Code — written 2026-08-19
+  research-capacitor.md     ← still unwritten (§7A). Next research item; validates the Capacitor decision
+.claude/
+  settings.json             Hook registrations (post-edit format check, on-stop test run)
+  hooks/                    Guarded PowerShell hooks — no-op until the solution exists in week 1
+  skills/scaffold-module/   Skill: scaffold an API module per design.md §5 pattern
+  skills/add-ef-migration/  Skill: add + safety-review + apply an EF Core migration
+  agents/db-reviewer.md     Read-only subagent auditing EF migrations
+CLAUDE.md                   Domain glossary + conventions + design.md import (the per-session contract)
 HANDOFF.md                  This file
 ```

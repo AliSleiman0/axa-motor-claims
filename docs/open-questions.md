@@ -41,7 +41,7 @@ Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. 
 | 21 | **Will AXA Group InfoSec review this? Is a pen test required, and on whose clock?** Most likely thing to blow past 2 months. | TBC |
 | 22 | Data residency — which country may the PII and photos reside in? | TBC |
 | 23 | **Confirm PWA delivery is acceptable** (no app store submission). Currently a developer-side assumption — validate before building. | TBC |
-| 24 | Confirm **Broker Option 2 is out of scope** for this phase | TBC |
+| 24 | **Broker Option 2 is now IN scope (2026-08-19).** Three answers are needed before it can be built: (a) how is the link delivered to the customer — SMS from our gateway, or WhatsApp, or does the broker copy/paste it? (b) how long should the link stay valid, and may it be reused? (c) **who sets the Estimated Premium?** The BRD has the *customer* entering it, which looks wrong — customers do not price their own insurance. | TBC |
 | 25 | UAT — who participates, when, how many rounds, what counts as acceptance? | TBC |
 | 26 | Does the existing email process run in parallel after go-live, and for how long? | TBC |
 | 27 | Support after handover — hours, duration, paid or not? | TBC |
@@ -72,7 +72,8 @@ Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. 
 | 37 | **Contributor access to an Azure resource group** — often slower to obtain in a governed tenant than API credentials, and it is on the critical path. Request in week 1. | TBC |
 | 38 | Which security baseline applies — is a managed **WAF** required? Front Door Premium is ~$330/month, more than the entire rest of the application. | TBC |
 | 39 | Is the Enterprise Agreement discount available for this workload? | TBC |
-| 40 | Azure Communication Services SMS coverage — confirm it covers the target countries (Lebanon in particular). If not, a local aggregator is needed, which changes the auth integration. | TBC |
+| 40 | **Which SMS provider does AXA want for OTP?** The per-message rate is entirely provider-dependent and Lebanon varies widely. Options: a regional aggregator (**Monty Mobile** — likely best MENA rates), **Twilio** (dearest, fastest to integrate), or **Azure Communication Services** (one bill, but confirm Lebanon coverage first). An existing AXA gateway contract beats all three. Asked in the 2026-08-18 email — **do not quote a monthly SMS figure until answered.** | TBC |
+| 41 | **One environment or two (test + production)?** One is cheaper; two lets fixes be demonstrated and approved without touching live claim data, and pairs with a NEXT3 sandbox alongside NEXT3 production. **Two roughly doubles the Azure figure.** Recommend two. Added to the client doc as Q19 on 2026-08-18. | TBC |
 
 ## Noted gaps in the BRD (raise, but not blocking)
 
@@ -81,5 +82,5 @@ Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. 
 - No audit trail requirement — mandatory in claims disputes (who uploaded which photo, when)
 - No UI/UX, mockups, or branding supplied
 - No cutover plan from the current email process
-- Broker Option 2 has the **client** entering their own "Estimated Premium" — business rule looks wrong, confirm
+- ~~Broker Option 2 premium rule~~ — promoted to question #24 now that Option 2 is in scope
 - Prerequisite bullet in the BRD is truncated mid-sentence: *"visibility on fields that will be updated in NEXT3 ex"*

@@ -2,6 +2,8 @@
 
 ## 8-week plan
 
+> **SUPERSEDED 2026-08-19.** This table predates Broker Option 2 entering scope. The current week plan is **`design.md` §11**: still 8 weeks, with Option 2 in weeks 5–7, damage-diagram polish and the second UAT round dropped to pay for it. The table below is kept as the pre-Option-2 baseline only.
+
 | Week | Work |
 |---|---|
 | 1 | Repo, auth (phone OTP), RBAC, admin CRUD ×4 profiles, **NEXT3 client behind an interface with a fake implementation** |
