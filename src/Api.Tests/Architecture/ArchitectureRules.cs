@@ -1,5 +1,6 @@
 using System.Reflection;
 using Api.Integrations.Next3;
+using Api.Outbox;
 using Mono.Cecil;
 using NetArchTest.Rules;
 
@@ -37,6 +38,16 @@ public static class ArchitectureRules
         Types.InAssembly(assembly)
             .That().ResideInNamespace(PublicModuleNamespace)
             .GetTypes();
+
+    // Rule 4: only the outbox namespace touches outbox rows — producers go through OutboxWriter.
+    // Added slice 2.2. Every NEXT3 write must be queued by the helper that joins the caller's
+    // transaction (§4, §6.3); a module that added a row by hand could quietly skip that guarantee, or
+    // set a status the worker owns. Same discipline as audit_log having no DbSet.
+    public static TestResult OnlyOutboxReferencesOutboxRows(Assembly assembly, string allowedNamespace) =>
+        Types.InAssembly(assembly)
+            .That().DoNotResideInNamespace(allowedNamespace)
+            .ShouldNot().HaveDependencyOn(typeof(Next3OutboxMessage).FullName!)
+            .GetResult();
 
     // Rule 3: only the outbox worker namespace calls push operations on INext3Client.
     // Method-level, so a custom Cecil rule: reads are legitimate feature-code calls (§5.1 search).

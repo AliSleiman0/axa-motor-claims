@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Api.Infrastructure;
 using Api.Modules.Audit;
 using Api.Modules.Claims;
+using Api.Modules.Media;
 using Api.Modules.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,10 @@ namespace Api.Modules.Expert;
 /// One row of E1 (§5.1). The claim fields are nullable because the cache may be cold — an
 /// assignment that arrived while NEXT3 was down is still a real assignment.
 /// </summary>
+/// <param name="MediaCount">
+/// §5.1: "E1 lists assignments newest-first with media counts". Deferred out of slice 2.1 because the
+/// `document` table did not exist yet; it does now.
+/// </param>
 public sealed record ExpertAssignmentListItemDto(
     Guid Id,
     string VisaNo,
@@ -20,7 +25,8 @@ public sealed record ExpertAssignmentListItemDto(
     string? PlateNo,
     string? InsuredName,
     string? CarMakeModel,
-    DateOnly? AccidentDate);
+    DateOnly? AccidentDate,
+    int MediaCount);
 
 /// <summary>The claim as NEXT3 owns it (§6.1), served from the §4 cache.</summary>
 public sealed record ClaimDto(
@@ -86,10 +92,13 @@ public static class ExpertEndpoints
                     claim == null ? null : claim.PlateNo,
                     claim == null ? null : claim.InsuredName,
                     claim == null ? null : claim.CarMakeModel,
-                    claim == null ? null : (DateOnly?)claim.AccidentDate))
+                    claim == null ? null : (DateOnly?)claim.AccidentDate,
+                    // Counted in the same statement rather than per row: E1 is the expert's first
+                    // screen at a crash site and must not fan out into one query per assignment.
+                    db.Documents.Count(d =>
+                        d.OwnerKind == DocumentOwnerKinds.Assignment && d.OwnerId == x.Assignment.Id)))
                 .ToListAsync(ct);
 
-            // Media counts belong on this row (§5.1) and arrive with the document table in 2.3.
             return Results.Ok(items);
         });
 

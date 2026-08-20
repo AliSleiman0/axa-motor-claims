@@ -265,6 +265,112 @@ namespace Api.Migrations
                     b.ToTable("expert_assignment", (string)null);
                 });
 
+            modelBuilder.Entity("Api.Modules.Media.Document", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("BlobDeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("blob_deleted_at");
+
+                    b.Property<string>("BlobKey")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)")
+                        .HasColumnName("blob_key");
+
+                    b.Property<string>("Bucket")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasColumnName("bucket");
+
+                    b.Property<string>("ClarityResult")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("clarity_result");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DocType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("doc_type");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("origin");
+
+                    b.Property<Guid?>("OutboxMessageId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("outbox_message_id");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("OwnerKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("owner_kind");
+
+                    b.Property<string>("PushStatus")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("push_status");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlobKey")
+                        .HasFilter("[blob_deleted_at] IS NULL");
+
+                    b.HasIndex("OutboxMessageId")
+                        .IsUnique()
+                        .HasFilter("[outbox_message_id] IS NOT NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("OutboxMessageId"), new[] { "CreatedAt", "BlobKey" });
+
+                    b.HasIndex("OwnerKind", "OwnerId");
+
+                    b.ToTable("document", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_document_bucket", "[bucket] IN ('expert_report', 'insured_car_photo', 'insured_documents', 'tp_car_photo', 'tp_documents')");
+
+                            t.HasCheckConstraint("CK_document_clarity_result", "[clarity_result] IN ('passed', 'not_applicable')");
+
+                            t.HasCheckConstraint("CK_document_origin", "[origin] IN ('captured', 'uploaded')");
+
+                            t.HasCheckConstraint("CK_document_owner_kind", "[owner_kind] IN ('assignment', 'declaration', 'broker_request')");
+
+                            t.HasCheckConstraint("CK_document_push_status", "[push_status] IN ('queued', 'n/a')");
+
+                            t.HasCheckConstraint("CK_document_push_status_outbox", "([push_status] = 'queued' AND [outbox_message_id] IS NOT NULL) OR ([push_status] = 'n/a' AND [outbox_message_id] IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Api.Modules.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -675,6 +781,70 @@ namespace Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("refresh_token", (string)null);
+                });
+
+            modelBuilder.Entity("Api.Outbox.Next3OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("last_error");
+
+                    b.Property<DateTime>("NextRetryAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("next_retry_at");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("operation");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("VisaNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("visa_no");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VisaNo");
+
+                    b.HasIndex("Status", "NextRetryAt");
+
+                    b.ToTable("next3_outbox", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_next3_outbox_operation", "[operation] IN ('upload_document', 'update_arrival', 'push_approval')");
+
+                            t.HasCheckConstraint("CK_next3_outbox_status", "[status] IN ('pending', 'processing', 'sent', 'failed')");
+                        });
                 });
 
             modelBuilder.Entity("Api.Modules.Audit.AuditLog", b =>

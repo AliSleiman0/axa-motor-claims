@@ -42,6 +42,15 @@ public class ArchitectureTests
         Assert.True(result.IsSuccessful, Describe(result));
     }
 
+    [Fact]
+    public void Rule4_OnlyOutbox_ReferencesOutboxRows()
+    {
+        var result = ArchitectureRules.OnlyOutboxReferencesOutboxRows(
+            ArchitectureRules.ApiAssembly, ArchitectureRules.OutboxNamespace);
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
     private static string Describe(TestResult result) =>
         result.IsSuccessful
             ? "OK"

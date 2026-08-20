@@ -1,0 +1,99 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Api.Modules.Media.Persistence;
+
+public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
+{
+    public void Configure(EntityTypeBuilder<Document> builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.ToTable("document", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_document_owner_kind",
+                $"[owner_kind] IN ('{DocumentOwnerKinds.Assignment}', '{DocumentOwnerKinds.Declaration}', "
+                + $"'{DocumentOwnerKinds.BrokerRequest}')");
+
+            // Every bucket §7.1 currently defines. Adding one is a migration on purpose: a bucket is
+            // a rule about capture-only enforcement, not a free-text label.
+            table.HasCheckConstraint(
+                "CK_document_bucket",
+                $"[bucket] IN ({string.Join(", ", MediaBuckets.All.Order(StringComparer.Ordinal).Select(b => $"'{b}'"))})");
+
+            table.HasCheckConstraint(
+                "CK_document_origin",
+                $"[origin] IN ('{DocumentOrigins.Captured}', '{DocumentOrigins.Uploaded}')");
+
+            table.HasCheckConstraint(
+                "CK_document_push_status",
+                $"[push_status] IN ('{DocumentPushStatuses.Queued}', '{DocumentPushStatuses.NotApplicable}')");
+
+            table.HasCheckConstraint(
+                "CK_document_clarity_result",
+                $"[clarity_result] IN ('{ClarityResults.Passed}', '{ClarityResults.NotApplicable}')");
+
+            // The cross-column invariant, in the schema rather than in the upload service's head.
+            // `queued` with no outbox row is a document that is never pushed, never appears on A2
+            // (there is no row for A2 to list) and never becomes eligible for deletion — retained
+            // for ever and invisible everywhere. `n/a` with an outbox row is a broker document that
+            // quietly went to NEXT3. Both are unrepresentable now.
+            table.HasCheckConstraint(
+                "CK_document_push_status_outbox",
+                $"([push_status] = '{DocumentPushStatuses.Queued}' AND [outbox_message_id] IS NOT NULL) "
+                + $"OR ([push_status] = '{DocumentPushStatuses.NotApplicable}' "
+                + "AND [outbox_message_id] IS NULL)");
+        });
+
+        builder.HasKey(d => d.Id);
+
+        // Client-generated, like every other key in the model: the blob key and the outbox clientRef
+        // are both derived from this id *before* the row is built, so letting EF substitute its own
+        // would produce a document whose id matches neither its bytes nor its NEXT3 reference.
+        builder.Property(d => d.Id).HasColumnName("id").ValueGeneratedNever();
+
+        builder.Property(d => d.OwnerKind).HasColumnName("owner_kind").HasMaxLength(20).IsRequired();
+        builder.Property(d => d.OwnerId).HasColumnName("owner_id").IsRequired();
+        builder.Property(d => d.Bucket).HasColumnName("bucket").HasMaxLength(40).IsRequired();
+        builder.Property(d => d.DocType).HasColumnName("doc_type").HasMaxLength(50);
+        builder.Property(d => d.Origin).HasColumnName("origin").HasMaxLength(10).IsRequired();
+        builder.Property(d => d.ClarityResult).HasColumnName("clarity_result").HasMaxLength(20).IsRequired();
+        builder.Property(d => d.BlobKey).HasColumnName("blob_key").HasMaxLength(400).IsRequired();
+        builder.Property(d => d.ContentType).HasColumnName("content_type").HasMaxLength(100).IsRequired();
+        builder.Property(d => d.SizeBytes).HasColumnName("size_bytes").IsRequired();
+        builder.Property(d => d.PushStatus).HasColumnName("push_status").HasMaxLength(10).IsRequired();
+        builder.Property(d => d.OutboxMessageId).HasColumnName("outbox_message_id");
+        builder.Property(d => d.BlobDeletedAt).HasColumnName("blob_deleted_at");
+        builder.Property(d => d.CreatedBy).HasColumnName("created_by");
+        builder.Property(d => d.CreatedAt).HasColumnName("created_at").IsRequired();
+
+        // No FK on owner_id: it is polymorphic (§4's owner_kind decides the table).
+        // No FK on outbox_message_id either — a relationship would put Next3OutboxMessage into this
+        // module's model configuration, which architecture rule 4 forbids, and the id is only ever
+        // read by §7.3's cleanup join.
+
+        // E1's media counts and the per-assignment document list (§5.1).
+        builder.HasIndex(d => new { d.OwnerKind, d.OwnerId });
+
+        // §7.3's cleanup sweep, and the structural half of its safety rule.
+        //
+        // **Unique**, because one confirmed push must license the deletion of exactly one document's
+        // bytes. Two rows sharing an outbox_message_id would both be swept when that single push
+        // landed — bytes destroyed for a file NEXT3 never received, which is the precise outcome §7.3
+        // exists to make impossible. The filter is `IS NOT NULL` only: adding `blob_deleted_at IS
+        // NULL` would make uniqueness stop being enforced the moment a row is swept.
+        //
+        // Covering, because the sweep orders on created_at and projects blob_key; without the
+        // includes each pass is a sort plus 500 key lookups.
+        builder.HasIndex(d => d.OutboxMessageId)
+            .IsUnique()
+            .HasFilter("[outbox_message_id] IS NOT NULL")
+            .IncludeProperties(d => new { d.CreatedAt, d.BlobKey });
+
+        // The orphan sweep's other side: "does a live row claim this key?", run against a batch of
+        // keys every pass. Not unique — a fresh GUID per document makes collisions impossible anyway,
+        // and a uniqueness violation would surface only after the blob had already been written.
+        builder.HasIndex(d => d.BlobKey).HasFilter("[blob_deleted_at] IS NULL");
+    }
+}

@@ -23,6 +23,11 @@ Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next 
 - `src/Web` — React + TypeScript (Vite), Capacitor shell around the same build
 - Build/test commands: `dotnet build` / `dotnet test` at root; web: `npm run build` (tsc + ESLint + Vite, lint failures fail the build) and `npm run dev`, both in `src/Web`.
 - EF migrations: `dotnet ef` is a local tool (`.config/dotnet-tools.json`); use the `add-ef-migration` skill.
+- **Blob storage — Azurite for local dev.** `Blob:Mode` is `fake` (in-memory) everywhere by default, so **`dotnet test` needs nothing running**. `dotnet run` sets `Blob__Mode=azure` via `launchSettings.json` and talks to Azurite on `UseDevelopmentStorage=true`. Start it either way:
+  - npm (no Docker Desktop needed): `npx --yes -p azurite azurite-blob --silent --skipApiVersionCheck --location <scratch-dir>`
+  - Docker: `docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck`
+
+  `--skipApiVersionCheck` is not optional: the Azure SDK's default API version runs ahead of the latest Azurite release, and without it every call fails with `InvalidHeaderValue`. Not running Azurite? Set `Blob__Mode=fake`. `BlobStoreContractTests` asserts the same contract against both stores and **skips the Azurite half when nothing is listening on port 10000**, so the real adapter is covered when the emulator is up without the suite depending on it.
 - Line endings are **LF everywhere** (`.editorconfig` + `.gitattributes`); the Write tool emits LF, so this keeps the `dotnet format` hook quiet. Don't switch to CRLF.
 
 ## Domain glossary

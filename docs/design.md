@@ -164,10 +164,10 @@ Conventions: `uniqueidentifier` PKs (client-generatable, sortable enough with se
 | `expert_assignment` | Authoritative (event sourced from NEXT3) | `id`, `visa_no`, `expert_user_id`, `next3_assignment_ref` (dedupe key — §6), `received_at`, `notified_at`, `opened_at`, `arrived_at`, `arrival_lat/lng`. Timestamps, not a state enum — the BRD defines no expert-side lifecycle and we do not invent one |
 | `declaration` | Authoritative | The §5.2 state machine row. `id`, `garage_user_id`, `state` (draft/submitted/approved/rejected/repairs_in_progress/repair_docs_submitted), `plate_no`, `insured_name?`, `note?`, `visa_no?` (set at approval), `officer_user_id?`, `decided_at`, per-transition timestamps |
 | `declaration_comment` | Authoritative | `declaration_id`, `author_user_id`, `body`, `created_at`. Officer comments; visible to garage **only when state = approved** (BRD grants comment visibility only on confirmation) |
-| `document` | Authoritative (metadata; binary is transit-only) | Every media item in the system. `id`, `owner_kind` (assignment/declaration/broker_request), `owner_id`, `bucket` (§7 enum), `doc_type` (placeholder codes — #12), `origin` (captured/uploaded — the BRD's provenance flag, kept on every row, required by Broker Option 1), `clarity_result`, `blob_key`, `content_type`, `size_bytes`, `push_status` (n/a for broker docs — broker module never pushes to NEXT3), `created_by`, `created_at` |
+| `document` | Authoritative (metadata; binary is transit-only) | Every media item in the system. `id`, `owner_kind` (assignment/declaration/broker_request), `owner_id` (polymorphic — no FK), `bucket` (§7 enum, check-constrained; adding one is a migration), `doc_type` (placeholder codes — #12; null for media that never reaches NEXT3), `origin` (captured/uploaded — the BRD's provenance flag, kept on every row, required by Broker Option 1), `clarity_result` (**`passed` \| `not_applicable` only** — §7.2 item 5 rejects a failure rather than storing one, and blur is client-side, so no server path can write `failed`), `blob_key`, `content_type`, `size_bytes`, `push_status` (**`queued` \| `n/a`** — n/a for broker docs; live push state belongs to the outbox row and is deliberately not denormalised here, because §7.3 deletes blobs on that state and two copies of it can disagree), `created_by` (null for the Option 2 public customer), `created_at`. **Two columns added 2026-08-20, slice 2.3:** `outbox_message_id uniqueidentifier?` — §7.3 requires the cleanup query to join on outbox `sent` *structurally*, and the only other key available is the `clientRef` inside the outbox row's JSON payload, which is a convention and unindexed; **no FK**, because a relationship would put `Next3OutboxMessage` into this module's model configuration and break architecture rule 4. And `blob_deleted_at datetime2?` — the sweep must be idempotent, and "have this photo's bytes been cleaned up?" is a support question. A **unique** filtered index on `outbox_message_id` is a safety property, not tidiness: one confirmed push must license the deletion of exactly one document's bytes. A check constraint pins the cross-column invariant (`queued` ⇔ an outbox row exists), since `queued` with no row is a document that is never pushed, never listed on A2 and never eligible for deletion |
 | `broker_request` | Authoritative | Both options. `id`, `broker_user_id`, `option` (1/2), `state` (§5.3), `insured_name`, `insurance_type` (from placeholder list — #14), `insured_address`, `car_value`, `estimated_premium` (customer-entered in Option 2 per §1), `effective_date`, `customer_mobile?` (Option 2), `submitted_at`, `emailed_at`, `email_recipient` (resolved from routing placeholder — #13), `created_at` (realized 2026-08-19, slice 1.5 — every other table has one and B1 lists newest-first). **The six form fields are nullable**: an Option 2 row exists from `link_issued`, before the customer has entered anything, so completeness is a precondition of the submit transition (§5.3), not a column constraint |
 | `public_link_token` | Authoritative | Option 2 token (§9). `id`, `broker_request_id`, `token_hash` (SHA-256 of the 256-bit token; raw token never stored), `expires_at`, `locked_at` (set on successful submission), `created_at`, `row_version` (SQL `rowversion`; realized 2026-08-19, slice 1.5 — §9.1's "each link accepts exactly one submission" cannot hold in application code, where reading `locked_at` and writing it are two steps that two simultaneous submissions both pass; the concurrency token makes the database the arbiter and the loser renders as the same uniform 404) |
-| `next3_outbox` | Authoritative | Verbatim from HANDOFF §3 — the integration core (§6): `id uniqueidentifier`, `claim_id uniqueidentifier`, `operation 'upload_document'\|'update_arrival'\|'push_approval'`, `payload nvarchar(max)` (JSON: blob keys, field values), `status 'pending'\|'processing'\|'sent'\|'failed'`, `attempts int`, `last_error nvarchar(max)`, `next_retry_at datetime2`, `created_at datetime2`, `sent_at datetime2` |
+| `next3_outbox` | Authoritative | The integration core (§6): `id uniqueidentifier`, **`visa_no nvarchar(50)`**, `operation 'upload_document'\|'update_arrival'\|'push_approval'`, `payload nvarchar(max)` (JSON: the `clientRef` plus blob keys and field values), `status 'pending'\|'processing'\|'sent'\|'failed'`, `attempts int`, `last_error nvarchar(max)`, `next_retry_at datetime2`, `created_at datetime2`, `sent_at datetime2`. Indexed `(status, next_retry_at)` for the dequeue and A2's failed list, and on `visa_no` for "why is this claim missing photos". **`claim_id uniqueidentifier` corrected to `visa_no` (realized 2026-08-20, slice 2.2)** — HANDOFF §3 spelled it `claim_id`, but no uniqueidentifier claim id exists anywhere in the model: `claim` is keyed on `visa_no`, and this row must hold no FK to it for the same reason `expert_assignment` holds none (the cache is disposable, and a NEXT3 outage that empties it must not take the queue with it). Every `INext3Client` push takes a visa number and §5.4's A2 displays "claim/visa", so the column now carries the value it is actually used for. **Must stay trigger-free**: §6.3's dequeue returns `OUTPUT inserted.*`, and EF abandons the OUTPUT clause on any table it knows carries a trigger |
 | `notification` | Authoritative | Log of every push/SMS/email attempt. `id`, `channel` (push/sms/email), `recipient_user_id?`, `recipient_address`, `template`, `payload`, `status` (queued/sent/failed), `sent_at`, `error`, `created_at` (realized 2026-08-19, slice 1.4 — a `failed` row never sets `sent_at`, so without it a failure has no timestamp). Written only by `NotificationLog`, which commits its own transaction rather than joining the caller's: a send already happened externally and its record must not vanish with a later rollback. **`payload` is null for SMS by rule** — every SMS this app sends carries a live credential (OTP code, invite token), and §9 hashes those precisely so a DB leak yields no working logins; copying the body here would hand that back |
 | `audit_log` | Authoritative | `id`, `actor_user_id?` (null = public customer or system), `action`, `entity_kind`, `entity_id?` (null when the event has no entity, e.g. failed login for an unknown phone — realized 2026-08-19, slice 1.3), `detail` (JSON), `at`. Append-only, enforced by a DB trigger (`INSTEAD OF UPDATE, DELETE`), not convention; the only code write path is `AuditWriter.Append`, which joins the caller's transaction. The InfoSec answer to "who uploaded which photo, when" (§9) |
 
@@ -289,13 +289,39 @@ All NEXT3 writes flow through `next3_outbox` (schema in §4, verbatim from HANDO
 Worker loop (Container Apps Job, every ~30s):
 
 ```sql
-UPDATE TOP (10) next3_outbox WITH (UPDLOCK, READPAST, ROWLOCK)
-SET status = 'processing', attempts = attempts + 1
-OUTPUT inserted.*
-WHERE status = 'pending' AND next_retry_at <= SYSUTCDATETIME();
+CREATE OR ALTER PROCEDURE dbo.next3_outbox_dequeue
+    @batch_size int, @now datetime2 = NULL,
+    @lease_seconds int = 300, @max_attempts int = 8
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @t datetime2 = COALESCE(@now, SYSUTCDATETIME());
+
+    -- Retire a row that keeps outliving its worker: the give-up rule lives in code that only
+    -- runs when a worker survives to record an outcome, so without this the lease would
+    -- re-push such a row for ever and it would never reach A2.
+    UPDATE dbo.next3_outbox WITH (UPDLOCK, READPAST, ROWLOCK)
+    SET status = 'failed',
+        last_error = COALESCE(last_error, 'Abandoned: lease expired with no outcome recorded.')
+    WHERE status = 'processing' AND next_retry_at <= @t AND attempts >= @max_attempts;
+
+    UPDATE TOP (@batch_size) dbo.next3_outbox WITH (UPDLOCK, READPAST, ROWLOCK)
+    SET status = 'processing', attempts = attempts + 1,
+        next_retry_at = DATEADD(second, @lease_seconds, @t)
+    OUTPUT inserted.*
+    WHERE next_retry_at <= @t AND status IN ('pending', 'processing');
+END
 ```
 
-(`READPAST` is SQL Server's `SKIP LOCKED`; this dequeue is one of the three sanctioned stored procedures.) Success → `sent` + `sent_at`. Failure → `last_error`, backoff **1 min → 5 min → 30 min → 2 h → 6 h …**, after ~8 attempts → `failed` (surfaced on A2 with Retry). Backoff ceiling is a config knob to be re-tuned when #33 (NEXT3 maintenance windows) is answered.
+**The lease needs an arbitrator, and `attempts` is it.** A reclaimed row is held by two workers — the new one and the original, which may still be alive and about to record its outcome. Last-writer-wins would let a stale worker rewrite a `sent` row to `failed`, or a `failed` row to `sent` with a timestamp it never earned; §7.3 deletes blobs on `sent` and A2 lists `failed`, so both the retention rule and the safety net would act on a status NEXT3 never agreed to. `attempts` is therefore the **concurrency token**: a reclaim increments it, so every outcome write carries `AND attempts = <the value this worker claimed>` and the stale one finds no row. No new column — the claim's attempt number *is* its generation counter — so §4's column list is untouched.
+
+**Ordering is deliberately absent.** Draining oldest-first was tried as a CTE with `ORDER BY created_at`; the sort materialises the candidate set and takes locks on exactly the rows `READPAST` exists to let a second worker step over, turning the non-blocking claim into a blocking one. Non-blocking concurrent drain wins. Both hint sets are proven load-bearing by tests that go red when the hint or the token is removed.
+
+(`READPAST` is SQL Server's `SKIP LOCKED`; this dequeue is one of the three sanctioned stored procedures.) Success → `sent` + `sent_at`. Failure → `last_error`, backoff **1 min → 5 min → 30 min → 2 h → 6 h …**, after ~8 attempts → `failed` (surfaced on A2 with Retry). Backoff ceiling is a config knob to be re-tuned when #33 (NEXT3 maintenance windows) is answered. The full schedule takes **26 h 36 m** to exhaust — that is how long a doomed push takes to reach A2, and it is pinned by a test so a retune is a decision rather than a side effect.
+
+**Two parameters beyond the original sketch (realized 2026-08-20, slice 2.2).** `@now` carries the *worker's* clock rather than the database's: the app writes `next_retry_at` from `TimeProvider`, so a procedure comparing against `SYSUTCDATETIME()` would measure app time against wall-clock time and make the whole retry schedule untestable. `@lease_seconds` pushes `next_retry_at` out while a row is claimed, so a worker that dies between claiming a row and recording its outcome has that row reclaimed instead of stranded in `processing` for ever — never retried, and absent from A2's `failed` list. Re-pushing a row whose worker was merely slow is safe precisely because every push carries a stable `clientRef`.
+
+**Transient vs permanent (realized 2026-08-20, slice 2.2).** Only transient failures consume the retry schedule: `FakeTransientException`, `HttpRequestException`, `TimeoutException`. Anything else goes to `failed` on the first attempt — a push against a visa NEXT3 does not know, a malformed payload, or a bug will never be fixed by waiting, and A2's Retry makes the decision reversible. Each message commits its own transition, so one poison row cannot roll back the outcomes of the rows beside it.
 
 **The two classic bugs, designed out:**
 - **Idempotency:** every push carries `clientRef` = the document id (stable across retries). Whether NEXT3 dedupes on it is #32 — until answered, the real client also keeps a sent-log check on our side, and the OpenAPI proposal makes `clientRef` a required parameter so the obligation is visibly theirs.
@@ -345,8 +371,11 @@ captured/selected → clarity pass → confirmed
 ```
 
 Rules:
-- **No blob is deleted before its outbox row is `sent`.** The cleanup job's query joins on `next3_outbox.status = 'sent'` — structurally, not by convention.
+- **No blob is deleted before its outbox row is `sent`.** The cleanup job's query joins on `next3_outbox.status = 'sent'` — structurally, not by convention. Realized 2026-08-20, slice 2.3: the join is `document.outbox_message_id → next3_outbox.id`, composed as a single SQL statement via `OutboxSentQuery`, which hands the media module an `IQueryable<Guid>` of confirmed pushes so no type outside `Api.Outbox` ever touches an outbox row (architecture rule 4 stays intact). A row that is `pending`, `processing` or `failed` cannot enter the eligibility set at all.
 - `failed` rows retain their blobs indefinitely (they are what A2's Retry re-sends).
+- The sweep commits **one document per transaction**, and wraps each blob delete on its own. A batch-wide commit was written first and was actively dangerous: one undeletable blob threw out of the loop, discarding the `blob_deleted_at` and audit rows already staged for bytes that were physically gone — and because the batch is deterministic, the same poison row then stalled retention behind it for ever. Same lesson as §6.3's one-`SaveChanges`-per-message.
+- **Orphan sweep** (§7.3's "a blob without a row is garbage the cleanup job sweeps"): anything in the container older than `Retention.OrphanBlobHours` that no live `document` row claims. This is the backstop for the accepted failure below — and for a retention delete whose flag write failed after the bytes went.
+- Broker media (`push_status = n/a`) has no outbox row, so it is **structurally excluded** from the sweep and simply survives; `Retention.BrokerBlobDays` is not yet enforced and belongs to slice 5.2/5.3, which owns `broker_request`'s terminal states. Retaining too long is the safe side of this rule.
 - Broker-module media (`push_status = n/a`) never goes to NEXT3; its blobs are retained until `Retention.BrokerBlobDays` after `sent`/terminal state — the email carries the information; long-term custody of a member of the public's identity documents is not this app's job (§9, and #4/#22 for the client's word on retention).
 - Blob PUT happens outside the DB transaction (a blob without a row is garbage the cleanup job sweeps; a row without a blob is an error surfaced at push time — the safe failure order).
 - Steady state ~11 GB, flat forever; NEXT3 is the system of record (#4 confirms).
@@ -538,8 +567,31 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
       "DisplayName": "PLACEHOLDER Admin"
     }
   },
-  "Retention": { "BlobDays": 7, "BrokerBlobDays": 30 },   // (#4)
-  "Outbox": { "MaxAttempts": 8, "BackoffCeilingHours": 6 }, // (#33)
+  "Blob": {                                  // §7.3's transit buffer (realized 2026-08-20, slice 2.3)
+    "Mode": "fake",                          // fake (in-memory) | azure (Azurite locally)
+    "ContainerName": "media-transit"
+  },
+  "Media": {                                 // §7.2 item 5's server-side re-validation
+    "MaxFileMb": 15,
+    "ImageContentTypes": [ "image/jpeg", "image/png" ],
+    "DocumentContentTypes": [ "image/jpeg", "image/png", "application/pdf" ]
+  },
+  "Retention": {                             // (#4); the last four realized 2026-08-20, slice 2.3
+    "BlobDays": 7,
+    "BrokerBlobDays": 30,                    // not yet enforced — slice 5.2/5.3, see §7.3
+    "OrphanBlobHours": 24,
+    "OtpChallengeHours": 24,                 // §4's otp_challenge TTL purge, deferred here by 1.2
+    "CleanupEnabled": true,                  // false in tests; the sweeps are driven explicitly there
+    "PollMinutes": 60
+  },
+  "Outbox": {                                // (#33); the rest realized 2026-08-20, slice 2.2
+    "MaxAttempts": 8,
+    "BackoffCeilingHours": 6,
+    "BatchSize": 10,                         // §6.3's UPDATE TOP (10)
+    "PollSeconds": 30,                       // §6.3's "every ~30s"
+    "LeaseSeconds": 300,                     // reclaim window for a worker that died mid-push
+    "WorkerEnabled": true                    // false in tests; the loop is driven explicitly there
+  },
   "Fake": {                                  // §6.2 failure injection (realized 2026-08-19, slice 1.4)
     "FailureRate": 0.0,                      // [0,1] chance any fake call throws FakeTransientException
     "LatencyMs": 0                           // artificial latency before a fake call completes

@@ -1,7 +1,11 @@
 using Api.Infrastructure;
+using Api.Infrastructure.Cleanup;
 using Api.Integrations;
+using Api.Integrations.Blob;
 using Api.Integrations.Sms;
+using Api.Modules.Media;
 using Api.Modules.PublicSurface;
+using Api.Outbox;
 using Api.Tests.Integrations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -32,6 +36,12 @@ public sealed class ApiFixture : IAsyncLifetime
     public IServiceProvider Services => Factory.Services;
 
     /// <summary>
+    /// For the few tests that need raw ADO rather than EF — the READPAST dequeue has to be driven
+    /// from two real connections with an open transaction on one of them.
+    /// </summary>
+    public string ConnectionString => _connectionString;
+
+    /// <summary>
     /// The live <see cref="PublicLinkOptions"/>, mutable mid-test. Changing a limit only affects
     /// rate-limit partitions created afterwards, so a test that lowers one must also use a fresh
     /// token and a fresh <c>X-Test-Ip</c>.
@@ -48,6 +58,42 @@ public sealed class ApiFixture : IAsyncLifetime
     /// </summary>
     public MutableOptionsMonitor<FakeOptions> Fake =>
         (MutableOptionsMonitor<FakeOptions>)Services.GetRequiredService<IOptionsMonitor<FakeOptions>>();
+
+    /// <summary>
+    /// The live <see cref="OutboxOptions"/>, mutable mid-test — so a retry test can shorten
+    /// <c>MaxAttempts</c> or a concurrency test can widen <c>BatchSize</c> without a second host.
+    /// Restore it in a <c>finally</c> for the same reason <see cref="Fake"/> must be restored.
+    /// </summary>
+    public MutableOptionsMonitor<OutboxOptions> Outbox =>
+        (MutableOptionsMonitor<OutboxOptions>)Services.GetRequiredService<IOptionsMonitor<OutboxOptions>>();
+
+    /// <summary>
+    /// The live <see cref="MediaOptions"/> and <see cref="RetentionOptions"/>, mutable mid-test — so a
+    /// cap or a retention window can be moved without a second host. Restore in a <c>finally</c>, as
+    /// with <see cref="Fake"/>; <c>MediaFlows.WithMediaOptions</c> does it for you.
+    /// </summary>
+    public MutableOptionsMonitor<MediaOptions> Media =>
+        (MutableOptionsMonitor<MediaOptions>)Services.GetRequiredService<IOptionsMonitor<MediaOptions>>();
+
+    public MutableOptionsMonitor<RetentionOptions> Retention =>
+        (MutableOptionsMonitor<RetentionOptions>)Services
+            .GetRequiredService<IOptionsMonitor<RetentionOptions>>();
+
+    /// <summary>
+    /// The §6.3 worker loop body. Tests drive it a pass at a time rather than letting the background
+    /// service tick — see the <c>Outbox__WorkerEnabled</c> note in <see cref="InitializeAsync"/>.
+    /// </summary>
+    public OutboxProcessor OutboxProcessor => Services.GetRequiredService<OutboxProcessor>();
+
+    /// <summary>§7.3's sweeps, driven a pass at a time for exactly the same reason.</summary>
+    public CleanupRunner Cleanup => Services.GetRequiredService<CleanupRunner>();
+
+    /// <summary>
+    /// The transit buffer the booted app actually writes to. <c>Blob:Mode</c> stays `fake`, so the
+    /// whole suite runs without Azurite; <c>BlobStoreContractTests</c> is what exercises the real
+    /// adapter, and only when the emulator is up.
+    /// </summary>
+    public InMemoryBlobStore Blobs => Services.GetRequiredService<InMemoryBlobStore>();
 
     private WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("Fixture not initialized.");
@@ -66,6 +112,17 @@ public sealed class ApiFixture : IAsyncLifetime
         var dbName = $"AxaMotorClaims_Test_{Guid.NewGuid():N}";
         _connectionString = $"Server=(localdb)\\MSSQLLocalDB;Database={dbName};Integrated Security=true";
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", _connectionString);
+
+        // The outbox worker is a registered hosted service, so without this it would tick every 30 s
+        // against the database every test in this serialized collection shares — silently draining
+        // rows the outbox tests are still asserting on. Tests call OutboxProcessor.RunOnce instead,
+        // which is the same code the loop runs, just on the test's schedule.
+        Environment.SetEnvironmentVariable("Outbox__WorkerEnabled", "false");
+
+        // Same trap, same answer (slice 2.3): the cleanup worker is a registered hosted service, and
+        // a live loop would sweep blobs and purge otp_challenge rows the suite is mid-assertion on.
+        // Tests call CleanupRunner.RunOnce, which is the code the loop runs.
+        Environment.SetEnvironmentVariable("Retention__CleanupEnabled", "false");
 
         await using (var db = CreateDbContext())
         {
@@ -89,6 +146,18 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<FakeOptions>>(sp =>
                     new MutableOptionsMonitor<FakeOptions>(
                         sp.GetRequiredService<IOptions<FakeOptions>>().Value)));
+                // And again for the outbox, so a retry test can shorten MaxAttempts in place.
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<OutboxOptions>>(sp =>
+                    new MutableOptionsMonitor<OutboxOptions>(
+                        sp.GetRequiredService<IOptions<OutboxOptions>>().Value)));
+                // And for §7's two: a size cap that a 15 MB upload would otherwise be needed to test,
+                // and retention windows measured in days.
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<MediaOptions>>(sp =>
+                    new MutableOptionsMonitor<MediaOptions>(
+                        sp.GetRequiredService<IOptions<MediaOptions>>().Value)));
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<RetentionOptions>>(sp =>
+                    new MutableOptionsMonitor<RetentionOptions>(
+                        sp.GetRequiredService<IOptions<RetentionOptions>>().Value)));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test
@@ -107,5 +176,7 @@ public sealed class ApiFixture : IAsyncLifetime
         }
 
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", null);
+        Environment.SetEnvironmentVariable("Outbox__WorkerEnabled", null);
+        Environment.SetEnvironmentVariable("Retention__CleanupEnabled", null);
     }
 }

@@ -15,7 +15,8 @@ internal sealed record AssignmentListItemDto(
     string? PlateNo,
     string? InsuredName,
     string? CarMakeModel,
-    DateOnly? AccidentDate);
+    DateOnly? AccidentDate,
+    int MediaCount);
 
 internal sealed record ClaimBodyDto(
     string VisaNo,

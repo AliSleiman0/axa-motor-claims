@@ -31,6 +31,7 @@ app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
 app.MapExpertEndpoints();
+app.MapExpertDocumentEndpoints();
 app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();
 app.MapPublicEndpoints();

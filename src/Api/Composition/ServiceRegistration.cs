@@ -1,6 +1,8 @@
 using System.Text;
 using Api.Infrastructure;
+using Api.Infrastructure.Cleanup;
 using Api.Integrations;
+using Api.Integrations.Blob;
 using Api.Integrations.Email;
 using Api.Integrations.Next3;
 using Api.Integrations.Push;
@@ -8,6 +10,7 @@ using Api.Integrations.Sms;
 using Api.Modules.Audit;
 using Api.Modules.Claims;
 using Api.Modules.Expert;
+using Api.Modules.Media;
 using Api.Modules.Notifications;
 using Api.Modules.PublicSurface;
 using Api.Modules.Users;
@@ -29,6 +32,7 @@ public static class ServiceRegistration
 
         services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
         services.AddHostedService<OutboxWorker>();
+        services.AddHostedService<CleanupWorker>();
 
         services.TryAddSingleton(TimeProvider.System);
 
@@ -36,6 +40,26 @@ public static class ServiceRegistration
 
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
         services.Configure<PublicLinkOptions>(configuration.GetSection(PublicLinkOptions.SectionName));
+        services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
+        services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
+        services.Configure<ClarityOptions>(configuration.GetSection(ClarityOptions.SectionName));
+        services.Configure<RetentionOptions>(configuration.GetSection(RetentionOptions.SectionName));
+        services.Configure<Next3Options>(configuration.GetSection(Next3Options.SectionName));
+
+        // The §6.3 queue. The writer is scoped because it joins the caller's transaction; the
+        // processor is a singleton that opens its own scope per pass (NotificationLog's shape).
+        services.AddScoped<OutboxWriter>();
+        services.AddScoped<OutboxDequeue>();
+        services.AddScoped<OutboxSentQuery>();
+        services.AddSingleton<OutboxProcessor>();
+
+        // §7's media pipeline. The upload service is scoped so its document row, outbox row and audit
+        // row all join one SaveChanges; the cleanup runner is a singleton opening its own scope, like
+        // the outbox processor, and each sweep is registered by the module that owns its data.
+        services.AddScoped<MediaUploadService>();
+        services.AddSingleton<CleanupRunner>();
+        services.AddScoped<ICleanupTask, MediaBlobCleanupTask>();
+        services.AddScoped<ICleanupTask, OtpChallengeCleanupTask>();
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<ClaimCache>();
@@ -100,6 +124,19 @@ public static class ServiceRegistration
         services.Configure<FakeOptions>(configuration.GetSection(FakeOptions.SectionName));
         services.AddSingleton<FakeBehavior>();
         services.AddSingleton<NotificationLog>();
+
+        // The sixth port (§3's Azure Blob, §7.3's transit buffer). Same shape as Next3:Mode: the fake
+        // is the default so nothing — tests included — needs a storage emulator to be running.
+        services.Configure<BlobOptions>(configuration.GetSection(BlobOptions.SectionName));
+        services.AddSingleton<InMemoryBlobStore>();
+        var blobMode = configuration[$"{BlobOptions.SectionName}:Mode"] ?? "fake";
+        services.AddSingleton<IBlobStore>(sp => blobMode switch
+        {
+            "fake" => sp.GetRequiredService<InMemoryBlobStore>(),
+            "azure" => ActivatorUtilities.CreateInstance<AzureBlobStore>(sp),
+            _ => throw new InvalidOperationException(
+                $"Unknown Blob:Mode '{blobMode}'. Expected 'fake' or 'azure' (see CLAUDE.md)."),
+        });
 
         // Senders are singletons and there are no real implementations yet (#7/#40 for SMS, and the
         // email/push providers are equally unanswered). Each fake logs to `notification` (§8).

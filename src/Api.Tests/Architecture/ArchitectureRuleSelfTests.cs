@@ -38,4 +38,14 @@ public class ArchitectureRuleSelfTests
         Assert.False(result.IsSuccessful);
         Assert.Contains(typeof(Fixtures.Rule3.ViolatingPushCaller).FullName!, result.FailingTypeNames);
     }
+
+    [Fact]
+    public void Rule4_SelfTest_DetectsViolation()
+    {
+        var result = ArchitectureRules.OnlyOutboxReferencesOutboxRows(
+            FixtureAssembly, ArchitectureRules.OutboxNamespace);
+
+        Assert.False(result.IsSuccessful);
+        Assert.Contains(typeof(Fixtures.Rule4.ViolatingOutboxRowWriter).FullName!, result.FailingTypeNames);
+    }
 }

@@ -21,6 +21,13 @@ public static class AuditActions
     public const string PublicLinkIssued = "public_link_issued";
     public const string PublicLinkOpened = "public_link_opened";
     public const string PublicLinkSubmitted = "public_link_submitted";
+
+    // §9: "every media upload (who, which claim/declaration/request, when, origin flag)". This is the
+    // InfoSec answer to "who uploaded which photo" — the one audit event the BRD's claims-dispute
+    // scenario actually turns on. document_blob_deleted records §7.3's retention sweep, so a photo
+    // that is no longer in the transit container can still be accounted for.
+    public const string DocumentUploaded = "document_uploaded";
+    public const string DocumentBlobDeleted = "document_blob_deleted";
 }
 
 /// <summary>Entity-kind strings for <see cref="AuditLog.EntityKind"/>.</summary>
@@ -34,4 +41,5 @@ public static class AuditEntityKinds
     public const string BrokerRequest = "broker_request";
     public const string ExpertAssignment = "expert_assignment";
     public const string PublicLinkToken = "public_link_token";
+    public const string Document = "document";
 }
