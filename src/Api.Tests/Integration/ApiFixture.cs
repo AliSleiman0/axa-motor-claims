@@ -80,6 +80,14 @@ public sealed class ApiFixture : IAsyncLifetime
             .GetRequiredService<IOptionsMonitor<RetentionOptions>>();
 
     /// <summary>
+    /// The live <see cref="ClarityOptions"/>, mutable mid-test — so the config endpoint can be proved
+    /// to project configuration rather than a constant baked in at build time (slice 2.5).
+    /// </summary>
+    public MutableOptionsMonitor<ClarityOptions> Clarity =>
+        (MutableOptionsMonitor<ClarityOptions>)Services
+            .GetRequiredService<IOptionsMonitor<ClarityOptions>>();
+
+    /// <summary>
     /// The §6.3 worker loop body. Tests drive it a pass at a time rather than letting the background
     /// service tick — see the <c>Outbox__WorkerEnabled</c> note in <see cref="InitializeAsync"/>.
     /// </summary>
@@ -172,6 +180,11 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<RetentionOptions>>(sp =>
                     new MutableOptionsMonitor<RetentionOptions>(
                         sp.GetRequiredService<IOptions<RetentionOptions>>().Value)));
+                // And for the clarity thresholds, so /api/config/media can be shown to re-read
+                // configuration rather than to have captured it once at startup.
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<ClarityOptions>>(sp =>
+                    new MutableOptionsMonitor<ClarityOptions>(
+                        sp.GetRequiredService<IOptions<ClarityOptions>>().Value)));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test

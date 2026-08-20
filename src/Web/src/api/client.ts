@@ -29,10 +29,16 @@ async function tryRefresh(): Promise<boolean> {
 
 function withBearer(init: RequestInit): RequestInit {
   const tokens = getTokens()
+  // A multipart upload must NOT carry a Content-Type of ours: only the browser knows the boundary
+  // it generated, and a hand-set `multipart/form-data` without one is unparseable — the media
+  // endpoint answers `415 not_multipart`. Handled here rather than in a second fetch helper so the
+  // upload keeps the refresh-and-retry below; a parallel path would quietly lose it, and the
+  // failure would look like a random logout halfway through filling a bucket.
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
   return {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(tokens ? { Authorization: `Bearer ${tokens.accessToken}` } : {}),
       ...init.headers,
     },

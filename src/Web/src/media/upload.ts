@@ -1,0 +1,103 @@
+import { ApiError, api } from '../api/client'
+
+/** design.md §4's provenance flag, kept on every document row and required by Broker Option 1. */
+export type MediaOrigin = 'captured' | 'uploaded'
+
+export interface UploadRequest {
+  /**
+   * The endpoint to post to. A parameter, not a constant, because this module is the one slice 5.1's
+   * garage flow and 5.3's public page reuse — they post the same body to their own owner's route.
+   */
+  path: string
+  bucket: string
+  origin: MediaOrigin
+  file: File
+}
+
+/** The server's 201 body (`DocumentDto`). */
+export interface UploadedDocument {
+  id: string
+  bucket: string
+  docType: string | null
+  origin: MediaOrigin
+  clarityResult: string
+  contentType: string
+  sizeBytes: number
+  pushStatus: string
+  blobRetained: boolean
+  createdAt: string
+}
+
+/**
+ * Builds the multipart body the streamed endpoint requires.
+ *
+ * **The order is the contract.** The upload is streamed and never buffered, so the server has to
+ * know the bucket before the bytes reach storage — a capture-only rule cannot be applied to a file
+ * that has already been written. Metadata parts first, file last; out of order is
+ * `400 metadata_must_precede_file`. `FormData` preserves insertion order, so this function's
+ * statement order *is* the wire order.
+ */
+export function buildUploadBody(bucket: string, origin: MediaOrigin, file: File): FormData {
+  const body = new FormData()
+  body.append('bucket', bucket)
+  body.append('origin', origin)
+  body.append('file', file, file.name)
+  return body
+}
+
+export function uploadDocument({
+  path,
+  bucket,
+  origin,
+  file,
+}: UploadRequest): Promise<UploadedDocument> {
+  return api<UploadedDocument>(path, {
+    method: 'POST',
+    body: buildUploadBody(bucket, origin, file),
+  })
+}
+
+/**
+ * The server's rejection codes (slice 2.3), turned into something an expert at a roadside can act
+ * on. Raw codes are for the log; a person needs to know whether to retake the photo, use a
+ * different file, or stop trying.
+ */
+const UPLOAD_EXPLANATIONS: Record<string, string> = {
+  image_too_small:
+    'AXA refused this photo as too low-resolution. Take it again with the rear camera at full ' +
+    'quality.',
+  file_too_large: 'This file is too large to send. Take the photo again at a normal quality setting.',
+  content_type_not_allowed: 'That file type cannot be sent to this section. Use a photo or a PDF.',
+  content_type_mismatch:
+    'That file is not the type its name claims. Take the photo again rather than attaching a ' +
+    'renamed file.',
+  upload_not_allowed_for_bucket:
+    'Car photos must be taken with the camera now, not chosen from the gallery.',
+  unreadable_image: 'This photo could not be read. Take it again.',
+  file_empty: 'That file is empty. Take the photo again.',
+  file_missing: 'No photo was attached. Take the photo again.',
+}
+
+/** Pulls the `{ "error": "code" }` body the media endpoint returns on a refusal. */
+export function uploadErrorCode(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null
+  try {
+    const parsed: unknown = JSON.parse(error.body)
+    if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) {
+      const code = (parsed as { error: unknown }).error
+      return typeof code === 'string' ? code : null
+    }
+  } catch {
+    // A non-JSON body (a proxy error page, say) is not a code — fall through to the generic text.
+  }
+  return null
+}
+
+export function describeUploadError(error: unknown): string {
+  const code = uploadErrorCode(error)
+  if (code && code in UPLOAD_EXPLANATIONS) return UPLOAD_EXPLANATIONS[code]
+  if (error instanceof ApiError) {
+    return `This photo was not sent (${error.status}). Check the connection and try again.`
+  }
+  return 'This photo was not sent. Check the connection and try again.'
+}

@@ -11,3 +11,14 @@ body {
 main {
   padding: 2rem;
 }
+
+/* design.md §7.2 item 3: the E4 confirm screen shows the candidate full-bleed. The expert is
+   deciding whether this photo is good enough for a claims assessor, which a thumbnail cannot
+   support. Capped in height so Retake and Confirm stay reachable without scrolling on a handset. */
+.capture-preview {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: #000;
+}

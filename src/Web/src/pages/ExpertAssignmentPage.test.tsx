@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AssignmentDetail } from '../expert/api'
+import type { MediaConfig } from '../media/config'
 import { TestQueryProvider } from '../testing/TestQueryProvider'
 import ExpertAssignmentPage from './ExpertAssignmentPage'
 
@@ -28,11 +29,41 @@ const DETAIL: AssignmentDetail = {
   },
 }
 
+const ARRIVED_AT = '2026-08-20T09:30:00'
+
+/** Slice 2.5: E3's panels read §7.2's thresholds and §7.1's rules from the server. */
+const MEDIA_CONFIG: MediaConfig = {
+  clarity: { minWidth: 1024, minHeight: 768, blurVarianceThreshold: 100, blurAnalysisMaxEdge: 512 },
+  maxFileMb: 15,
+  buckets: [
+    { bucket: 'insured_documents', allowUpload: true, contentTypes: ['image/jpeg'] },
+    { bucket: 'insured_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+    { bucket: 'tp_documents', allowUpload: true, contentTypes: ['image/jpeg'] },
+    { bucket: 'tp_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+  ],
+}
+
+/**
+ * E2 issues three GETs since 2.5 — the claim, its documents, and the media config — so the stub has
+ * to answer by route. Only the claim response varies per test; the others are constant.
+ */
+function routed(detail: () => Response = () => json(DETAIL)) {
+  return (url: string): Promise<Response> => {
+    const path = String(url)
+    if (path.endsWith('/api/config/media')) return Promise.resolve(json(MEDIA_CONFIG))
+    if (path.endsWith('/documents')) return Promise.resolve(json([]))
+    if (path.endsWith('/arrival')) {
+      return Promise.resolve(json({ arrivedAt: ARRIVED_AT, latitude: 25.2048, longitude: 55.2708 }))
+    }
+    return Promise.resolve(detail())
+  }
+}
+
 describe('E2 — claim detail', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    fetchMock = vi.fn(() => Promise.resolve(json(DETAIL)))
+    fetchMock = vi.fn(routed())
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -65,13 +96,6 @@ describe('E2 — claim detail', () => {
   it('disables the button after a successful press', async () => {
     // §5.1: "Button disabled after first press."
     allowLocation()
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.endsWith('/arrival')
-          ? json({ arrivedAt: '2026-08-20T09:30:00', latitude: 25.2048, longitude: 55.2708 })
-          : json(DETAIL),
-      ),
-    )
     show()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Arrived' }))
@@ -84,7 +108,7 @@ describe('E2 — claim detail', () => {
 
   it('arrives disabled when the assignment already has an arrival', async () => {
     allowLocation()
-    fetchMock.mockResolvedValue(json({ ...DETAIL, arrivedAt: '2026-08-20T09:30:00' }))
+    fetchMock.mockImplementation(routed(() => json({ ...DETAIL, arrivedAt: ARRIVED_AT })))
     show()
 
     const button = await screen.findByRole('button', { name: 'Arrived' })
@@ -93,14 +117,38 @@ describe('E2 — claim detail', () => {
 
   it('shows the staleness banner with the age of the data', async () => {
     // §4: "if NEXT3 is down, serve stale with a staleness banner".
-    fetchMock.mockResolvedValue(json({ ...DETAIL, claimStatus: 'stale' }))
+    fetchMock.mockImplementation(routed(() => json({ ...DETAIL, claimStatus: 'stale' })))
     show()
 
     expect(await screen.findByText(/NEXT3 is unreachable/)).toBeDefined()
   })
 
+  it('offers all four capture buckets before the expert has arrived', async () => {
+    // §5.1's recorded interpretation, on the screen: Arrived is NOT a precondition for capture. The
+    // diagram implies an order, the BRD never states the gate, and an expert whose GPS is slow must
+    // still be able to photograph the car. DETAIL has `arrivedAt: null`, so this is the ungated case.
+    show()
+
+    expect(await screen.findByText('Insured documents')).toBeDefined()
+    expect(screen.getByText('Insured car photos')).toBeDefined()
+    expect(screen.getByText('Third-party documents')).toBeDefined()
+    expect(screen.getByText('Third-party car photos')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Arrived' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('offers no gallery picker for the car-photo buckets', async () => {
+    // §7.1's capture-only rule, reaching the screen the expert actually uses. Two buckets allow a
+    // file, two do not, so the count is what discriminates.
+    show()
+
+    expect(await screen.findAllByLabelText('Take a photo')).toHaveLength(4)
+    expect(screen.getAllByLabelText('Choose a file')).toHaveLength(2)
+  })
+
   it('calls an outage an outage rather than a missing claim', async () => {
-    fetchMock.mockResolvedValue(new Response('{"error":"next3_unavailable"}', { status: 503 }))
+    fetchMock.mockImplementation(
+      routed(() => new Response('{"error":"next3_unavailable"}', { status: 503 })),
+    )
     show()
 
     expect(await screen.findByText(/NEXT3 is unreachable and this claim has never been loaded/))

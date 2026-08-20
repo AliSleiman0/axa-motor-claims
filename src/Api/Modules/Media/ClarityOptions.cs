@@ -15,4 +15,16 @@ public sealed class ClarityOptions
 
     /// <summary>Client-side only — there is no server-side Laplacian pass (§7.2 item 5 names three checks, not four).</summary>
     public int BlurVarianceThreshold { get; set; } = 100;
+
+    /// <summary>
+    /// The longest edge the client's blur pass runs at, client-side only like the threshold above.
+    ///
+    /// Laplacian variance scales with resolution, so without a fixed analysis size the same photo
+    /// scores differently on a 12 MP and a 48 MP handset and <see cref="BlurVarianceThreshold"/>
+    /// would mean a different thing on every device in the expert network. It lives here rather than
+    /// as a constant in the web app so the two values move together when #9 is answered — a
+    /// threshold is meaningless without the scale it was measured at. The resolution floor above is
+    /// still applied to the image's native dimensions, which is what this server re-checks.
+    /// </summary>
+    public int BlurAnalysisMaxEdge { get; set; } = 512;
 }

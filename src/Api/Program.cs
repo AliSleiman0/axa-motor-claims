@@ -1,6 +1,7 @@
 using Api.Composition;
 using Api.Modules.Broker;
 using Api.Modules.Expert;
+using Api.Modules.Media;
 using Api.Modules.PublicSurface;
 using Api.Modules.Users;
 
@@ -26,6 +27,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapMediaConfigEndpoints();
 app.MapAuthEndpoints();
 app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();

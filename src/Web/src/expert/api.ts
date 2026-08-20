@@ -47,10 +47,37 @@ export interface Arrival {
   longitude: number | null
 }
 
+/** A document as E3 lists it — the API's `DocumentDto` (slice 2.3). */
+export interface AssignmentDocument {
+  id: string
+  bucket: string
+  docType: string | null
+  origin: 'captured' | 'uploaded'
+  clarityResult: string
+  contentType: string
+  sizeBytes: number
+  pushStatus: string
+  blobRetained: boolean
+  createdAt: string
+}
+
 export const expertKeys = {
   all: ['expert', 'assignments'] as const,
   list: () => [...expertKeys.all, 'list'] as const,
   detail: (assignmentId: string) => [...expertKeys.all, 'detail', assignmentId] as const,
+  documents: (assignmentId: string) => [...expertKeys.all, 'documents', assignmentId] as const,
+}
+
+/** E3's upload target (slice 2.3). Also the path the capture component posts to. */
+export function documentsPath(assignmentId: string): string {
+  return `/api/expert/assignments/${assignmentId}/documents`
+}
+
+export function listDocuments(
+  assignmentId: string,
+  signal?: AbortSignal,
+): Promise<AssignmentDocument[]> {
+  return api<AssignmentDocument[]>(documentsPath(assignmentId), { signal })
 }
 
 export function listAssignments(signal?: AbortSignal): Promise<AssignmentListItem[]> {

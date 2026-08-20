@@ -1,10 +1,16 @@
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { formatDateTime } from '../api/datetime'
-import type { AssignmentDetail } from '../expert/api'
+import { documentsPath, type AssignmentDetail } from '../expert/api'
 import { GEOLOCATION_EXPLANATIONS } from '../expert/geolocation'
 import { useArrived } from '../expert/useArrived'
-import { useAssignment } from '../expert/useAssignments'
+import {
+  useAssignment,
+  useAssignmentDocuments,
+  useRefreshAfterCapture,
+} from '../expert/useAssignments'
+import { CapturePanel } from '../media/CapturePanel'
+import { useMediaConfig } from '../media/useMediaConfig'
 
 /** E2 (design.md §5.1): claim detail plus the Arrived button. */
 export default function ExpertAssignmentPage() {
@@ -44,8 +50,54 @@ function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
       {/*
         Nothing below the Arrived panel may be gated on arrival. §5.1's recorded interpretation:
         the diagram implies an order, the BRD never states the gate, and an expert whose GPS is slow
-        must not be blocked from photographing the car. Slice 2.5's capture UI lands here.
+        must not be blocked from photographing the car. Note the capture section below takes no
+        arrival prop at all — the guarantee is structural, not a condition someone can flip.
       */}
+      <CaptureSection assignmentId={assignmentId} />
+    </section>
+  )
+}
+
+/** §7.1's four expert buckets. `expert_report` is E5 and belongs to slice 3.2. */
+const EXPERT_BUCKETS = [
+  { bucket: 'insured_documents', label: 'Insured documents' },
+  { bucket: 'insured_car_photo', label: 'Insured car photos' },
+  { bucket: 'tp_documents', label: 'Third-party documents' },
+  { bucket: 'tp_car_photo', label: 'Third-party car photos' },
+]
+
+/** E3 (design.md §5.1): the four buckets, each through §7.2's clarity gate. */
+function CaptureSection({ assignmentId }: { assignmentId: string }) {
+  const { data: config, error } = useMediaConfig()
+  const { data: documents } = useAssignmentDocuments(assignmentId)
+  const refresh = useRefreshAfterCapture(assignmentId)
+  const path = documentsPath(assignmentId)
+
+  if (error) {
+    return (
+      <section>
+        <h3>Photos and documents</h3>
+        <p role="alert">
+          Photo quality settings could not be loaded, so nothing can be sent yet. Reload the page.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      <h3>Photos and documents</h3>
+      {EXPERT_BUCKETS.map((entry) => (
+        <CapturePanel
+          key={entry.bucket}
+          path={path}
+          bucket={entry.bucket}
+          label={entry.label}
+          config={config}
+          count={documents?.filter((document) => document.bucket === entry.bucket).length}
+          onUploaded={refresh}
+        />
+      ))}
     </section>
   )
 }

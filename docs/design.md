@@ -353,13 +353,15 @@ Enforcement: in the Capacitor shell, capture-only buckets call the native camera
 ### 7.2 Clarity gate (the BRD's "image visibility and voice clarity must be ensured")
 
 Client-side, before upload — **not ML** (#9):
-1. Resolution floor: min dimensions (`Clarity.MinWidth/MinHeight` placeholders).
-2. Blur check: grayscale → Laplacian convolution → variance; below `Clarity.BlurVarianceThreshold` → retry prompt with re-capture.
+1. Resolution floor: min dimensions (`Clarity.MinWidth/MinHeight` placeholders), measured at the image's **native** size.
+2. Blur check: grayscale → Laplacian convolution → variance; below `Clarity.BlurVarianceThreshold` → retry prompt with re-capture. **Run at a fixed analysis scale, `Clarity.BlurAnalysisMaxEdge` (realized 2026-08-20, slice 2.5)** — variance scales with resolution, so without a fixed edge the same photo scores differently on a 12 MP and a 48 MP handset and the threshold means a different thing on every device. The pair is meaningless apart, so the scale is a placeholder key beside the threshold rather than a constant in the web code. The decoder therefore returns native dimensions plus a *bounded* pixel buffer: one RGBA array for a 48 MP photo is ~192 MB, which kills the tab on the handset of an expert standing at a crash site.
 3. User confirm screen (E4) showing the image full-bleed with Retake / Confirm.
 4. Voice notes: playback-confirm only (§1).
 5. Server re-validates dimensions, size, and content type on every upload (the client check is UX, not security — mandatory on the public surface).
 
-Applies at every media entry point, uploads included, per the BRD's "all profile steps".
+Applies at every media entry point, uploads included, per the BRD's "all profile steps" — with one recorded exception: **PDFs skip items 1–2**, having neither dimensions nor blur, and are stored `clarity_result = not_applicable`. A file-picked *image* is still gated; "uploads included" is about provenance, not file type.
+
+**The thresholds reach the browser over `GET /api/config/media`** (anonymous, realized 2026-08-20, slice 2.5), which also serves `Media.MaxFileMb` and §7.1's bucket rows. A client-side gate needs client-side values, and CLAUDE.md's placeholder rule names thresholds explicitly — hardcoding them in TypeScript would be both a placeholder violation and a second source of truth that drifts from the values the server rejects uploads with. Anonymous because §5.3's public page runs the same gate with no token; it is outside `/public/*`, so §9.1's rate limits do not cover it, which is acceptable only because it touches no database and no user.
 
 ### 7.3 Blob lifecycle
 
@@ -546,10 +548,11 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
       "PerTokenPermitsPerMinute": 20
     }
   },
-  "Clarity": {                               // (#9)
+  "Clarity": {                               // (#9); served to the browser by GET /api/config/media
     "MinWidth": 1024,
     "MinHeight": 768,
-    "BlurVarianceThreshold": 100
+    "BlurVarianceThreshold": 100,
+    "BlurAnalysisMaxEdge": 512               // the scale that threshold is measured at (slice 2.5)
   },
   "Auth": {
     "OtpTtlMinutes": 5,
