@@ -40,6 +40,9 @@ const MEDIA_CONFIG: MediaConfig = {
     { bucket: 'insured_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
     { bucket: 'tp_documents', allowUpload: true, contentTypes: ['image/jpeg'] },
     { bucket: 'tp_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+    // Slice 3.1's two. Neither exists as a file to pick, so neither allows upload.
+    { bucket: 'voice_note', allowUpload: false, contentTypes: ['audio/webm', 'audio/mp4'] },
+    { bucket: 'damage_diagram', allowUpload: false, contentTypes: ['image/png'] },
   ],
 }
 
@@ -139,6 +142,34 @@ describe('E2 — claim detail', () => {
   it('offers no gallery picker for the car-photo buckets', async () => {
     // §7.1's capture-only rule, reaching the screen the expert actually uses. Two buckets allow a
     // file, two do not, so the count is what discriminates.
+    show()
+
+    expect(await screen.findAllByLabelText('Take a photo')).toHaveLength(4)
+    expect(screen.getAllByLabelText('Choose a file')).toHaveLength(2)
+  })
+
+  it('offers the voice note and the damage diagram, also ungated on arrival', async () => {
+    // Slice 3.1's two artifacts sit under the same section as the four buckets and take no arrival
+    // prop either — §5.1's ungated-capture interpretation is structural, not a condition to flip.
+    show()
+
+    // Awaited on the control, not the heading: the heading renders while the media config is still
+    // in flight, so finding it proves only that the panel exists, not that it became usable.
+    expect(await screen.findByRole('button', { name: 'Record a voice note' })).toBeDefined()
+
+    // Matched loosely because both headings carry a media count once the document list lands —
+    // "Voice note (0)". An exact match here passes or fails on which query resolved first.
+    expect(screen.getByRole('heading', { name: /^Voice note/ })).toBeDefined()
+    expect(screen.getByRole('heading', { name: /^Damage diagram/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Use this diagram' })).toBeDefined()
+    expect(screen.getByRole('checkbox', { name: 'Bonnet' })).toBeDefined()
+
+    expect(screen.getByRole('button', { name: 'Arrived' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('offers no file picker for either in-app artifact', async () => {
+    // Both are produced by the app, so the count of pickers must not move: still the two document
+    // buckets and nothing else.
     show()
 
     expect(await screen.findAllByLabelText('Take a photo')).toHaveLength(4)

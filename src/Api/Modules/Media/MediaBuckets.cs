@@ -10,6 +10,13 @@ public enum MediaKind
 
     /// <summary>Images or PDFs; there are no dimensions to check on a PDF.</summary>
     Document,
+
+    /// <summary>
+    /// Audio only (§7.2 item 4 — the voice note). No dimensions and no blur: the gate for these is a
+    /// playback-confirm by a person, so the row records <c>not_applicable</c>. Acceptance is #10 and
+    /// unanswered, which is why the allow-list is a placeholder key rather than a literal.
+    /// </summary>
+    Audio,
 }
 
 /// <summary>
@@ -46,6 +53,8 @@ public static class MediaBuckets
     public const string TpDocuments = "tp_documents";
     public const string TpCarPhoto = "tp_car_photo";
     public const string ExpertReport = "expert_report";
+    public const string VoiceNote = "voice_note";
+    public const string DamageDiagram = "damage_diagram";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
@@ -72,6 +81,21 @@ public static class MediaBuckets
             [ExpertReport] = new(
                 ExpertReport, DocumentOwnerKinds.Assignment, AllowUpload: true,
                 "ExpertReport", MediaKind.Document, Next3Folders.ExpertDocuments),
+
+            // §5.1's voice note and damage diagram (slice 3.1). Both land in *Expert documents* like
+            // everything else the expert produces, and both are `AllowUpload: false` — not because
+            // §7.1 marks them capture-only, but because they are produced inside the app and there is
+            // no file to pick. An `origin: uploaded` on either is a client that has gone wrong.
+            [VoiceNote] = new(
+                VoiceNote, DocumentOwnerKinds.Assignment, AllowUpload: false,
+                "VoiceNote", MediaKind.Audio, Next3Folders.ExpertDocuments),
+
+            // Image, deliberately: the diagram is a canvas export, so §7.2's *server* resolution
+            // floor applies to it exactly as it does to a photograph. That is what the web module's
+            // fixed 1600x1200 render exists to clear.
+            [DamageDiagram] = new(
+                DamageDiagram, DocumentOwnerKinds.Assignment, AllowUpload: false,
+                "DamageDiagram", MediaKind.Image, Next3Folders.ExpertDocuments),
         };
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>

@@ -30,10 +30,23 @@ export function ClarityConfirm({
   // browser, not by the suite (slice 2.5).
   const isImage = file.type.startsWith('image/')
 
+  // §7.2 item 4: "Voice notes: playback-confirm only". This control *is* the gate for a voice note —
+  // there is no signal analysis anywhere in this application (§1), so the expert hearing the
+  // recording is the entire check, and a filename would confirm nothing (slice 3.1).
+  const isAudio = file.type.startsWith('audio/')
+
   return (
     <div>
       {isImage ? (
         <img className="capture-preview" src={previewUrl} alt="The photo about to be sent to AXA" />
+      ) : isAudio ? (
+        <div>
+          <p>
+            Listen before sending: <strong>{file.name}</strong>
+          </p>
+          {/* No caption track: §1 excludes voice transcription from scope entirely. */}
+          <audio controls src={previewUrl} />
+        </div>
       ) : (
         <p>
           Ready to send: <strong>{file.name}</strong>

@@ -180,12 +180,18 @@ public sealed class MediaUploadService(
 
             var contentCheck = MediaValidation.CheckContent(
                 rule, section.ContentType, prefix.AsSpan(0, prefixLength),
-                media, clarityOptions.CurrentValue, out var clarityResult);
+                media, clarityOptions.CurrentValue, out var validated, out var clarityResult);
 
             if (contentCheck != MediaRejection.None)
             {
                 return Refuse(contentCheck);
             }
+
+            // Non-null once the check has accepted: a null type cannot pass the allow-list. From here
+            // on this is the only content type in play — `section.ContentType` may carry parameters
+            // (`audio/webm;codecs=opus`), and the blob, the row and the NEXT3 payload must all record
+            // the value that was actually validated.
+            var contentType = validated!;
 
             // Resolved before the PUT, deliberately: a missing placeholder key is a configuration
             // error, and discovering it afterwards would leave a stray blob behind on every single
@@ -193,7 +199,7 @@ public sealed class MediaUploadService(
             var docType = ResolveDocType(rule);
 
             var documentId = Guid.CreateVersion7();
-            var blobKey = BlobKey(target, documentId, section.ContentType!);
+            var blobKey = BlobKey(target, documentId, contentType);
 
             // The counting stream wraps the replayed prefix as well as the remainder, so the cap
             // covers the whole file and BytesRead is its true size.
@@ -202,7 +208,7 @@ public sealed class MediaUploadService(
 
             try
             {
-                await blobs.Put(blobKey, limited, section.ContentType!, ct);
+                await blobs.Put(blobKey, limited, contentType, ct);
             }
             catch (Exception ex) when (IsTooLarge(ex))
             {
@@ -213,7 +219,7 @@ public sealed class MediaUploadService(
             }
 
             var document = await Record(
-                documentId, blobKey, limited.BytesRead, section.ContentType!, disposition,
+                documentId, blobKey, limited.BytesRead, contentType, disposition,
                 rule, docType, origin, clarityResult, target, ct);
 
             return MediaUploadOutcome.Created(document);
@@ -341,6 +347,10 @@ public sealed class MediaUploadService(
         ImageHeader.Jpeg => ".jpg",
         ImageHeader.Png => ".png",
         ImageHeader.Pdf => ".pdf",
+        AudioHeader.Webm => ".webm",
+        // .m4a rather than .mp4: an audio-only ISO base-media file, which is what a voice note is.
+        AudioHeader.Mp4 => ".m4a",
+        AudioHeader.Ogg => ".ogg",
         _ => ".bin",
     };
 

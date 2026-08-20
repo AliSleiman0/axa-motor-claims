@@ -342,6 +342,8 @@ If #5 resolves to "shared directory + DB inserts" instead of an API, `RealNext3C
 | Expert | TP Documents | yes | yes |
 | Expert | TP Car Photo | **no** | yes |
 | Expert | Report / voice / diagram | yes (report) / n-a | n-a / yes |
+| Expert | Voice note (`voice_note`) — realized slice 3.1 | **no** | recorded in-app |
+| Expert | Damage diagram (`damage_diagram`) — realized slice 3.1 | **no** | drawn in-app |
 | Garage | Documents (survey, discharge, invoice) | yes | yes |
 | Garage | Car photos (declaration + repair) | **no** | yes |
 | Broker Option 1 | Photos + documents | yes (kill-switch `Broker.AllowUpload`) | yes |
@@ -360,6 +362,8 @@ Client-side, before upload — **not ML** (#9):
 5. Server re-validates dimensions, size, and content type on every upload (the client check is UX, not security — mandatory on the public surface).
 
 Applies at every media entry point, uploads included, per the BRD's "all profile steps" — with one recorded exception: **PDFs skip items 1–2**, having neither dimensions nor blur, and are stored `clarity_result = not_applicable`. A file-picked *image* is still gated; "uploads included" is about provenance, not file type.
+
+**The two slice-3.1 artifacts skip the blur pass for the same reason, from opposite directions** (realized 2026-08-20). A **voice note** is item 4's playback-confirm — no dimensions, no focus, `clarity_result = not_applicable`; the server verifies only that the bytes are the container they were declared to be (containers, not codecs: `MediaRecorder` emits `audio/webm;codecs=opus` on Chrome and `audio/mp4` on Safari, so the declared type is normalised to its media type before the allow-list compare and the *validated* value is the one stored, on the row, the blob and the NEXT3 payload alike). A **damage diagram** is a canvas export: it is an image and item 1's floor applies to it server-side exactly as to a photograph — which is why the web module renders at a fixed size above the floor — but item 2 does not, because a vector drawing has no focus to measure and scoring one against `BlurVarianceThreshold` would tell an expert to hold the phone steadier. The client hook therefore takes a `photographic` flag, defaulted true, rather than deciding from the MIME type alone.
 
 **The thresholds reach the browser over `GET /api/config/media`** (anonymous, realized 2026-08-20, slice 2.5), which also serves `Media.MaxFileMb` and §7.1's bucket rows. A client-side gate needs client-side values, and CLAUDE.md's placeholder rule names thresholds explicitly — hardcoding them in TypeScript would be both a placeholder violation and a second source of truth that drifts from the values the server rejects uploads with. Anonymous because §5.3's public page runs the same gate with no token; it is outside `/public/*`, so §9.1's rate limits do not cover it, which is acceptable only because it touches no database and no user.
 
@@ -578,7 +582,10 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
   "Media": {                                 // §7.2 item 5's server-side re-validation
     "MaxFileMb": 15,
     "ImageContentTypes": [ "image/jpeg", "image/png" ],
-    "DocumentContentTypes": [ "image/jpeg", "image/png", "application/pdf" ]
+    "DocumentContentTypes": [ "image/jpeg", "image/png", "application/pdf" ],
+    // (#10) realized 2026-08-20, slice 3.1. Also the list the browser's recorder picks its format
+    // from, so no audio format literal is ever written into TypeScript.
+    "AudioContentTypes": [ "audio/webm", "audio/mp4", "audio/ogg" ]
   },
   "Retention": {                             // (#4); the last four realized 2026-08-20, slice 2.3
     "BlobDays": 7,

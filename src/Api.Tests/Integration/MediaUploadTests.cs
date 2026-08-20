@@ -308,6 +308,151 @@ public sealed class MediaUploadTests(ApiFixture fixture)
         Assert.Equal(2, list!.Single(a => a.Id == assignment).MediaCount);
     }
 
+    // ---- slice 3.1: the voice note and the damage diagram, through this same pipeline ----
+
+    [Fact]
+    public async Task AVoiceNote_LandsInExpertDocuments_WithNoClarityVerdict()
+    {
+        var (expert, assignment, visa) = await Arrange();
+
+        var response = await MediaFlows.UploadVoiceNote(expert.Client, assignment);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<DocumentBodyDto>();
+        var document = await fixture.DocumentRow(body!.Id);
+
+        Assert.Equal(MediaBuckets.VoiceNote, document.Bucket);
+        Assert.Equal(DocumentOrigins.Captured, document.Origin);
+
+        // §7.2 item 4: the gate for a voice note is a person pressing play, so there is no verdict.
+        Assert.Equal(ClarityResults.NotApplicable, document.ClarityResult);
+
+        // The codec parameter the browser sends is stripped — and the stored value is the one that
+        // was validated, so the row, the blob and the NEXT3 payload all say the same thing.
+        Assert.Equal(AudioHeader.Webm, document.ContentType);
+        Assert.EndsWith(".webm", document.BlobKey, StringComparison.Ordinal);
+
+        Assert.Equal("PLACEHOLDER-DOC-06", document.DocType);
+
+        var message = await fixture.OutboxRowFor(document.Id);
+        Assert.Equal(Next3OutboxOperations.UploadDocument, message.Operation);
+        Assert.Equal(visa, message.VisaNo);
+        Assert.Contains("Expert documents", message.Payload, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("audio/mp4")]
+    [InlineData("audio/ogg")]
+    public async Task AVoiceNote_MayBeAnyContainerTheRecorderProduces(string contentType)
+    {
+        // Chrome emits WebM and Safari emits MP4; #10 has not said which NEXT3 will take, so the
+        // server accepts every container the placeholder list names rather than picking one for AXA.
+        var (expert, assignment, _) = await Arrange();
+
+        var audio = contentType == AudioHeader.Mp4 ? TestAudio.Mp4() : TestAudio.Ogg();
+        var response = await MediaFlows.UploadVoiceNote(expert.Client, assignment, audio, contentType);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<DocumentBodyDto>();
+        Assert.Equal(contentType, body!.ContentType);
+    }
+
+    [Fact]
+    public async Task AVoiceNote_DeclaredAsTheWrongContainer_IsCaughtByItsBytes()
+    {
+        var (expert, assignment, _) = await Arrange();
+
+        var response = await MediaFlows.UploadVoiceNote(
+            expert.Client, assignment, TestAudio.Ogg(), AudioHeader.Mp4);
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+        await AssertError(response, "content_type_mismatch");
+        Assert.Equal(0, await fixture.DocumentCountFor(assignment));
+    }
+
+    [Fact]
+    public async Task ADamageDiagram_IsJudgedAsAnImage()
+    {
+        var (expert, assignment, _) = await Arrange();
+
+        var response = await MediaFlows.UploadDiagram(expert.Client, assignment);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<DocumentBodyDto>();
+        var document = await fixture.DocumentRow(body!.Id);
+
+        Assert.Equal(MediaBuckets.DamageDiagram, document.Bucket);
+
+        // A canvas export is still an image: §7.2's floor applies to it server-side, and the web
+        // module's fixed render size is what clears it.
+        Assert.Equal(ClarityResults.Passed, document.ClarityResult);
+        Assert.Equal("PLACEHOLDER-DOC-07", document.DocType);
+        Assert.EndsWith(".png", document.BlobKey, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ADamageDiagram_BelowTheFloor_IsRefused()
+    {
+        var (expert, assignment, _) = await Arrange();
+
+        var response = await MediaFlows.UploadDiagram(
+            expert.Client, assignment, TestImages.Png(640, 480));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertError(response, "image_too_small");
+    }
+
+    [Theory]
+    [InlineData(MediaBuckets.VoiceNote)]
+    [InlineData(MediaBuckets.DamageDiagram)]
+    public async Task TheInAppBuckets_RefuseAFilePickedByTheUser(string bucket)
+    {
+        // Neither artifact exists as a file the expert could choose — both are produced by the app.
+        // An `origin: uploaded` on these is a client that has gone wrong, not a user decision.
+        var (expert, assignment, _) = await Arrange();
+
+        var file = bucket == MediaBuckets.VoiceNote ? TestAudio.Webm() : TestImages.Png(1600, 1200);
+        var contentType = bucket == MediaBuckets.VoiceNote ? AudioHeader.Webm : ImageHeader.Png;
+
+        var response = await MediaFlows.Upload(
+            expert.Client,
+            assignment,
+            MediaFlows.Multipart(bucket, DocumentOrigins.Uploaded, file, contentType, "PLACEHOLDER-picked"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertError(response, "upload_not_allowed_for_bucket");
+        Assert.Equal(0, await fixture.DocumentCountFor(assignment));
+    }
+
+    [Fact]
+    public async Task AnImageIntoTheVoiceBucket_AndAudioIntoAPhotoBucket_AreBothRefused()
+    {
+        // The cross-kind pair. Either one succeeding would put a file into NEXT3 under a document
+        // type that describes something else entirely.
+        var (expert, assignment, _) = await Arrange();
+
+        var image = await MediaFlows.Upload(
+            expert.Client,
+            assignment,
+            MediaFlows.Multipart(
+                MediaBuckets.VoiceNote, DocumentOrigins.Captured, TestImages.Jpeg(1600, 1200)));
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, image.StatusCode);
+        await AssertError(image, "content_type_not_allowed");
+
+        var audio = await MediaFlows.Upload(
+            expert.Client,
+            assignment,
+            MediaFlows.Multipart(
+                MediaBuckets.InsuredCarPhoto, DocumentOrigins.Captured, TestAudio.Webm(),
+                AudioHeader.Webm, "PLACEHOLDER-voice-note.webm"));
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, audio.StatusCode);
+        await AssertError(audio, "content_type_not_allowed");
+
+        Assert.Equal(0, await fixture.DocumentCountFor(assignment));
+    }
+
     /// <summary>An expert with a claim and an assignment, delivered through the real 2.1 path.</summary>
     private async Task<(MappedExpert Expert, Guid Assignment, string Visa)> Arrange()
     {

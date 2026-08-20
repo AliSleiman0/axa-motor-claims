@@ -32,6 +32,10 @@ function pdfFile() {
   return new File([new Uint8Array([1])], 'PLACEHOLDER-report.pdf', { type: 'application/pdf' })
 }
 
+function voiceFile() {
+  return new File([new Uint8Array([1])], 'voice-note-abcd1234.webm', { type: 'audio/webm;codecs=opus' })
+}
+
 describe('ClarityConfirm (E4)', () => {
   it('shows the photo full-bleed with its verdict', () => {
     // §7.2 item 3: the expert is deciding whether this photo is good enough for a claims assessor.
@@ -53,6 +57,22 @@ describe('ClarityConfirm (E4)', () => {
 
     expect(container.querySelector('img')).toBeNull()
     expect(screen.getByText('PLACEHOLDER-report.pdf')).toBeDefined()
+    expect(screen.queryByText(/sharpness/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeDefined()
+  })
+
+  it('gives a voice note a player, because playback is the whole gate', () => {
+    // §7.2 item 4 makes the voice check a playback-confirm and nothing more (§1 rules out any signal
+    // analysis). Naming the file — which is what a PDF gets — would confirm nothing: an expert
+    // cannot tell a recording of the damage from thirty seconds of road noise by its filename.
+    const { container } = show(voiceFile(), null)
+
+    const audio = container.querySelector('audio')
+    expect(audio).not.toBeNull()
+    expect(audio?.getAttribute('src')).toBe('blob:PLACEHOLDER')
+    expect(audio?.hasAttribute('controls')).toBe(true)
+
+    expect(container.querySelector('img')).toBeNull()
     expect(screen.queryByText(/sharpness/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeDefined()
   })

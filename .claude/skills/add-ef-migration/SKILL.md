@@ -12,7 +12,7 @@ Add an EF Core migration named in $ARGUMENTS (PascalCase, e.g. `AddDeclarationTa
    - New foreign keys have indexes; new state/enum columns have their check constraint.
    - No unintended column type or nullability changes (EF sometimes rewrites more than the change you made).
    - `next3_outbox` must remain byte-compatible with design.md §4 — its schema is contractual.
-3. Apply locally: `dotnet ef database update --project src/Api`
-4. Run `dotnet test`.
-5. **Never hand-edit a migration that has already been applied anywhere** — add a new migration instead.
-6. For a deeper check on risky migrations, ask the `db-reviewer` agent to audit the file.
+3. **Run the `db-reviewer` agent on the generated migration + snapshot — every migration, not just risky ones.** It found the worst bug in three of the first four migration slices (the outbox two-owner window, the retention sweep's batch commit, the `DateOnly` arrival split), each one invisible to the tests. Fix its findings before applying; regenerate rather than stack if the migration is still uncommitted.
+4. Apply locally: `dotnet ef database update --project src/Api`
+5. Run `dotnet test`.
+6. **Never hand-edit a migration that has already been applied anywhere** — add a new migration instead.

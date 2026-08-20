@@ -50,6 +50,10 @@ function pdfFile() {
   return new File([new Uint8Array([1, 2, 3])], 'PLACEHOLDER-doc.pdf', { type: 'application/pdf' })
 }
 
+function pngFile() {
+  return new File([new Uint8Array([1, 2, 3])], 'damage-diagram-abcd1234.png', { type: 'image/png' })
+}
+
 describe('useCapture', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
@@ -163,6 +167,33 @@ describe('useCapture', () => {
     await waitFor(() => expect(result.current.stage).toBe('confirm'))
     expect(result.current.candidate?.verdict).toBeNull()
     expect(decode).not.toHaveBeenCalled()
+  })
+
+  it('skips the gate for an image that is not a photograph', async () => {
+    // The damage diagram (slice 3.1). It is a PNG, so the MIME type alone would send it through the
+    // blur pass — and a vector drawing has no focus to measure, so a low variance would refuse a
+    // perfectly good diagram while advising the expert to hold the phone still. The server still
+    // applies §7.2's resolution floor to it, which is what the fixed render size is for.
+    const decode = vi.fn(decoderFor(1600, 1200, true))
+    const { result } = render({ decode })
+
+    act(() => result.current.select(pngFile(), 'captured', { photographic: false }))
+
+    await waitFor(() => expect(result.current.stage).toBe('confirm'))
+    expect(result.current.candidate?.verdict).toBeNull()
+    expect(decode).not.toHaveBeenCalled()
+  })
+
+  it('still gates a photograph when no options are passed', async () => {
+    // The default has to stay `true`, or slice 5.1's garage flow and 5.3/6.1's public page silently
+    // lose the gate the moment they call `select` the way every existing caller does.
+    const decode = vi.fn(decoderFor(1600, 1200, false))
+    const { result } = render({ decode })
+
+    act(() => result.current.select(imageFile(), 'captured'))
+
+    await waitFor(() => expect(result.current.stage).toBe('rejected'))
+    expect(decode).toHaveBeenCalledTimes(1)
   })
 
   it('issues one request when Confirm is pressed twice in the same tick', async () => {

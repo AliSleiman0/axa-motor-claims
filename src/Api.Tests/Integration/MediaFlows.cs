@@ -46,7 +46,10 @@ internal static class MediaFlows
             }
 
             var part = new ByteArrayContent(file);
-            part.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            // Parse, not the constructor: the constructor rejects anything carrying parameters, and
+            // a browser's `MediaRecorder` sends `audio/webm;codecs=opus` (slice 3.1). A helper that
+            // could not express what a real client sends would test the wrong thing.
+            part.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
             content.Add(part, "file", fileName);
         }
 
@@ -85,6 +88,30 @@ internal static class MediaFlows
             assignmentId,
             Multipart(
                 MediaBuckets.InsuredCarPhoto, DocumentOrigins.Captured, image ?? TestImages.Jpeg(1600, 1200)));
+
+    /// <summary>
+    /// A voice note as a browser actually sends one — <c>MediaRecorder</c> stamps its codec on the
+    /// blob, so the codec parameter is the default here rather than a special case (slice 3.1).
+    /// </summary>
+    public static Task<HttpResponseMessage> UploadVoiceNote(
+        HttpClient client, Guid assignmentId, byte[]? audio = null,
+        string contentType = "audio/webm;codecs=opus") =>
+        Upload(
+            client,
+            assignmentId,
+            Multipart(
+                MediaBuckets.VoiceNote, DocumentOrigins.Captured, audio ?? TestAudio.Webm(),
+                contentType, "PLACEHOLDER-voice-note.webm"));
+
+    /// <summary>A damage diagram: a canvas export, above §7.2's floor (slice 3.1).</summary>
+    public static Task<HttpResponseMessage> UploadDiagram(
+        HttpClient client, Guid assignmentId, byte[]? png = null) =>
+        Upload(
+            client,
+            assignmentId,
+            Multipart(
+                MediaBuckets.DamageDiagram, DocumentOrigins.Captured, png ?? TestImages.Png(1600, 1200),
+                ImageHeader.Png, "PLACEHOLDER-damage-diagram.png"));
 
     public static async Task<Document> DocumentRow(this ApiFixture fixture, Guid documentId)
     {
@@ -140,6 +167,7 @@ internal static class MediaFlows
         var patched = new MediaOptions { MaxFileMb = original.MaxFileMb };
         Copy(original.ImageContentTypes, patched.ImageContentTypes);
         Copy(original.DocumentContentTypes, patched.DocumentContentTypes);
+        Copy(original.AudioContentTypes, patched.AudioContentTypes);
         configure(patched);
 
         fixture.Media.CurrentValue = patched;

@@ -10,6 +10,8 @@ import {
   useRefreshAfterCapture,
 } from '../expert/useAssignments'
 import { CapturePanel } from '../media/CapturePanel'
+import { VoicePanel } from '../media/VoicePanel'
+import { DiagramPanel } from '../media/diagram/DiagramPanel'
 import { useMediaConfig } from '../media/useMediaConfig'
 
 /** E2 (design.md §5.1): claim detail plus the Arrived button. */
@@ -66,6 +68,10 @@ const EXPERT_BUCKETS = [
   { bucket: 'tp_car_photo', label: 'Third-party car photos' },
 ]
 
+/** §5.1's other two expert artifacts (slice 3.1) — neither is a file the expert picks. */
+const VOICE_BUCKET = 'voice_note'
+const DIAGRAM_BUCKET = 'damage_diagram'
+
 /** E3 (design.md §5.1): the four buckets, each through §7.2's clarity gate. */
 function CaptureSection({ assignmentId }: { assignmentId: string }) {
   const { data: config, error } = useMediaConfig()
@@ -84,6 +90,9 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
     )
   }
 
+  const countFor = (bucket: string) =>
+    documents?.filter((document) => document.bucket === bucket).length
+
   return (
     <section>
       <h3>Photos and documents</h3>
@@ -94,10 +103,28 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
           bucket={entry.bucket}
           label={entry.label}
           config={config}
-          count={documents?.filter((document) => document.bucket === entry.bucket).length}
+          count={countFor(entry.bucket)}
           onUploaded={refresh}
         />
       ))}
+
+      <VoicePanel
+        path={path}
+        bucket={VOICE_BUCKET}
+        label="Voice note"
+        config={config}
+        count={countFor(VOICE_BUCKET)}
+        onUploaded={refresh}
+      />
+
+      <DiagramPanel
+        path={path}
+        bucket={DIAGRAM_BUCKET}
+        label="Damage diagram"
+        config={config}
+        count={countFor(DIAGRAM_BUCKET)}
+        onUploaded={refresh}
+      />
     </section>
   )
 }

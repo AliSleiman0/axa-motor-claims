@@ -21,6 +21,20 @@ public sealed class MediaOptions
     /// <summary>Accepted for <see cref="MediaKind.Document"/> buckets: images plus documents.</summary>
     public IList<string> DocumentContentTypes { get; } = [];
 
-    public IList<string> AllowedFor(MediaKind kind) =>
-        kind == MediaKind.Image ? ImageContentTypes : DocumentContentTypes;
+    /// <summary>
+    /// Accepted for <see cref="MediaKind.Audio"/> buckets — the voice note (slice 3.1).
+    ///
+    /// The list is here rather than in the browser because the recorder picks its format from it:
+    /// `MediaRecorder` produces `audio/webm` on Chrome and `audio/mp4` on Safari, and which of those
+    /// NEXT3 will take is #10 and unanswered — so it is a placeholder key that moves when the answer
+    /// lands, not a constant in TypeScript.
+    /// </summary>
+    public IList<string> AudioContentTypes { get; } = [];
+
+    public IList<string> AllowedFor(MediaKind kind) => kind switch
+    {
+        MediaKind.Image => ImageContentTypes,
+        MediaKind.Audio => AudioContentTypes,
+        _ => DocumentContentTypes,
+    };
 }

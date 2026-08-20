@@ -11,8 +11,24 @@ export interface CaptureCandidate {
   file: File
   origin: MediaOrigin
   previewUrl: string
-  /** Null for a PDF: §7.2's checks are dimensions and blur, neither of which a PDF has. */
+  /** Null when the gate did not run: a PDF, a voice note, or a non-photographic image (see `select`). */
   verdict: ClarityVerdict | null
+}
+
+export interface SelectOptions {
+  /**
+   * Whether this file is a photograph, and so whether §7.2's gate means anything for it.
+   *
+   * Defaults to true, which is every caller that came before slice 3.1 and every caller 5.1 and
+   * 5.3/6.1 will add. The damage diagram passes `false`: it is a PNG, so the MIME type alone would
+   * route it through the blur pass, but a vector drawing has no focus to measure — scoring one
+   * against `blurVarianceThreshold` risks refusing a perfectly good diagram with "hold the phone
+   * still and let the camera focus", which is nonsense advice about a drawing.
+   *
+   * The **server** still applies §7.2's resolution floor to it (`damage_diagram` is an image
+   * bucket), which is why the diagram renders at a fixed size above that floor.
+   */
+  photographic?: boolean
 }
 
 export interface UseCaptureOptions {
@@ -33,6 +49,12 @@ export interface UseCaptureResult {
   allowUpload: boolean
   /** For the input's `accept` attribute — the bucket's own list, so nothing is offered that the server refuses. */
   acceptTypes: string
+  /**
+   * The same list unjoined. The voice recorder needs it as candidates for
+   * `MediaRecorder.isTypeSupported`, and taking it from here is what keeps an audio format literal
+   * out of the web codebase entirely — the server owns the list (`Media.AudioContentTypes`, #10).
+   */
+  contentTypes: string[]
   candidate: CaptureCandidate | null
   /** One message at a time: a clarity refusal, a decode failure, or the server's rejection. */
   problem: string | null
@@ -45,7 +67,7 @@ export interface UseCaptureResult {
    * screen before its `MediaBuckets` entry and migration.
    */
   ready: boolean
-  select: (file: File, origin: MediaOrigin) => void
+  select: (file: File, origin: MediaOrigin, options?: SelectOptions) => void
   confirm: () => void
   retake: () => void
 }
@@ -122,7 +144,7 @@ export function useCapture({
     setStage('idle')
   }
 
-  function select(file: File, origin: MediaOrigin) {
+  function select(file: File, origin: MediaOrigin, { photographic = true }: SelectOptions = {}) {
     // §7.1's capture-only rule, applied before anything else happens. The server refuses this too
     // (`upload_not_allowed_for_bucket`), but a UI that offers the choice and then fails it is a UI
     // that taught the expert the wrong thing.
@@ -144,9 +166,11 @@ export function useCapture({
     previewUrl.current = url
     const base = { file, origin, previewUrl: url }
 
-    // §7.2 measures dimensions and blur; a PDF has neither, and the server stores
-    // `clarity_result = not_applicable` for it. Straight to the confirm screen.
-    if (!file.type.startsWith('image/')) {
+    // §7.2 measures dimensions and blur. A PDF has neither and a voice note has neither — item 4
+    // makes that one a playback-confirm — and a diagram has dimensions but no focus. All three go
+    // straight to the confirm screen, where a person still has to look at (or listen to) the thing
+    // before it is sent, which is what the screen is for.
+    if (!photographic || !file.type.startsWith('image/')) {
       setCandidate({ ...base, verdict: null })
       setStage('confirm')
       return
@@ -215,6 +239,7 @@ export function useCapture({
     stage,
     allowUpload,
     acceptTypes: rule?.contentTypes.join(',') ?? '',
+    contentTypes: rule?.contentTypes ?? [],
     candidate,
     problem,
     configLoaded: config !== undefined,

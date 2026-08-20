@@ -72,6 +72,55 @@ public sealed class MediaConfigEndpointTests(ApiFixture fixture)
         Assert.True(Bucket(body, MediaBuckets.InsuredDocuments).AllowUpload);
         Assert.True(Bucket(body, MediaBuckets.TpDocuments).AllowUpload);
         Assert.True(Bucket(body, MediaBuckets.ExpertReport).AllowUpload);
+
+        // Slice 3.1's two: no file picker for either, because neither exists as a file to pick.
+        Assert.False(Bucket(body, MediaBuckets.VoiceNote).AllowUpload);
+        Assert.False(Bucket(body, MediaBuckets.DamageDiagram).AllowUpload);
+    }
+
+    /// <summary>
+    /// The browser's recorder picks its format from this list — <c>MediaRecorder</c> produces
+    /// <c>audio/webm</c> on Chrome and <c>audio/mp4</c> on Safari, and which of those NEXT3 accepts
+    /// is #10. Serving the list means the answer lands as a config edit, not a TypeScript change.
+    /// </summary>
+    [Fact]
+    public async Task TheConfig_ServesTheAudioTypesForTheVoiceBucket()
+    {
+        using var client = fixture.CreateClient();
+
+        var body = await client.GetFromJsonAsync<ConfigBody>(
+            new Uri("/api/config/media", UriKind.Relative));
+
+        Assert.NotNull(body);
+        Assert.Equal(fixture.Media.CurrentValue.AudioContentTypes, Bucket(body, MediaBuckets.VoiceNote).ContentTypes);
+
+        // And an audio type is never offered to an image bucket.
+        Assert.DoesNotContain(
+            Bucket(body, MediaBuckets.DamageDiagram).ContentTypes,
+            type => type.StartsWith("audio/", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The damage diagram renders at a fixed size (<c>DIAGRAM_RENDER</c> in
+    /// <c>src/Web/src/media/diagram/render.ts</c>) and is then judged as an image by §7.2's floor.
+    /// If the floor is ever raised past that size, **every diagram in the application is refused**
+    /// with `image_too_small` — so the check belongs somewhere that can read the configured value,
+    /// and a jsdom test cannot. This is that somewhere: raise `Clarity.MinWidth` and this goes red
+    /// before anyone finds out from an expert at a roadside.
+    /// </summary>
+    [Fact]
+    public void TheClarityFloorAdmitsADamageDiagram()
+    {
+        const int DiagramWidth = 1600;
+        const int DiagramHeight = 1200;
+
+        var clarity = fixture.Clarity.CurrentValue;
+
+        Assert.True(
+            clarity.MinWidth <= DiagramWidth && clarity.MinHeight <= DiagramHeight,
+            $"The resolution floor is {clarity.MinWidth}x{clarity.MinHeight}, which the damage "
+            + $"diagram's {DiagramWidth}x{DiagramHeight} render cannot clear. Raise DIAGRAM_RENDER in "
+            + "src/Web/src/media/diagram/render.ts to match, or every diagram will be refused.");
     }
 
     /// <summary>

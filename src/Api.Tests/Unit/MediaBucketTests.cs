@@ -20,6 +20,10 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.TpDocuments, true, MediaKind.Document)]
     [InlineData(MediaBuckets.TpCarPhoto, false, MediaKind.Image)]
     [InlineData(MediaBuckets.ExpertReport, true, MediaKind.Document)]
+    // Slice 3.1. Both are produced in-app, so there is no file to pick; the diagram is an *image*
+    // because it is a canvas export and §7.2's server floor applies to it.
+    [InlineData(MediaBuckets.VoiceNote, false, MediaKind.Audio)]
+    [InlineData(MediaBuckets.DamageDiagram, false, MediaKind.Image)]
     public void TheBucketMatrixMatchesSection71(string bucket, bool allowUpload, MediaKind kind)
     {
         var rule = MediaBuckets.Find(bucket);
@@ -42,6 +46,8 @@ public class MediaBucketTests
     [Theory]
     [InlineData(MediaBuckets.InsuredCarPhoto)]
     [InlineData(MediaBuckets.TpCarPhoto)]
+    [InlineData(MediaBuckets.VoiceNote)]
+    [InlineData(MediaBuckets.DamageDiagram)]
     public void ACaptureOnlyBucketRefusesAnUploadedFile(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;
