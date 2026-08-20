@@ -40,7 +40,8 @@ export function useArrived(assignmentId: string, arrivedAt: string | null): UseA
     mutationFn: async () => postArrival(assignmentId, await requestPosition()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: expertKeys.detail(assignmentId) })
-      await queryClient.invalidateQueries({ queryKey: expertKeys.list() })
+      // `lists()` for the same reason as `useRefreshAfterCapture` — a search may be active.
+      await queryClient.invalidateQueries({ queryKey: expertKeys.lists() })
     },
   })
 

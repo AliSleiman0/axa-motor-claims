@@ -3,7 +3,17 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-21 (slice 3.1):** **weeks 1 and 2 are complete and committed** (2.5 is `fb946a8`), and **week 3 has started: slice 3.1 is complete and uncommitted**, awaiting the developer's test-diff review — so the working tree is 3.1 alone. **338 xUnit tests green (+50) and the web suite is 121 (+49).** 3.1 put §5.1's last two expert artifacts through the pipeline 2.3 and 2.5 built: a **voice note** (record → `<audio controls>` playback-confirm → upload, §7.2 item 4) and a **damage diagram** (static SVG car, tap-to-mark, PNG via canvas — functional and unpolished, because §1 spent its polish on Option 2). Two new §7.1 buckets — `voice_note` under a new `MediaKind.Audio`, and `damage_diagram` registered as an *image* so the server's resolution floor applies to the export exactly as to a photograph — both `AllowUpload: false`, because both are produced in-app and there is no file to pick. One migration, db-reviewed. **Verified in Chrome end to end against the fakes:** the diagram landed `passed` / `PLACEHOLDER-DOC-07` / `.png` and the voice note `not_applicable` / `PLACEHOLDER-DOC-06` / `audio/webm` / 813,700 bytes, both into *Expert documents* with `clientRef` = document id and outbox rows reaching `sent` on attempt 1; all four cross-kind and picked-file refusals returned the right code and **wrote nothing** (exactly 2 documents after 4 refusals); Retake discarded without uploading; neither panel renders a file-picker control.
+**Status as of 2026-08-21 (slice 3.2):** **weeks 1 and 2 are complete and committed**, and **3.1 is committed too** (`0244315`). **Week 3 is half done: slice 3.2 is complete and uncommitted**, awaiting the developer's test-diff review — so the working tree is 3.2 alone. **356 xUnit tests green (+18) and the web suite is 134 (+13).** 3.2 finished §5.1's expert surface: E1 filters the expert's **own** assignments by visa or cached plate, and E5's report upload is a panel on E2. **No migration and almost no new server code** — the search is one optional `q` parameter composed into the existing list statement, and E5 was one entry in `EXPERT_BUCKETS`, because 2.3 had already shipped `expert_report` with its doc type and PDF acceptance.
+
+**The slice's real work was correcting design.md, not writing code.** §5.1 routed E1's search through `INext3Client.SearchClaims`, and two independent things made that unshippable. A NEXT3-wide search hands the expert claims they were never assigned — and the screen those results lead to carries a capture panel, so it is an invitation to attach photos to a stranger's visa, which is the precise failure this project exists to remove. And `ClaimSummary` has no policy number, no insured phone and no city, so a search hit **cannot** be upserted into the `claim` cache without inventing three fields NEXT3 owns. §5.1's search row and §6.1's claim-search row were both corrected (§6.1 said the operation "serves expert search and officer lookup", which would have contradicted §5.1 from the moment this shipped); `SearchClaims` stays on the port, still with no production caller, for the officer's lookup in 4.2. **Fifth slice running that design.md was corrected rather than quietly diverged from.** A recorded consequence: a cold cache has no plate to match, so such an assignment is findable by visa only — E1 says so on screen, and both halves are pinned by tests.
+
+**The browser pass found the slice's only real bug, for the fourth slice running, and no test could have.** Search survived a reload exactly as the card asked — and was thrown away the instant the expert opened a claim, because E2's "← My claims" pointed at a bare `/expert`. An expert who searches a plate, opens the claim and comes back landed on their whole unfiltered history and had to retype it: on a phone, at a crash site, which is the entire situation the feature exists for. Nothing threw and every assertion passed, because **no test navigated**. E1 now carries `?q=` into each claim link and E2 hands it back, both pinned.
+
+**Two more things worth knowing before reviewing.** **This slice adds the codebase's first hand-written analyzer suppression.** Case-insensitive search is `UPPER()` on both sides rather than a bare `Contains`, because nothing here configures a collation and a CS-collation deployment would otherwise change search behaviour with nothing going red — but CA1304/CA1311/CA1862 all assume the expression runs in .NET, and every fix they suggest (`ToUpper(CultureInfo)`, `Contains(string, StringComparison)`) has no SQL translation, so EF would throw on the expert's first search. Suppressed narrowly, at the statement, with the reason. Said honestly in the test: **it passes either way on LocalDB's default collation**, so the `UPPER()` is recorded, not proven. And **`expertKeys` gained a `lists()` prefix**: `invalidateQueries` matches by prefix, so once the search term is in the list key, invalidating `list()` no longer reaches `list('PLC-TEST')`. Verified by planting — with `list()` the new test goes red and every other web test stays green, which is exactly the failure mode. `useArrived` had the same bug and the card did not mention it.
+
+**Verified in Chrome end to end against the fakes:** 11 keystrokes produced **1** request; `?q=` survived a reload *and* the claim round trip; expert Alpha searching Beta's plate and Beta's exact visa both returned nothing; whitespace-only returned the full list; 64 characters answered 200 and 65 answered `400 search_term_too_long`; `%` matched literally; and three report PDFs landed `not_applicable` / `PLACEHOLDER-DOC-05` / `application/pdf` / `.pdf` into *Expert documents* with `clientRef` = document id and outbox rows `sent` on attempt 1 — with the **filtered** list's media count going 2 → 3 without a reload, which is the `lists()` invalidation proven in a browser rather than only in jsdom.
+
+**Status as of 2026-08-21 (earlier that day — slice 3.1):** **weeks 1 and 2 are complete and committed** (2.5 is `fb946a8`), and **week 3 has started: slice 3.1 is complete and uncommitted**, awaiting the developer's test-diff review — so the working tree is 3.1 alone. **338 xUnit tests green (+50) and the web suite is 121 (+49).** 3.1 put §5.1's last two expert artifacts through the pipeline 2.3 and 2.5 built: a **voice note** (record → `<audio controls>` playback-confirm → upload, §7.2 item 4) and a **damage diagram** (static SVG car, tap-to-mark, PNG via canvas — functional and unpolished, because §1 spent its polish on Option 2). Two new §7.1 buckets — `voice_note` under a new `MediaKind.Audio`, and `damage_diagram` registered as an *image* so the server's resolution floor applies to the export exactly as to a photograph — both `AllowUpload: false`, because both are produced in-app and there is no file to pick. One migration, db-reviewed. **Verified in Chrome end to end against the fakes:** the diagram landed `passed` / `PLACEHOLDER-DOC-07` / `.png` and the voice note `not_applicable` / `PLACEHOLDER-DOC-06` / `audio/webm` / 813,700 bytes, both into *Expert documents* with `clientRef` = document id and outbox rows reaching `sent` on attempt 1; all four cross-kind and picked-file refusals returned the right code and **wrote nothing** (exactly 2 documents after 4 refusals); Retake discarded without uploading; neither panel renders a file-picker control.
 
 **Two things the browser pass could not settle, and one is a genuine gap.** **Playback was not verified.** The `<audio>` control renders, is bound to the right blob URL, and the recording is a real 813 KB WebM opening with the exact EBML magic the server sniffs — but this Chrome profile decodes no audio at all (a known-good 44-byte WAV stalls at `readyState: 0` identically), so *hearing* the note is the one thing left unproven. **It belongs on the week-6 device checklist.** Separately, a second recording failed loudly with "the recording did not complete" — which turned out to be the code working: the first recording's teardown had genuinely stopped the microphone tracks (`readyState: "ended"`), and the single-stream test stub handed back a dead stream where a real `getUserMedia` returns a fresh one.
 
@@ -29,8 +39,12 @@
 
 **Status as of 2026-08-20 (earlier):** **Week 1 complete and committed** (1.1 scaffold + arch tests, 1.2 phone-OTP auth, 1.3 admin CRUD ×4 + append-only audit log + browser admin pages, 1.4 the five ports + fakes, 1.5 Option 2 schema + public-surface skeleton — all in git through commit `71023c9`). **Week 2: slice 2.1 (claim cache + expert assignments) is committed (`826e550`); slices 2.2 (the transactional outbox) and 2.3 (the server media pipeline) are complete and uncommitted, awaiting the developer's test-diff review.** 263 tests green; app boots on pure fakes. 2.2 is the load-bearing piece: every NEXT3 write now commits in the same transaction as the domain row that caused it, and a worker drains the queue with a `READPAST` stored procedure, retrying on §6.3's schedule and landing `sent` or `failed`. 2.3 is what finally puts a *file* into that queue — an expert streams a photo to `POST /api/expert/assignments/{id}/documents`, it lands in Blob, and a `document` row plus its outbox row commit together — and it makes §7.3's central rule real: **no blob is deleted before its outbox row is `sent`**, enforced by a structural join rather than by convention. **No client answers received; §8 communications still unsent.**
 
-> ## ⏭️ NEXT SESSION: review and commit slice 3.1, then 3.2 (search + expert report)
-> Build proceeds per `docs/build-playbook.md` — weeks 1 and 2 are ☑ and committed, **3.1 is ☑ and pending commit**; next unticked slice is **3.2**, whose card is already a verbatim prompt (week 3 was expanded 2026-08-20). Slice learnings are in the playbook's Notes lines.
+> ## ⏭️ NEXT SESSION: review and commit slice 3.2, then 3.3 (RealNext3Client + the OpenAPI contract)
+> Build proceeds per `docs/build-playbook.md` — weeks 1 and 2 are ☑ and committed and so is 3.1 (`0244315`), **3.2 is ☑ and pending commit**; next unticked slice is **3.3**, whose card is already a verbatim prompt (week 3 was expanded 2026-08-20). Slice learnings are in the playbook's Notes lines.
+>
+> **Review 3.2 with these five in mind** (all in the playbook's 3.2 Notes and scope-decisions.md). **design.md changed in two places** — §5.1's search row and §6.1's claim-search row — because a NEXT3-wide expert search is an authorization hole and `ClaimSummary` cannot be cached; that is the slice's actual deliverable and the code is small. **The first hand-written analyzer suppression in the repo** sits on the search predicate (CA1304/CA1311/CA1862), because the analyzers' suggested fixes are untranslatable by EF — narrow, commented, and the CI-collation reasoning is recorded rather than proven. **`expertKeys.list()` became `lists()` + `list(q)`**, and both invalidation sites moved (`useRefreshAfterCapture` *and* `useArrived`, which the card did not name); the guard was verified by planting. **`ExpertAssignmentsPage` gained an optional `debounceMs` prop** — fake timers deadlock against @testing-library, so the debounce is tested the way `media/` tests its browser APIs, by injection. And **the test diff touches two existing files**: `ExpertAssignmentPage.test.tsx`'s `MEDIA_CONFIG` fixture gained an `expert_report` row (without it the new panel renders 2.5's "not configured" alert), and two capture-count assertions moved from 4/2 to 5/3 because E5 adds a panel with both controls — **no assertion was weakened or removed**, only the arithmetic. `ExpertFlows.SeedClaim` gained an optional `plateNo`, additively.
+>
+> **3.3 inherits from 3.2:** `INext3Client.SearchClaims` still has **no production caller** and now never will on the expert side — 4.2's officer lookup is its first one, so 3.3's contract tests are the only thing exercising it. The `document`/outbox path is unchanged. One known gap left open deliberately: **five capture panels label their controls identically** ("Take a photo" ×5, "Choose a file" ×3), which is a real screen-reader problem on E2 — not fixed here because `CapturePanel` is what 5.1 and 5.3/6.1 must reuse unchanged, and it is on the **week-6 device checklist**.
 >
 > **Review 3.1 with these five in mind** (all in the playbook's 3.1 Notes and scope-decisions.md). **`MediaValidation.CheckContent` gained an `out` parameter**, so ten existing call sites in `MediaValidationTests` grew an `out _` — the largest hunk in the test diff, and **no assertion was weakened or removed**. The parameter exists so that *what was validated is what gets stored*: a browser sends `audio/webm;codecs=opus`, and normalising in two places would give two answers that can disagree. **One placeholder key was added** — `Media.AudioContentTypes` — which is also the list the browser's recorder picks its format from, so no audio format literal exists in TypeScript; design.md §7.2 + Appendix A updated rather than diverged from, now four for four. **`useCapture.select` gained a third parameter**, defaulted so every existing caller and 5.1/5.3/6.1's future ones are unchanged. **`reusability.test.ts` was widened, not weakened** — glob to `./**/*`, patterns to depth-agnostic, plus a non-vacuity count and a "reaches into the subfolders" assertion; both halves were verified by planting an import. And **the migration is one check constraint**, regenerated from `MediaBuckets.All`, with a `Down()` caveat about non-transactional rollback written into the file.
 >
@@ -206,41 +220,16 @@ Sending this converts a vague promise into a reviewable, datable deliverable; ge
 
 ---
 
-## 7. ⏭️ NEXT SESSION — write the design document
+## 7. ✅ DONE — the design document
 
-**Deliverable: `docs/design.md`.** An *internal engineering* design document — the thing you build from. Not client-facing, so it can be blunt about unknowns and risk. A client-facing summary can be extracted from it later if AXA asks.
+`docs/design.md` was written from the brief that used to live here, and is the build's reference; `docs/build-playbook.md` carries the slice-by-slice cards. **The live next-session pointer is the banner at the top of this file, not this section.**
 
-**Why this now:** the BRD says *what*, `scope-decisions.md` says *how much*, and nothing yet says *how*. Four modules, four roles, a legacy integration and a public capture surface do not fit in one head; the first week of coding will otherwise be spent making architecture decisions ad hoc, in feature code, under time pressure.
+Two items came out of the manager's review of client doc v0.4 on 2026-08-19. Both are checked against `design.md` below rather than assumed:
 
-### What it must contain
+- **Authorization scoping** (open question #42). The manager's sharpest point: how does the app know which claims an expert may see, and which declarations a garage may see? Largely already handled — `design.md` §9 enforces role plus resource-level checks server-side, and slice 3.2's expansion corrected §5.1 so expert search is **local to the expert's own assignments**, precisely because a NEXT3-wide search would let an expert attach photos to claims never assigned to them. **The residual dependency is on AXA:** if NEXT3 never exposes the expert-to-claim linkage, the app's own assignment records are the only source of truth for it, and that limitation belongs in the scope letter.
+- **Offline capture** (open question #45). `design.md` keeps it out of scope, and §11 states plainly that there is **no remaining descope lever** — diagram polish and UAT round 2 are already spent holding 8 weeks with Broker Option 2 in. Client doc **v0.5 Q13 offers it to AXA at roughly one extra week**. If they say yes, there is nowhere for that week to come from. **Resolve this before the document is sent** — either withdraw the offer, or price it as a paid extension rather than absorbing it.
 
-1. **Scope restatement** — one page. In scope, out of scope, and the simplifications from `docs/scope-decisions.md`. **Broker Option 2 is now in scope** (decided 2026-08-19).
-2. **Roles and permissions matrix** — Expert, Garage, Claim Officer, Broker, **Admin** (implied by the BRD, never listed as a profile, still real work), and the **unauthenticated customer** in Broker Option 2. Every screen mapped to who may open it.
-3. **System architecture** — components and their boundaries: React app (installed + browser), .NET API, background worker, Azure SQL, Blob, NEXT3 client behind its interface, email sender, push sender, SMS sender. Show which components the public Option 2 surface may and may not touch.
-4. **Data model** — tables with columns and keys. At minimum: profiles for the four types, users/auth, claim (cached NEXT3 detail), document, `next3_outbox` (already specified in §3), broker_request (+ its Option 2 link token), notification, audit log. Say explicitly which data is a cache of NEXT3 and which is ours and authoritative.
-5. **Module designs** — per module: screen inventory, the state machine, and what each transition writes. Treat **Garage + Claim Officer as ONE state machine with two views**, not two modules; the notifications between them are the part people forget to budget.
-6. **NEXT3 integration design** — the eight operations from `docs/client-doc-src.html` §3.1, the outbox, idempotency via `clientRef`, retry/backoff schedule, the failed-push admin screen, and how the fake implementation stays usable all the way to handover.
-7. **Media pipeline** — capture-only enforcement for car-photo buckets, the resolution + blur-variance quality check, blob lifecycle, and the rule that **no blob is deleted before its push is `sent`**.
-8. **Notifications** — push (assignment popup, approval/rejection), SMS (OTP + invite links + the Option 2 customer link), and the broker email routing table keyed by insurance type.
-9. **Security and data protection** — auth model, role enforcement, audit trail, and a dedicated subsection for **Broker Option 2**: token generation, expiry, single-use vs reusable, what the page exposes before submission, and rate limiting. This is the project's largest attack surface and the thing most likely to attract AXA Group InfoSec.
-10. **Environments** — one or two (test + production). Recommendation on record is two.
-11. **Revised week-by-week plan** — `docs/estimate-and-plan.md` is an 8-week plan that predates Option 2. Re-cut it with Option 2 included and say plainly what moved or dropped to make room.
-12. **Design decisions blocked on client answers** — which of the 41 open questions block which design choices, and the placeholder strategy for each (one config file, obvious fake values, never invented client data).
-
-### Rules for the session writing it
-
-- **Do not invent client data.** Insurance types, email recipients, NEXT3 field names, document-type codes and IRIS codes are all unanswered. Placeholders only, all in one config file, clearly marked.
-- **Prefer the smaller interpretation** of anything ambiguous, and record it in `scope-decisions.md` rather than silently designing the bigger thing.
-- **Design against the interface, not against AXA's availability.** The NEXT3 client is an interface with a working fake; nothing in the design may assume the real endpoints exist.
-- Where a decision is genuinely open, **write the recommendation and the reason**, not a list of options. This document exists to stop decisions being re-made.
-
-### Inputs to read first
-
-`docs/BRD-extracted-text.md` (the source of truth), `docs/diagrams/` (four flowcharts — broker Option 1 and 2 are diagrams 3 and 4), `docs/scope-decisions.md`, `docs/open-questions.md`, and §§ 2–6 of this file.
-
-### Explicitly NOT in this deliverable
-
-Visual design, mockups, branding, colour. AXA supplied none, and it is not in scope. Screen *inventories* and *flows* yes; pixels no.
+Two more from the same review, for the record: **image fraud/tamper detection appears nowhere in `design.md`** and is correctly excluded in v0.5 Q9 — keep it that way unless separately quoted. And **the clarity gate was already built in slice 2.5** (resolution floor + Laplacian blur + confirm screen, voice = playback-confirm only), so v0.5 Q14 asks the client to confirm something that already exists in code; if AXA answers "manual review queue" it is rework, not a choice.
 
 ---
 
@@ -314,7 +303,10 @@ docs/
                             LibreOffice's HTML import breaks table widths, margins and the
                             Word-version stamp, and this script patches all of it. Re-run as
                             `pwsh -File docs\build-docx.ps1 -Version 0.3`
-  AXA-Motor-Claims-Questions-and-Costs-v0.4.docx   The client document (4pp), NOT yet sent
+  AXA-Motor-Claims-Questions-and-Costs-v0.5.docx   The client document (6pp), NOT yet sent
+                            v0.5 = v0.4 + the manager review of 2026-08-19: authorization scoping,
+                            photo rules/fraud, master data for all user types, and a new §5 asking
+                            mobile-vs-PC parity, offline behaviour and clarity-check automation.
                             v0.4 = client's own heavy cut of v0.3, folded back into the HTML
                             source. Now covers ONLY: purpose, what's needed at a glance, NEXT3
                             endpoints + 9 questions, and hosting/SMS/mobile cost. Client deleted
@@ -338,7 +330,8 @@ src/
                             idempotent AssignmentHandler + its startup subscription, E1/E2 read
                             endpoints, the Arrived endpoint — the codebase's only explicit
                             transaction, because ExecuteUpdate's WHERE clause is what makes an
-                            arrival happen exactly once — admin dev-injection endpoint),
+                            arrival happen exactly once — admin dev-injection endpoint, and E1's
+                            local `q` search: no NEXT3 call, design.md §5.1 corrected in 3.2),
                             Modules/Broker (broker_request
                             + B3 create-link), Modules/PublicSurface (the ONLY unauthenticated surface:
                             public_link_token, /public/* endpoints, chained per-IP/per-token rate
@@ -363,7 +356,7 @@ src/
                             that may call INext3Client push ops or touch outbox rows, arch rules 3+4),
                             appsettings.Placeholders.json (Appendix A — ALL client-value placeholders)
   Api.Tests/                xUnit: NetArchTest boundary rules (with planted-violation self-tests) +
-                            integration tests on LocalDB via WebApplicationFactory (338 tests;
+                            integration tests on LocalDB via WebApplicationFactory (356 tests;
                             READ_COMMITTED_SNAPSHOT is switched on to match Azure SQL).
                             Media/ holds TestImages (synthetic JPEG/PNG/PDF headers), TestAudio
                             (WebM/MP4/Ogg container headers, slice 3.1) and the
@@ -390,7 +383,13 @@ src/
                             what gets exported, render.ts = injectable canvas renderer at a fixed
                             size above §7.2's floor, DiagramPanel.tsx). reusability.test.ts now
                             globs `./**/*` with depth-agnostic patterns, so the subfolder is covered.
-                            121 web tests total
+                            Slice 3.2 added: expert/useAssignmentSearch.ts (E1's search box state —
+                            the URL is the source of truth, `?q=` survives a reload and the trip into
+                            a claim and back; the debounce delay is injectable, because fake timers
+                            deadlock against @testing-library). expertKeys grew a `lists()` prefix:
+                            once the search term is in the list key, invalidating `list()` no longer
+                            reaches the list on screen. E5 is one entry in EXPERT_BUCKETS.
+                            134 web tests total
 .claude/
   settings.json             Hook registrations (post-edit format check, on-stop test run)
   hooks/                    Guarded PowerShell hooks — no-op until the solution exists in week 1

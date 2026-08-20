@@ -61,9 +61,19 @@ export interface AssignmentDocument {
   createdAt: string
 }
 
+/**
+ * Query keys are the invalidation contract, and `lists()` is load-bearing rather than tidy.
+ *
+ * `invalidateQueries` matches by prefix. Slice 3.2 put the search term into the list key, so
+ * `list()` is `[...,'list','']` and would no longer match `[...,'list','PLC-TEST']` — an upload
+ * while a search is active would silently stop refreshing the list the expert is looking at, and
+ * every existing test would still be green. So anything invalidating "the list, whichever one is on
+ * screen" invalidates `lists()`; only `useAssignments` uses `list(q)`.
+ */
 export const expertKeys = {
   all: ['expert', 'assignments'] as const,
-  list: () => [...expertKeys.all, 'list'] as const,
+  lists: () => [...expertKeys.all, 'list'] as const,
+  list: (q?: string) => [...expertKeys.lists(), q ?? ''] as const,
   detail: (assignmentId: string) => [...expertKeys.all, 'detail', assignmentId] as const,
   documents: (assignmentId: string) => [...expertKeys.all, 'documents', assignmentId] as const,
 }
@@ -80,8 +90,14 @@ export function listDocuments(
   return api<AssignmentDocument[]>(documentsPath(assignmentId), { signal })
 }
 
-export function listAssignments(signal?: AbortSignal): Promise<AssignmentListItem[]> {
-  return api<AssignmentListItem[]>('/api/expert/assignments', { signal })
+/**
+ * E1, optionally filtered (§5.1's search row as corrected in slice 3.2). The term is matched against
+ * the visa number and the *cached* plate, server-side, within this expert's own assignments — there
+ * is no NEXT3 call, so search keeps working when NEXT3 does not.
+ */
+export function listAssignments(q?: string, signal?: AbortSignal): Promise<AssignmentListItem[]> {
+  const query = q ? `?${new URLSearchParams({ q }).toString()}` : ''
+  return api<AssignmentListItem[]>(`/api/expert/assignments${query}`, { signal })
 }
 
 export function getAssignment(assignmentId: string, signal?: AbortSignal): Promise<AssignmentDetail> {

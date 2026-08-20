@@ -87,7 +87,8 @@ $plan = @(
   @{ n='S3.2 access+connectivity'; w=@(620,5518,3500) },
   @{ n='S3.3 further NEXT3';       w=@(620,5518,3500) },
   @{ n='S4.2 hosting';             w=@(2400,5138,2100) },
-  @{ n='S4.4 mobile distribution'; w=@(6000,3638) }
+  @{ n='S4.5 mobile distribution'; w=@(6000,3638) },
+  @{ n='S5 application behaviour'; w=@(620,5518,3500) }
 )
 
 $doc = New-Object System.Xml.XmlDocument

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,6 +40,12 @@ const MEDIA_CONFIG: MediaConfig = {
     { bucket: 'insured_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
     { bucket: 'tp_documents', allowUpload: true, contentTypes: ['image/jpeg'] },
     { bucket: 'tp_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+    // Slice 3.2's E5. A report is a document, not a car photo (§5.1), so a PDF may be picked.
+    {
+      bucket: 'expert_report',
+      allowUpload: true,
+      contentTypes: ['image/jpeg', 'image/png', 'application/pdf'],
+    },
     // Slice 3.1's two. Neither exists as a file to pick, so neither allows upload.
     { bucket: 'voice_note', allowUpload: false, contentTypes: ['audio/webm', 'audio/mp4'] },
     { bucket: 'damage_diagram', allowUpload: false, contentTypes: ['image/png'] },
@@ -126,7 +132,16 @@ describe('E2 — claim detail', () => {
     expect(await screen.findByText(/NEXT3 is unreachable/)).toBeDefined()
   })
 
-  it('offers all four capture buckets before the expert has arrived', async () => {
+  it('returns the expert to the list they searched', async () => {
+    // The other half of E1 carrying its search into the claim link. `show()` mounts at a path with
+    // no query, so the plain case is covered by the assertion below being reached at all.
+    showAt(`/expert/${ASSIGNMENT_ID}?q=PLC-TEST-T2`)
+
+    const back = await screen.findByRole('link', { name: '← My claims' })
+    expect(back.getAttribute('href')).toBe('/expert?q=PLC-TEST-T2')
+  })
+
+  it('offers all five capture buckets before the expert has arrived', async () => {
     // §5.1's recorded interpretation, on the screen: Arrived is NOT a precondition for capture. The
     // diagram implies an order, the BRD never states the gate, and an expert whose GPS is slow must
     // still be able to photograph the car. DETAIL has `arrivedAt: null`, so this is the ungated case.
@@ -136,16 +151,43 @@ describe('E2 — claim detail', () => {
     expect(screen.getByText('Insured car photos')).toBeDefined()
     expect(screen.getByText('Third-party documents')).toBeDefined()
     expect(screen.getByText('Third-party car photos')).toBeDefined()
+    // E5 (slice 3.2). It is a panel on this screen, not a route of its own — §5.1 gives the report
+    // no screen, so the smaller interpretation is the one that ships.
+    expect(screen.getByText('Expert report')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Arrived' }).hasAttribute('disabled')).toBe(false)
   })
 
-  it('offers no gallery picker for the car-photo buckets', async () => {
-    // §7.1's capture-only rule, reaching the screen the expert actually uses. Two buckets allow a
-    // file, two do not, so the count is what discriminates.
+  it('lets the expert pick a report file (E5)', async () => {
+    // The whole of E5's web side is one entry in EXPERT_BUCKETS, so what is worth pinning is that
+    // the entry actually produces a usable panel rather than 2.5's "not configured" alert — which
+    // is what a bucket missing from the server's registry renders, silently and for ever.
+    //
+    // Scoped to this panel by its heading, because every panel labels its inputs identically: five
+    // controls on this screen say "Take a photo" and three say "Choose a file". The counting tests
+    // below live with that; a test about one bucket cannot.
     show()
 
-    expect(await screen.findAllByLabelText('Take a photo')).toHaveLength(4)
-    expect(screen.getAllByLabelText('Choose a file')).toHaveLength(2)
+    // Awaited on a control rather than on the heading — 3.1's lesson. The heading renders while the
+    // media config is still in flight, so a heading proves the panel exists, not that it is usable.
+    await screen.findAllByLabelText(/^Choose a file/)
+
+    const heading = screen.getByRole('heading', { name: /^Expert report/ })
+    const panel = within(heading.closest('section')!)
+
+    expect(panel.queryByRole('alert')).toBeNull()
+    // §5.1: "upload allowed — a report is a document, not a car photo", and §7.1 gives it the
+    // document allow-list, so the PDF an expert writes their report in is pickable.
+    expect(panel.getByLabelText('Choose a file').getAttribute('accept')).toContain('application/pdf')
+  })
+
+  it('offers no gallery picker for the car-photo buckets', async () => {
+    // §7.1's capture-only rule, reaching the screen the expert actually uses. Three buckets allow
+    // a file and two do not, so the count is what discriminates. It moved from 4/2 to 5/3 in slice
+    // 3.2 because E5 added a bucket that allows both — the rule is unchanged, only the arithmetic.
+    show()
+
+    expect(await screen.findAllByLabelText(/^Take a photo/)).toHaveLength(5)
+    expect(screen.getAllByLabelText(/^Choose a file/)).toHaveLength(3)
   })
 
   it('offers the voice note and the damage diagram, also ungated on arrival', async () => {
@@ -169,11 +211,11 @@ describe('E2 — claim detail', () => {
 
   it('offers no file picker for either in-app artifact', async () => {
     // Both are produced by the app, so the count of pickers must not move: still the two document
-    // buckets and nothing else.
+    // buckets plus E5's report, and nothing else.
     show()
 
-    expect(await screen.findAllByLabelText('Take a photo')).toHaveLength(4)
-    expect(screen.getAllByLabelText('Choose a file')).toHaveLength(2)
+    expect(await screen.findAllByLabelText(/^Take a photo/)).toHaveLength(5)
+    expect(screen.getAllByLabelText(/^Choose a file/)).toHaveLength(3)
   })
 
   it('calls an outage an outage rather than a missing claim', async () => {
@@ -188,9 +230,14 @@ describe('E2 — claim detail', () => {
 })
 
 function show() {
+  showAt(`/expert/${ASSIGNMENT_ID}`)
+}
+
+/** Same render, at an explicit entry — E2 now reads the query string off it (slice 3.2). */
+function showAt(entry: string) {
   render(
     <TestQueryProvider>
-      <MemoryRouter initialEntries={[`/expert/${ASSIGNMENT_ID}`]}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/expert/:id" element={<ExpertAssignmentPage />} />
         </Routes>

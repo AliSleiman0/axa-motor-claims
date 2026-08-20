@@ -453,6 +453,59 @@ public sealed class MediaUploadTests(ApiFixture fixture)
         Assert.Equal(0, await fixture.DocumentCountFor(assignment));
     }
 
+    // ---- slice 3.2: E5, the expert report ----
+
+    [Fact]
+    public async Task AnExpertReport_LandsNotApplicable_AndReachesSent()
+    {
+        // E5's whole server side shipped in 2.3 as a bucket row, and nothing had ever put a file
+        // through it. §7.2's recorded exception is the interesting part: a PDF has neither
+        // dimensions nor focus, so items 1-2 do not apply and the row stores `not_applicable`
+        // rather than a verdict nobody measured.
+        var (expert, assignment, visa) = await Arrange();
+        await fixture.ClearQueue();
+
+        var response = await MediaFlows.UploadReport(expert.Client, assignment);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<DocumentBodyDto>();
+        var document = await fixture.DocumentRow(body!.Id);
+
+        Assert.Equal(MediaBuckets.ExpertReport, document.Bucket);
+        Assert.Equal(ClarityResults.NotApplicable, document.ClarityResult);
+        Assert.Equal(ImageHeader.Pdf, document.ContentType);
+        Assert.EndsWith(".pdf", document.BlobKey, StringComparison.Ordinal);
+        Assert.Equal("PLACEHOLDER-DOC-05", document.DocType);
+
+        // §5.1: "file pick (upload allowed — a report is a document, not a car photo)".
+        Assert.Equal(DocumentOrigins.Uploaded, document.Origin);
+
+        // And it reaches NEXT3 like everything else the expert produces.
+        await fixture.OutboxProcessor.RunOnce(CancellationToken.None);
+        var message = await fixture.OutboxRowFor(document.Id);
+        Assert.Equal(Next3OutboxStatuses.Sent, message.Status);
+        Assert.Equal(Next3OutboxOperations.UploadDocument, message.Operation);
+        Assert.Equal(visa, message.VisaNo);
+        Assert.Contains("Expert documents", message.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnExpertReport_MayAlsoBeCaptured()
+    {
+        // §7.1 marks capture "n-a" for the report, which means the question does not arise — not
+        // that a photographed report must be refused. `BucketRule` deliberately has no AllowCapture
+        // flag (slice 2.3); this pins that, so nobody later reads "n-a" as "no".
+        var (expert, assignment, _) = await Arrange();
+
+        var response = await MediaFlows.Upload(
+            expert.Client,
+            assignment,
+            MediaFlows.Multipart(
+                MediaBuckets.ExpertReport, DocumentOrigins.Captured, TestImages.Jpeg(1600, 1200)));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
     /// <summary>An expert with a claim and an assignment, delivered through the real 2.1 path.</summary>
     private async Task<(MappedExpert Expert, Guid Assignment, string Visa)> Arrange()
     {

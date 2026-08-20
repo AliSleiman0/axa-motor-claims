@@ -89,14 +89,26 @@ internal static class ExpertFlows
         return new MappedExpert(user, id, client);
     }
 
-    /// <summary>Seeds a claim into the fake NEXT3 so a scenario has something to cache.</summary>
-    public static string SeedClaim(this ApiFixture fixture, string? visaNo = null, string? insuredName = null)
+    /// <summary>
+    /// Seeds a claim into the fake NEXT3 so a scenario has something to cache.
+    /// </summary>
+    /// <param name="plateNo">
+    /// Defaulted, so every claim in the suite shares one plate unless a test says otherwise — which
+    /// is what makes slice 3.2's cross-expert search tests discriminating: two experts genuinely
+    /// collide on <c>PLC-TEST-T1</c>, so a search that returns one row has actually scoped itself
+    /// to the caller rather than merely returning the only match in the database.
+    /// </param>
+    public static string SeedClaim(
+        this ApiFixture fixture,
+        string? visaNo = null,
+        string? insuredName = null,
+        string? plateNo = null)
     {
         var visa = visaNo ?? NextVisa();
         fixture.Services.GetRequiredService<FakeNext3Client>().Seed(new ClaimDetail(
             visa,
             "PLACEHOLDER-POL-T01",
-            "PLC-TEST-T1",
+            plateNo ?? "PLC-TEST-T1",
             insuredName ?? "PLACEHOLDER Insured T",
             "+999000009001",
             "PLACEHOLDER Make T",

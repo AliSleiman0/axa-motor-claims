@@ -103,6 +103,19 @@ internal static class MediaFlows
                 MediaBuckets.VoiceNote, DocumentOrigins.Captured, audio ?? TestAudio.Webm(),
                 contentType, "PLACEHOLDER-voice-note.webm"));
 
+    /// <summary>
+    /// E5 (§5.1): the expert report. Upload-allowed and a PDF by default — §5.1's own words are
+    /// "a report is a document, not a car photo" (slice 3.2).
+    /// </summary>
+    public static Task<HttpResponseMessage> UploadReport(
+        HttpClient client, Guid assignmentId, string origin = DocumentOrigins.Uploaded) =>
+        Upload(
+            client,
+            assignmentId,
+            Multipart(
+                MediaBuckets.ExpertReport, origin, TestImages.Pdf(4_000),
+                ImageHeader.Pdf, "PLACEHOLDER-expert-report.pdf"));
+
     /// <summary>A damage diagram: a canvas export, above §7.2's floor (slice 3.1).</summary>
     public static Task<HttpResponseMessage> UploadDiagram(
         HttpClient client, Guid assignmentId, byte[]? png = null) =>

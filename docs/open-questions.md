@@ -15,7 +15,7 @@ Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. 
 | 5 | Document upload: an API endpoint, or a shared directory + DB insert? (BRD prerequisite says *"identify the directory to upload photos and insert records"* — which is it?) Max file size? | Upload pipeline | TBC |
 | 6 | Exact writable fields for the "Expert Arrived" update — field names, endpoint, date/time/location format | Expert module | TBC |
 | 7 | Does AXA have an SMS gateway for OTP, or do we procure one? Who pays? Which countries? | Login — week 1 | TBC |
-| 8 | The expert extract (NEXT3 ID + name + phone) — when, what format, one-time or synced? | Onboarding | TBC |
+| 8 | The master-data extract (NEXT3 ID + name + phone) — when, what format, one-time or synced? **Covers experts, garages AND claim officers** — all four profiles carry a NEXT3 identity (manager review, 2026-08-19). | Onboarding | TBC |
 
 ## Needed by week 3
 
@@ -74,6 +74,17 @@ Send **#1, #2, #21, #31 today** — those four decide whether 2 months is real. 
 | 39 | Is the Enterprise Agreement discount available for this workload? | TBC |
 | 40 | **Which SMS provider does AXA want for OTP?** The per-message rate is entirely provider-dependent and Lebanon varies widely. Options: a regional aggregator (**Monty Mobile** — likely best MENA rates), **Twilio** (dearest, fastest to integrate), or **Azure Communication Services** (one bill, but confirm Lebanon coverage first). An existing AXA gateway contract beats all three. Asked in the 2026-08-18 email — **do not quote a monthly SMS figure until answered.** | TBC |
 | 41 | **One environment or two (test + production)?** One is cheaper; two lets fixes be demonstrated and approved without touching live claim data, and pairs with a NEXT3 sandbox alongside NEXT3 production. **Two roughly doubles the Azure figure.** Recommend two. Added to the client doc as Q19 on 2026-08-18. | TBC |
+
+## From the manager's review of v0.4 — added 2026-08-19
+
+| # | Question | Answer |
+|---|---|---|
+| 42 | **Authorization scoping — how does NEXT3 express which expert is assigned to which claim?** Without that linkage the app cannot restrict an expert to their own claims, and plate-number search becomes a way to read any claim in the system. **Cannot be solved on our side — the relationship lives in NEXT3.** Client doc Q5. Garage-to-declaration scoping is ours (declarations originate in our DB), but expert-to-claim is not. | TBC |
+| 43 | **Photo rules**: max count per claim and per folder, max file size, accepted formats, resolution limits. Separately — **does AXA expect tampering/fraud detection on images?** That is a specialist capability, NOT included, quote separately if wanted. Client doc Q9. | TBC |
+| 44 | **Mobile vs PC — same features or different?** Working assumption: one app, one login, both surfaces, but car-photo *capture* is inherently a phone activity (capture-only + no PC camera). Full parity would require allowing car-photo upload on PC, which contradicts the BRD's capture-only rule. Client doc Q12. | TBC |
+| 45 | **Offline / out-of-coverage behaviour.** Accidents happen where there is no signal. Recommendation: expert + garage capture flows queue on-device and auto-upload on reconnect. **~1 additional week; currently OUT of scope** (`scope-decisions.md`). Far cheaper designed in than retrofitted — decide before week 2. Client doc Q13. | TBC |
+
+**Also fixed in the client doc from that review:** the master-data extract (#8) now covers garages and claim officers, not experts alone, and the endpoint list gained `GET /garages` and `GET /claim-officers` plus `GET /experts/{id}/claims`.
 
 ## Noted gaps in the BRD (raise, but not blocking)
 

@@ -1,11 +1,19 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { expertKeys, getAssignment, listAssignments, listDocuments } from './api'
 
-/** E1's data. The server orders newest-first (§5.1), so the screen never re-sorts. */
-export function useAssignments() {
+/**
+ * E1's data, optionally filtered by `q` (§5.1's search, local to this expert's own assignments).
+ * The server orders newest-first, so the screen never re-sorts.
+ *
+ * `keepPreviousData` because the term is debounced into this key: without it every committed
+ * keystroke flips `isPending` back to true and blanks the table, on the connection that is the
+ * scarce resource in this whole application. The old rows stay up until the new ones land.
+ */
+export function useAssignments(q?: string) {
   return useQuery({
-    queryKey: expertKeys.list(),
-    queryFn: ({ signal }) => listAssignments(signal),
+    queryKey: expertKeys.list(q),
+    queryFn: ({ signal }) => listAssignments(q, signal),
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -39,6 +47,8 @@ export function useRefreshAfterCapture(assignmentId: string) {
   const queryClient = useQueryClient()
   return () => {
     void queryClient.invalidateQueries({ queryKey: expertKeys.documents(assignmentId) })
-    void queryClient.invalidateQueries({ queryKey: expertKeys.list() })
+    // `lists()`, not `list()`: the expert may have a search term active, and a key that names the
+    // empty term would not match the list actually on screen (see the comment on `expertKeys`).
+    void queryClient.invalidateQueries({ queryKey: expertKeys.lists() })
   }
 }

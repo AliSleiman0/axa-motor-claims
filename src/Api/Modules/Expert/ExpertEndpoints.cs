@@ -72,18 +72,34 @@ public sealed record ArrivalRequest(double? Latitude, double? Longitude);
 public sealed record ArrivalDto(DateTime ArrivedAt, double? Latitude, double? Longitude);
 
 /// <summary>
-/// The expert's E1/E2 surface (design.md §5.1, §2). Capture and search land in slices 2.5 and 3.2 —
-/// there is deliberately no "done" transition here, because the BRD defines no expert-side lifecycle
-/// (§1), and Arrived is deliberately not a precondition for anything (§5.1's recorded
-/// interpretation: a roadside expert whose GPS is slow must not be blocked from photographing).
+/// The expert's E1/E2 surface (design.md §5.1, §2). There is deliberately no "done" transition here,
+/// because the BRD defines no expert-side lifecycle (§1), and Arrived is deliberately not a
+/// precondition for anything (§5.1's recorded interpretation: a roadside expert whose GPS is slow
+/// must not be blocked from photographing).
+///
+/// E1's search (slice 3.2) is a filter over the caller's own assignments, not a NEXT3 lookup. §5.1
+/// originally routed it through <c>INext3Client.SearchClaims</c>; that was corrected here, for two
+/// reasons. A NEXT3-wide search hands the expert claims they were never assigned, and the next thing
+/// on that screen is a capture panel — attaching photos to someone else's visa is the exact failure
+/// this whole application exists to remove. And <c>ClaimSummary</c> carries no policy number, no
+/// insured phone and no city, so a search hit cannot be upserted into the `claim` cache (§4) without
+/// inventing three fields NEXT3 owns. <c>SearchClaims</c> stays on the port for the officer's visa
+/// lookup in slice 4.2, which is a genuinely NEXT3-wide question.
 /// </summary>
 public static class ExpertEndpoints
 {
+    /// <summary>
+    /// The cap on E1's search term. An engineering number, not client data — so it is a constant
+    /// here rather than a key in Appendix A, like the coordinate ranges the arrival handler checks.
+    /// </summary>
+    private const int MaxSearchTermLength = 64;
+
     public static IEndpointRouteBuilder MapExpertEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/expert/assignments").RequireAuthorization(AuthPolicies.Expert);
 
-        group.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (
+            string? q, ClaimsPrincipal principal, AppDbContext db, CancellationToken ct) =>
         {
             var expertUserId = principal.GetUserId();
             if (expertUserId is null)
@@ -91,9 +107,19 @@ public static class ExpertEndpoints
                 return Results.Unauthorized();
             }
 
+            var term = q?.Trim();
+            if (term is { Length: > MaxSearchTermLength })
+            {
+                // Refused rather than truncated. Searching for a term the caller did not type is
+                // worse than saying no: a clipped visa number matches a *different* claim, and this
+                // is the application whose whole purpose is that photos reach the right visa.
+                return Results.BadRequest(new { error = "search_term_too_long" });
+            }
+
             // Scoped to the caller in the query itself, not filtered after the fact: §9's
-            // resource-level rule is that an expert sees only their own assignments.
-            var items = await db.ExpertAssignments.AsNoTracking()
+            // resource-level rule is that an expert sees only their own assignments. The search
+            // below narrows *within* that scope and can never widen it.
+            var rows = db.ExpertAssignments.AsNoTracking()
                 .Where(a => a.ExpertUserId == expertUserId.Value)
                 .OrderByDescending(a => a.ReceivedAt)
                 .GroupJoin(
@@ -101,16 +127,54 @@ public static class ExpertEndpoints
                     a => a.VisaNo,
                     c => c.VisaNo,
                     (a, claims) => new { Assignment = a, Claims = claims })
-                .SelectMany(x => x.Claims.DefaultIfEmpty(), (x, claim) => new ExpertAssignmentListItemDto(
+                .SelectMany(x => x.Claims.DefaultIfEmpty(), (x, claim) => new
+                {
+                    x.Assignment,
+                    Claim = claim,
+                });
+
+            if (!string.IsNullOrEmpty(term))
+            {
+                // Composed here, after the left join and before the projection: `PlateNo` does not
+                // exist until the join has happened, and slice 1.3's lesson is that a filter written
+                // against the projection is the one EF cannot translate. Still one statement, media
+                // count included.
+                //
+                // Upper-cased on both sides rather than relying on `Contains` alone. Nothing in this
+                // codebase configures a collation, so a bare compare is case-insensitive only
+                // because SQL Server happens to default to a CI collation — deploy this onto a
+                // CS database and expert search quietly stops finding anything typed in lower case,
+                // with no test going red. It costs nothing: a leading-wildcard match seeks no index
+                // either way, and `claim.plate_no` has no index at all.
+                //
+                // StringComparison.OrdinalIgnoreCase is not an option here — passing it makes the
+                // expression untranslatable. Plain `Contains` becomes CHARINDEX, so `%` and `_` in
+                // the term are literal and need no escaping.
+                var match = term.ToUpperInvariant();
+
+                // The three analyzers below all assume this runs in .NET. It does not — it is an
+                // expression tree that becomes `UPPER(...)` and `CHARINDEX(...)` in SQL Server, and
+                // every fix they suggest makes it untranslatable: `ToUpper(CultureInfo)` and
+                // `Contains(string, StringComparison)` have no SQL mapping, so EF would throw at
+                // runtime on the expert's first search. Suppressed narrowly, here, with the reason.
+#pragma warning disable CA1304, CA1311, CA1862
+                rows = rows.Where(x =>
+                    x.Assignment.VisaNo.ToUpper().Contains(match)
+                    || (x.Claim != null && x.Claim.PlateNo.ToUpper().Contains(match)));
+#pragma warning restore CA1304, CA1311, CA1862
+            }
+
+            var items = await rows
+                .Select(x => new ExpertAssignmentListItemDto(
                     x.Assignment.Id,
                     x.Assignment.VisaNo,
                     x.Assignment.ReceivedAt,
                     x.Assignment.OpenedAt,
                     x.Assignment.ArrivedAt,
-                    claim == null ? null : claim.PlateNo,
-                    claim == null ? null : claim.InsuredName,
-                    claim == null ? null : claim.CarMakeModel,
-                    claim == null ? null : (DateOnly?)claim.AccidentDate,
+                    x.Claim == null ? null : x.Claim.PlateNo,
+                    x.Claim == null ? null : x.Claim.InsuredName,
+                    x.Claim == null ? null : x.Claim.CarMakeModel,
+                    x.Claim == null ? null : (DateOnly?)x.Claim.AccidentDate,
                     // Counted in the same statement rather than per row: E1 is the expert's first
                     // screen at a crash site and must not fan out into one query per assignment.
                     db.Documents.Count(d =>

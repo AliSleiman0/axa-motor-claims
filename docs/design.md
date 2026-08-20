@@ -194,7 +194,7 @@ Cross-cutting rules:
 | Capture media on E3 | per bucket | For each item passing E4: Blob upload → (`document` + `next3_outbox 'upload_document'`) in one transaction, folder *Expert documents*, `doc_type` placeholder, `clientRef` = document id |
 | Damage diagram | tap-to-mark on static SVG → PNG via canvas | Same pipeline; `doc_type` = diagram placeholder; lands in *Expert documents* (the BRD names that folder even though it is not one of the 4 buckets — recorded, not resolved) |
 | Voice note | record → playback confirm | Same pipeline; audio acceptance and doc type are #10 — until answered, the fake accepts audio and the real push is expected to as well |
-| Search (E1) | visa or plate | `INext3Client.SearchClaims`, results cached into `claim` |
+| Search (E1) | visa or plate | **Local — no NEXT3 call (corrected 2026-08-21, slice 3.2; was `INext3Client.SearchClaims` + cache upsert).** An optional `q` on `GET /api/expert/assignments` (trimmed, max 64) matched against `VisaNo` and the cached `PlateNo` **within the caller's own assignments**, composed into the same statement as the list. Two reasons the original could not ship: a NEXT3-wide search returns claims the expert was never assigned, and the screen it feeds carries a capture panel — attaching photos to a stranger's visa is the failure this project exists to remove; and `ClaimSummary` (§6.2) has no policy number, insured phone or city, so a hit cannot be upserted into `claim` without inventing three fields NEXT3 owns. Consequence recorded: a **cold cache has no plate to match**, so such an assignment is findable by visa only, and E1 says so on screen. `SearchClaims` stays on the port for the officer's lookup (§5.2) |
 | Report upload (E5) | file pick (upload allowed — a report is a document, not a car photo) | Same pipeline |
 
 Arrived is **not** enforced as a precondition for capture — the diagram implies an order but the BRD never states the gate, and a roadside expert whose GPS is slow must not be blocked from photographing. Smaller interpretation, recorded.
@@ -258,7 +258,7 @@ Deliberately minimal — CRUD + invites + the failed-push screen, nothing more (
 |---|---|---|---|
 | Authentication | `POST /auth/token` | app → NEXT3 | Service identity; OAuth client credentials, API key, or mTLS — NEXT3's choice (#1) |
 | Claim details | `GET /claims/{visaNumber}` | app → NEXT3 | visa, policy, plate, insured name + phone, make/model, city, accident date |
-| Claim search | `GET /claims/search` | app → NEXT3 | by plate or visa; serves expert search and officer lookup |
+| Claim search | `GET /claims/search` | app → NEXT3 | by plate or visa; serves the **officer's** visa lookup (§5.2). Not the expert's E1 search, which is local to their own assignments and makes no NEXT3 call — see §5.1's search row (corrected slice 3.2) |
 | Record arrival | `POST /claims/{visaNumber}/arrival` | app → NEXT3 | date, time, GPS (formats #6) |
 | Upload document | `POST /claims/{visaNumber}/documents` | app → NEXT3 | **The core of the whole application.** File + document type + folder (*Expert documents* \| *Survey*) + `clientRef` (idempotency — #32) |
 | Expert list | `GET /experts` | app → NEXT3 | id, name, mobile, active status |

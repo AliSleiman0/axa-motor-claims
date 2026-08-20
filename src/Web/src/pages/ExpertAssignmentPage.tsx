@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { formatDateTime } from '../api/datetime'
 import { documentsPath, type AssignmentDetail } from '../expert/api'
@@ -23,6 +23,9 @@ export default function ExpertAssignmentPage() {
 
 function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
   const { data, isPending, error } = useAssignment(assignmentId)
+  // E1 puts its active search in the link that got us here, so going back returns to the filtered
+  // list rather than to the expert's whole history (slice 3.2, found in the browser pass).
+  const { search } = useLocation()
 
   if (isPending) return <p>Loading claim…</p>
   if (error) return <p role="alert">{describe(error)}</p>
@@ -30,7 +33,7 @@ function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
   return (
     <section>
       <p>
-        <Link to="/expert">← My claims</Link>
+        <Link to={`/expert${search}`}>← My claims</Link>
       </p>
       <h2>Claim {data.visaNo}</h2>
 
@@ -60,19 +63,24 @@ function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
   )
 }
 
-/** §7.1's four expert buckets. `expert_report` is E5 and belongs to slice 3.2. */
+/**
+ * §7.1's five expert buckets. `expert_report` is E5 (slice 3.2) and needed nothing but this line:
+ * the bucket, its doc type and PDF acceptance all shipped server-side in 2.3, and §5.1 gives the
+ * report no screen of its own — the smaller interpretation is a panel here, not a route.
+ */
 const EXPERT_BUCKETS = [
   { bucket: 'insured_documents', label: 'Insured documents' },
   { bucket: 'insured_car_photo', label: 'Insured car photos' },
   { bucket: 'tp_documents', label: 'Third-party documents' },
   { bucket: 'tp_car_photo', label: 'Third-party car photos' },
+  { bucket: 'expert_report', label: 'Expert report' },
 ]
 
 /** §5.1's other two expert artifacts (slice 3.1) — neither is a file the expert picks. */
 const VOICE_BUCKET = 'voice_note'
 const DIAGRAM_BUCKET = 'damage_diagram'
 
-/** E3 (design.md §5.1): the four buckets, each through §7.2's clarity gate. */
+/** E3 and E5 (design.md §5.1): the five buckets, each through §7.2's clarity gate. */
 function CaptureSection({ assignmentId }: { assignmentId: string }) {
   const { data: config, error } = useMediaConfig()
   const { data: documents } = useAssignmentDocuments(assignmentId)
