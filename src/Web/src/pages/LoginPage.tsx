@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { currentRole, homePathFor } from '../api/session'
 import { setTokens, type TokenPair } from '../api/tokens'
 
 export default function LoginPage() {
@@ -37,7 +38,9 @@ export default function LoginPage() {
       return
     }
     setTokens((await response.json()) as TokenPair)
-    navigate('/admin/experts')
+    // Read back through currentRole() rather than trusting a local variable: the token just stored
+    // is the one the rest of the app will route on.
+    navigate(homePathFor(currentRole()))
   }
 
   return (

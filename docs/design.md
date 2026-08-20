@@ -475,7 +475,7 @@ Placeholder strategy: every unresolved value is a named key in **one config file
 | 1 | Real NEXT3 client, auth method, rate limits; the week-3 fake→real swap | Fake client everywhere; OpenAPI proposal sent | `RealNext3Client` wired; swap date set. Late answer = fake through UAT, said out loud |
 | 2 | Network path to NEXT3 (internet / VPN / allowlist / tunnel) | Design assumes HTTPS reachable from Container Apps; outbound tunnel proposed first if internal-only | Deployment config; possibly a tunnel component on AXA's side |
 | 5 | API vs shared-directory + DB insert | API-shaped interface; outbox unchanged either way | `RealNext3Client` internals only (directory writer + sanctioned stored proc) |
-| 6 | Arrived field names/formats | `Next3.Arrival*` placeholder mapping | Field mapping in the real client |
+| 6 | Arrived field names/formats — **and which clock the date and time are in** | `Next3.Arrival*` placeholder mapping, incl. `ArrivalTimeZone`. The outbox payload deliberately carries the **instant**, not a date-and-time pair: an expert arriving at 01:30 GST would otherwise be queued as arriving the previous day, and a queued row cannot be repaired from a value already collapsed into the wrong zone (realized 2026-08-20, slice 2.4) | Field mapping **and the zone split** in the real client |
 | 7 / 40 | SMS gateway + provider | `ISmsSender` fake logs sends; no cost quoted | Real sender adapter + AXA account. Note: Option 2 adds a second send stream on top of OTP if #24a says SMS |
 | 10 / 12 | Audio acceptance; document-type codes | `Next3.DocTypes.*` placeholders incl. voice + diagram | Config values; if audio refused, voice notes need a client conversation (feature is in the BRD) |
 | 13 / 14 / 15 | Email routing table, insurance-type list, IRIS codes | `Broker.InsuranceTypes` (2 BRD examples + obvious fakes), `Broker.EmailRouting` (fake recipients), IRIS free-text | Config values only |
@@ -521,6 +521,7 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
       "Invoice": "PLACEHOLDER-DOC-11"
     },
     "ArrivalFieldMap": "PLACEHOLDER",        // (#6)
+    "ArrivalTimeZone": "PLACEHOLDER-IANA-ZONE", // (#6) which clock §6.1's "date, time" are in
     "AssignmentSource": "fake"               // webhook | poll | fake  (#34)
   },
   "Broker": {

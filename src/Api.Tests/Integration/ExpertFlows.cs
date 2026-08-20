@@ -38,6 +38,9 @@ internal sealed record AssignmentDetailDto(
     DateTime? ClaimFetchedAt,
     ClaimBodyDto? Claim);
 
+/// <summary>Mirror of the API's ArrivalDto — what pressing Arrived returns (§5.1).</summary>
+internal sealed record ArrivalBodyDto(DateTime ArrivedAt, double? Latitude, double? Longitude);
+
 /// <summary>An expert user, their NEXT3 id, and a logged-in client for them.</summary>
 internal sealed record MappedExpert(AppUser User, string Next3Id, HttpClient Client) : IDisposable
 {
@@ -109,6 +112,25 @@ internal static class ExpertFlows
     public static Task Inject(this ApiFixture fixture, string visaNo, string expertNext3Id, string assignmentRef) =>
         fixture.Services.GetRequiredService<FakeAssignmentSource>()
             .Inject(new AssignmentReceived(visaNo, expertNext3Id, assignmentRef), CancellationToken.None);
+
+    /// <summary>
+    /// The coordinates every arrival test presses with — the same pair
+    /// <c>OutboxAtomicityTests</c> already uses, so one arrival looks like another across the suite.
+    /// </summary>
+    public const double TestLatitude = 25.2048;
+
+    public const double TestLongitude = 55.2708;
+
+    /// <summary>Presses Arrived (§5.1's E2 button). Coordinates are nullable so a test can omit them.</summary>
+    public static Task<HttpResponseMessage> PressArrived(
+        HttpClient client,
+        Guid assignmentId,
+        double? latitude = TestLatitude,
+        double? longitude = TestLongitude) =>
+        client.PostAsJsonAsync(ArrivalUrl(assignmentId), new { latitude, longitude });
+
+    public static string ArrivalUrl(Guid assignmentId) =>
+        $"/api/expert/assignments/{assignmentId}/arrival";
 
     /// <summary>The admin dev endpoint (§6.2's demo trigger).</summary>
     public static Task<HttpResponseMessage> PostInjection(

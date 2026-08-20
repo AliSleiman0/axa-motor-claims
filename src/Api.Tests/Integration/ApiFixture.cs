@@ -127,6 +127,20 @@ public sealed class ApiFixture : IAsyncLifetime
         await using (var db = CreateDbContext())
         {
             await db.Database.MigrateAsync();
+
+            // Azure SQL Database has READ_COMMITTED_SNAPSHOT ON by default and LocalDB has it OFF,
+            // so without this the concurrency tests — the outbox dequeue's READPAST claim, and 2.4's
+            // "exactly one arrival" guard — prove their point under a locking protocol the
+            // production database will not be running. Matching it here is the cheap half of that
+            // gap; the expensive half (a real Azure SQL run) belongs to §10's test environment.
+            // Suppressed rather than worked around: a database name cannot be a SQL parameter, so
+            // EF1003 has no safe alternative to offer here. dbName is `AxaMotorClaims_Test_` plus a
+            // Guid this method generated four lines above — it never leaves this process and holds
+            // nothing but hex digits and underscores.
+#pragma warning disable EF1003
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER DATABASE [" + dbName + "] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE");
+#pragma warning restore EF1003
         }
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

@@ -27,18 +27,21 @@ public static class OutboxPayloads
 }
 
 /// <summary>
-/// The `update_arrival` payload (§5.1's Arrived row, §6.1's "Record arrival"). Date, time and GPS are
-/// kept as the three separate values §6.1 requires; NEXT3's field names and formats are #6, mapped by
-/// the real client, not here.
+/// The `update_arrival` payload (§5.1's Arrived row, §6.1's "Record arrival").
+///
+/// <c>OccurredAt</c> is an instant rather than §6.1's "date, time" pair on purpose — see
+/// <see cref="ArrivalInfo"/>. This row can sit in the queue for 26 hours before it reaches A2, so
+/// whatever it holds is what NEXT3 eventually gets; a date already collapsed into the wrong zone is
+/// not recoverable from it. Splitting it belongs to the real client and #6's
+/// <c>Next3:ArrivalTimeZone</c>.
 /// </summary>
 public sealed record ArrivalOutboxPayload(
     string ClientRef,
-    DateOnly Date,
-    TimeOnly Time,
+    DateTimeOffset OccurredAt,
     double Latitude,
     double Longitude)
 {
-    public ArrivalInfo ToArrivalInfo() => new(Date, Time, Latitude, Longitude);
+    public ArrivalInfo ToArrivalInfo() => new(OccurredAt, Latitude, Longitude);
 }
 
 /// <summary>

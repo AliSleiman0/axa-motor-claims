@@ -17,6 +17,10 @@ public static class AuditActions
     public const string AssignmentUnmappedExpert = "assignment_unmapped_expert";
     public const string AssignmentOpened = "assignment_opened";
 
+    // §9: "Arrived presses with coordinates" — the lat/lng go in the detail JSON, because the whole
+    // point of the event is where the expert said they were.
+    public const string AssignmentArrived = "assignment_arrived";
+
     // §9's "public-page submissions (actor null, token id logged)".
     public const string PublicLinkIssued = "public_link_issued";
     public const string PublicLinkOpened = "public_link_opened";

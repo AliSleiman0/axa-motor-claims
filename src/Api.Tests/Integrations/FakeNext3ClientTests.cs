@@ -146,7 +146,7 @@ public sealed class FakeNext3ClientTests
     private static FakeNext3Client NewClient() => new(FakeTestHarness.Build().Behavior);
 
     private static ArrivalInfo Arrival() =>
-        new(new DateOnly(2026, 8, 19), new TimeOnly(9, 30), 25.2048, 55.2708);
+        new(new DateTimeOffset(2026, 8, 19, 9, 30, 0, TimeSpan.Zero), 25.2048, 55.2708);
 
     private static DocumentPush Document() =>
         new(Next3Folders.ExpertDocuments, "PLACEHOLDER-DOC-01", "photo.jpg", "image/jpeg", "blob/photo.jpg");

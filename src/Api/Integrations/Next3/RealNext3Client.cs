@@ -10,6 +10,9 @@ public sealed class RealNext3Client : INext3Client
     public Task<IReadOnlyList<ClaimSummary>> SearchClaims(string? plateNo, string? visaNo, CancellationToken ct) =>
         throw new NotImplementedException();
 
+    // Slice 3.3 splits info.OccurredAt into §6.1's "date, time" here, using Next3:ArrivalTimeZone —
+    // the conversion belongs at this edge and nowhere earlier, because everything upstream of it is
+    // durable (see ArrivalInfo).
     public Task RecordArrival(string visaNo, ArrivalInfo info, string clientRef, CancellationToken ct) =>
         throw new NotImplementedException();
 

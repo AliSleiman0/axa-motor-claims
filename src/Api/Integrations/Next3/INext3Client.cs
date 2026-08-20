@@ -34,10 +34,20 @@ public sealed record ClaimSummary(
     DateOnly AccidentDate);
 
 /// <summary>
-/// The three values §6.1 requires for arrival: date, time, GPS. Kept as separate values rather than
-/// a single timestamp because NEXT3's field names and formats are #6 — the real client maps them.
+/// §6.1's arrival data: when the expert got there, and where.
 /// </summary>
-public sealed record ArrivalInfo(DateOnly Date, TimeOnly Time, double Latitude, double Longitude);
+/// <param name="OccurredAt">
+/// **An instant, not a date and a time.** §6.1 asks for "date, time, GPS" and this record carried
+/// exactly that until slice 2.4 tried to fill it: splitting the moment into a
+/// <c>DateOnly</c> + <c>TimeOnly</c> pair throws the offset away at the point of capture, and an
+/// expert who arrives at 01:30 in GST is then reported to NEXT3 as arriving on the previous calendar
+/// day. Arrival time is the field a claims dispute turns on (§9), and the outbox row is durable — a
+/// push queued with the wrong day cannot be repaired later, because the payload no longer contains
+/// the information needed to correct it. So the zone conversion happens at the far edge, in
+/// <c>RealNext3Client</c>, from <c>Next3:ArrivalTimeZone</c> (#6) — which is where every other NEXT3
+/// formatting decision already lives.
+/// </param>
+public sealed record ArrivalInfo(DateTimeOffset OccurredAt, double Latitude, double Longitude);
 
 /// <summary>
 /// A document push (§6.1 "Upload document"). Carries the blob key, not bytes: the outbox payload

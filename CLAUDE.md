@@ -21,7 +21,7 @@ Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next 
 - `src/Api` — .NET 10 API (+ outbox worker host); placeholders in `src/Api/appsettings.Placeholders.json`
 - `src/Api.Tests` — xUnit test project
 - `src/Web` — React + TypeScript (Vite), Capacitor shell around the same build
-- Build/test commands: `dotnet build` / `dotnet test` at root; web: `npm run build` (tsc + ESLint + Vite, lint failures fail the build) and `npm run dev`, both in `src/Web`.
+- Build/test commands: `dotnet build` / `dotnet test` at root; web: `npm run build` (tsc + ESLint + Vite, lint failures fail the build), `npm test` (Vitest + jsdom, added slice 2.4) and `npm run dev`, all in `src/Web`. The Stop hook runs `dotnet test` only — run `npm test` yourself after touching `src/Web`.
 - EF migrations: `dotnet ef` is a local tool (`.config/dotnet-tools.json`); use the `add-ef-migration` skill.
 - **Blob storage — Azurite for local dev.** `Blob:Mode` is `fake` (in-memory) everywhere by default, so **`dotnet test` needs nothing running**. `dotnet run` sets `Blob__Mode=azure` via `launchSettings.json` and talks to Azurite on `UseDevelopmentStorage=true`. Start it either way:
   - npm (no Docker Desktop needed): `npx --yes -p azurite azurite-blob --silent --skipApiVersionCheck --location <scratch-dir>`

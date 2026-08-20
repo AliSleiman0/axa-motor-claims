@@ -1,9 +1,16 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { createQueryClient } from './api/queryClient'
+import { currentRole, homePathFor } from './api/session'
 import { getTokens } from './api/tokens'
 import { PROFILE_KINDS } from './admin/kinds'
 import LoginPage from './pages/LoginPage'
 import ProfileListPage from './pages/ProfileListPage'
 import ProfileFormPage from './pages/ProfileFormPage'
+import ExpertAssignmentsPage from './pages/ExpertAssignmentsPage'
+import ExpertAssignmentPage from './pages/ExpertAssignmentPage'
+
+const queryClient = createQueryClient()
 
 function AdminLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
@@ -22,19 +29,36 @@ function AdminLayout() {
   )
 }
 
+function ExpertLayout() {
+  if (!getTokens()) return <Navigate to="/login" replace />
+  return (
+    <main>
+      <h1>AXA Motor Claims — Expert</h1>
+      <Outlet />
+    </main>
+  )
+}
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<AdminLayout />}>
-          <Route path="/" element={<Navigate to="/admin/experts" replace />} />
-          <Route path="/admin/:kind" element={<ProfileListPage />} />
-          <Route path="/admin/:kind/new" element={<ProfileFormPage />} />
-          <Route path="/admin/:kind/:id" element={<ProfileFormPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          {/* Role decides the landing screen; the server decides what each screen may read (§9). */}
+          <Route path="/" element={<Navigate to={homePathFor(currentRole())} replace />} />
+          <Route element={<ExpertLayout />}>
+            <Route path="/expert" element={<ExpertAssignmentsPage />} />
+            <Route path="/expert/:id" element={<ExpertAssignmentPage />} />
+          </Route>
+          <Route element={<AdminLayout />}>
+            <Route path="/admin/:kind" element={<ProfileListPage />} />
+            <Route path="/admin/:kind/new" element={<ProfileFormPage />} />
+            <Route path="/admin/:kind/:id" element={<ProfileFormPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

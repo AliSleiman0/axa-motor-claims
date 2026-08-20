@@ -28,7 +28,7 @@ public sealed class OutboxWriter(AppDbContext db, TimeProvider time)
         Enqueue(
             visaNo,
             Next3OutboxOperations.UpdateArrival,
-            new ArrivalOutboxPayload(clientRef, info.Date, info.Time, info.Latitude, info.Longitude));
+            new ArrivalOutboxPayload(clientRef, info.OccurredAt, info.Latitude, info.Longitude));
 
     /// <summary>Queues a document upload (§5.1, §5.2) into the given NEXT3 folder.</summary>
     public Guid EnqueueDocument(string visaNo, DocumentPush doc, string clientRef) =>

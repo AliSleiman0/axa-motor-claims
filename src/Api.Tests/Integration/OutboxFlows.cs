@@ -73,6 +73,11 @@ internal static class OutboxFlows
     public static int DocumentsRecordedFor(this ApiFixture fixture, string visaNo) =>
         fixture.FakeNext3().RecordedDocuments.Count(d => d.VisaNo == visaNo);
 
+    /// <summary>The arrival side of <see cref="DocumentsRecordedFor"/> (slice 2.4's Arrived button).</summary>
+    public static IReadOnlyList<(string VisaNo, ArrivalInfo Info, string ClientRef)> ArrivalsRecordedFor(
+        this ApiFixture fixture, string visaNo) =>
+        [.. fixture.FakeNext3().RecordedArrivals.Where(a => a.VisaNo == visaNo)];
+
     /// <summary>
     /// Runs a scenario with a modified outbox configuration, then restores it. The monitor is shared
     /// by the whole serialized collection, so a leaked value breaks later tests — the same discipline

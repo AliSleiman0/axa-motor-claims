@@ -19,7 +19,7 @@ namespace Api.Tests.Integration;
 public sealed class OutboxAtomicityTests(ApiFixture fixture)
 {
     private static readonly ArrivalInfo Arrival =
-        new(new DateOnly(2026, 8, 20), new TimeOnly(9, 30), 25.2048, 55.2708);
+        new(new DateTimeOffset(2026, 8, 20, 9, 30, 0, TimeSpan.Zero), 25.2048, 55.2708);
 
     [Fact]
     public async Task TheDomainWriteAndTheOutboxRow_CommitTogether()
@@ -92,6 +92,65 @@ public sealed class OutboxAtomicityTests(ApiFixture fixture)
         {
             var row = await verify.ExpertAssignments.AsNoTracking().SingleAsync(a => a.Id == assignment.Id);
             Assert.Null(row.ArrivedAt);
+
+            Assert.Empty(await verify.Set<Next3OutboxMessage>().AsNoTracking()
+                .Where(m => m.VisaNo == assignment.VisaNo).ToListAsync());
+        }
+    }
+
+    [Fact]
+    public async Task WhenTheCommitFails_AnExecuteUpdateStampIsRolledBackToo()
+    {
+        // Slice 2.4's Arrived endpoint claims the transition with ExecuteUpdate — which runs its own
+        // statement immediately, *outside* SaveChanges — so it opens an explicit transaction to keep
+        // the §4 guarantee. Without one, the stamp autocommits and only the outbox and audit rows
+        // roll back: `arrived_at` set, no push queued, the button disabled for ever, nothing on A2 to
+        // retry, and no audit trail of the press. A NEXT3 write lost silently and permanently.
+        //
+        // This asserts the mechanism, not the endpoint's wiring of it — delete the BeginTransaction
+        // line below and the last assertion goes red; delete it from the endpoint and only the
+        // browser would tell you. That is the honest limit of what can be reached over HTTP, where
+        // there is no seam to fail SaveChanges through.
+        var assignment = await ArrangeAssignment();
+        var stamp = fixture.Time.GetUtcNow();
+
+        await using (var db = fixture.CreateDbContext())
+        {
+            await using var tx = await db.Database.BeginTransactionAsync();
+
+            await db.ExpertAssignments
+                .Where(a => a.Id == assignment.Id && a.ArrivedAt == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(a => a.ArrivedAt, (DateTime?)stamp.UtcDateTime)
+                    .SetProperty(a => a.ArrivalLat, (double?)Arrival.Latitude)
+                    .SetProperty(a => a.ArrivalLng, (double?)Arrival.Longitude));
+
+            new OutboxWriter(db, fixture.Time)
+                .EnqueueArrival(assignment.VisaNo, Arrival, OutboxFlows.NextClientRef());
+
+            // Same poison row as above: the failure lands at the database, so SQL Server rolls back
+            // everything the transaction has done — including the ExecuteUpdate.
+            db.Set<Next3OutboxMessage>().Add(new Next3OutboxMessage
+            {
+                Id = Guid.CreateVersion7(),
+                VisaNo = assignment.VisaNo,
+                Operation = "PLACEHOLDER-not-an-operation",
+                Payload = "{}",
+                Status = Next3OutboxStatuses.Pending,
+                NextRetryAt = stamp.UtcDateTime,
+                CreatedAt = stamp.UtcDateTime,
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+            // No commit; disposal rolls back.
+        }
+
+        await using (var verify = fixture.CreateDbContext())
+        {
+            var row = await verify.ExpertAssignments.AsNoTracking().SingleAsync(a => a.Id == assignment.Id);
+            Assert.Null(row.ArrivedAt);
+            Assert.Null(row.ArrivalLat);
+            Assert.Null(row.ArrivalLng);
 
             Assert.Empty(await verify.Set<Next3OutboxMessage>().AsNoTracking()
                 .Where(m => m.VisaNo == assignment.VisaNo).ToListAsync());

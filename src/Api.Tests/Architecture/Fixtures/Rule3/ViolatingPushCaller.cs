@@ -8,7 +8,7 @@ public sealed class ViolatingPushCaller(INext3Client client)
     public Task PushOutsideOutbox() =>
         client.RecordArrival(
             "PLACEHOLDER-VISA-0000",
-            new ArrivalInfo(new DateOnly(2026, 1, 1), new TimeOnly(12, 0), 0, 0),
+            new ArrivalInfo(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero), 0, 0),
             "PLACEHOLDER-REF",
             CancellationToken.None);
 }
