@@ -9,8 +9,16 @@ namespace Api.Outbox;
 ///
 /// The clientRef lives in the payload rather than in a column because it is stable *by construction*
 /// — the producer sets it to the id of the row being pushed (§5.1: "clientRef = document id"), so it
-/// survives every retry of that outbox row unchanged. #32 asks whether NEXT3 dedupes on it; until it
-/// answers, RealNext3Client will keep its own sent-log check on top (slice 3.3).
+/// survives every retry of that outbox row unchanged.
+///
+/// **#32 is NEXT3's obligation, and there is deliberately no client-side sent-log on top of it**
+/// (decided slice 3.3; design.md §6.3 corrected to match, and it used to say the opposite here). The
+/// `sent` status on the row below already *is* the sent-log, and a second copy of "have I sent this"
+/// is a second answer that can disagree with it. More to the point, a local check cannot cover the
+/// case it would exist for: the dangerous retry is the one after a **timeout**, where nothing on this
+/// side knows whether NEXT3 accepted the push — mark it sent and a document is lost, mark it unsent
+/// and it is duplicated. Only the receiver can tell, which is why `docs/next3-openapi.yaml` makes
+/// `clientRef` a required parameter and states the guarantee as a requirement on NEXT3.
 /// </summary>
 public static class OutboxPayloads
 {

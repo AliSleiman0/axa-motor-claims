@@ -1,0 +1,734 @@
+openapi: 3.1.0
+
+info:
+  title: NEXT3 integration API — proposed contract
+  version: 0.1.0
+  summary: The endpoints the AXA Motor Claim Management application needs from NEXT3.
+  description: |
+    **This document is a proposal, not a record of an existing API.**
+
+    AXA's BRD says NEXT3 endpoints "will be provided". No specification, sandbox or credentials have
+    been received (open question #1), so rather than wait, this file states exactly what the mobile
+    application needs — the operations, the fields, the status codes and the one guarantee that
+    matters for data integrity. It is offered so that whoever builds or exposes these endpoints has a
+    reviewable target with a date attached, and so that any difference between this and what NEXT3
+    can actually do is visible now instead of in week 7.
+
+    Please treat every path below as **illustrative**. The application talks to NEXT3 through a single
+    interface with a working simulator behind it, so a different path, verb or field name costs one
+    adapter change on our side. What is *not* negotiable without a conversation is the **data** each
+    operation carries, and the idempotency guarantee on the two write operations.
+
+    ## The one thing to read if you read nothing else
+
+    `POST /claims/{visaNumber}/documents` and `POST /claims/{visaNumber}/arrival` both carry a
+    `clientRef` supplied by the application. **NEXT3 must treat a repeat submission carrying a
+    `clientRef` it has already accepted as a duplicate, and not store it twice.**
+
+    This is open question #32, and it is not a nicety. Photographs are uploaded from accident sites
+    over mobile connections. When a connection drops after NEXT3 has accepted a photograph but before
+    it confirms, the application cannot know which happened, and it must retry — that is what makes
+    the system reliable when NEXT3 or the network is briefly unavailable. Without a reference that
+    NEXT3 checks, every one of those retries adds a duplicate photograph to the claim file. Nothing on
+    our side can prevent it: only the receiver can tell the second copy from the first.
+
+    ## Open questions this document cannot answer
+
+    - **#1** — sandbox URL, credentials, authentication method, rate limits, and representative test
+      data. Until this arrives the application runs against a simulator, and the delivery date moves
+      day for day with it.
+    - **#2** — whether these endpoints are reachable from the internet or internal-only (and if the
+      latter, who configures the VPN, allowlist or tunnel).
+    - **#5** — whether document upload is really an API at all, or a shared directory plus record
+      inserts into the NEXT3 database, as the BRD prerequisites suggest. If it is the second, this
+      document still describes the *data*; only the transport changes.
+    - **#6** — the exact writable fields and formats for the arrival update. See the notes on that
+      operation: the application deliberately sends the instant, the split date and time, *and* the
+      time zone, so an answer of "UTC actually" is a configuration change rather than a re-send.
+    - **#8** — master data for garages and claim officers as well as experts, and whether it is a
+      one-time extract or kept synchronised.
+    - **#12** — the document-type codes. Every `docType` this application sends today is a
+      placeholder.
+    - **#34** — whether NEXT3 can call outwards when a claim is assigned (see `webhooks` below) or
+      whether the application must poll `GET /experts/{expertId}/claims`.
+    - **#42** — how NEXT3 expresses which expert is assigned to which claim. The application must be
+      able to show an expert only their own claims and refuse everything else, and that relationship
+      lives in NEXT3, not here.
+
+    All example values are obviously fake. No AXA data appears anywhere in this file.
+  contact:
+    name: Ali Sleiman — developer, AXA Motor Claim Management
+
+servers:
+  - url: https://PLACEHOLDER-next3-sandbox.example/api
+    description: |
+      Sandbox — non-production, with representative test data (#1). This is the environment the
+      integration is built and tested against; it is listed first because it is needed first.
+  - url: https://PLACEHOLDER-next3.example/api
+    description: Production.
+
+tags:
+  - name: Authentication
+    description: How the application identifies itself as a service.
+  - name: Claims
+    description: Reading claim data and writing back to a claim.
+  - name: Master data
+    description: The NEXT3 identities the application maps its own users onto.
+
+paths:
+
+  /auth/token:
+    post:
+      tags: [Authentication]
+      operationId: getToken
+      summary: Authenticate as a service
+      description: |
+        The application authenticates as a service, not as a person — an expert's login is handled by
+        the application itself (phone plus one-time code) and is never presented to NEXT3.
+
+        **Whichever method NEXT3 already supports is fine.** Three are catered for and only one is
+        needed: OAuth 2.0 client credentials (described here), a static API key (`ApiKeyAuth` below),
+        or mutual TLS. If NEXT3 uses an API key or mutual TLS, this endpoint is not required at all.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, client_secret]
+              properties:
+                grant_type:
+                  type: string
+                  const: client_credentials
+                client_id:
+                  type: string
+                  examples: ["PLACEHOLDER-client-id"]
+                client_secret:
+                  type: string
+                  examples: ["PLACEHOLDER-client-secret"]
+      responses:
+        "200":
+          description: A token the application caches until shortly before it expires.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, expires_in]
+                properties:
+                  access_token:
+                    type: string
+                    examples: ["PLACEHOLDER-access-token"]
+                  token_type:
+                    type: string
+                    examples: ["Bearer"]
+                  expires_in:
+                    type: integer
+                    description: Lifetime in seconds.
+                    examples: [3600]
+        "400":
+          $ref: "#/components/responses/Rejected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /claims/{visaNumber}:
+    get:
+      tags: [Claims]
+      operationId: getClaim
+      summary: Claim details
+      description: |
+        Everything the expert sees on arriving at the scene. The application caches the result briefly
+        so the screen still works when NEXT3 is unreachable, and it re-fetches whenever the claim is
+        opened; NEXT3 remains the source of truth.
+      parameters:
+        - $ref: "#/components/parameters/VisaNumber"
+      responses:
+        "200":
+          description: The claim.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "404":
+          description: |
+            **No claim with that visa number.**
+
+            Please return 404 rather than 200 with an empty body. The application distinguishes "this
+            claim does not exist" from "NEXT3 could not be reached", and shows the user a different
+            screen for each; an empty 200 collapses the two.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /claims/search:
+    get:
+      tags: [Claims]
+      operationId: searchClaims
+      summary: Search claims by plate or visa number
+      description: |
+        Serves the claim officer's visa lookup, where a garage declaration has to be matched to the
+        claim it belongs to.
+
+        **Not a browse surface.** If neither parameter is supplied the application does not call this
+        endpoint at all, and asks that NEXT3 return an empty list rather than every claim it holds.
+
+        Note the expert's "search previous claims" does *not* use this endpoint: it searches only the
+        assignments that expert has already been given, inside the application's own data. A
+        NEXT3-wide search would let an expert open a claim they were never assigned — and the next
+        thing on that screen is a camera.
+      parameters:
+        - in: query
+          name: plateNo
+          schema:
+            type: string
+          examples:
+            plate:
+              value: "PLC-TEST-01"
+        - in: query
+          name: visaNo
+          schema:
+            type: string
+          examples:
+            visa:
+              value: "PLACEHOLDER-VISA-0001"
+      responses:
+        "200":
+          description: Matching claims; an empty array when nothing matches or no term was supplied.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClaimSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /claims/{visaNumber}/arrival:
+    post:
+      tags: [Claims]
+      operationId: recordArrival
+      summary: Record that the expert arrived on site
+      description: |
+        Writes the "Expert Arrived" date, time and location back to the claim — named explicitly in
+        the BRD. The application disables the button after the first press and guarantees at most one
+        arrival per assignment, but please also treat a repeat with the same `clientRef` as a
+        duplicate (see `clientRef` below).
+
+        **On the date and the time (#6).** The body carries the same moment three ways on purpose:
+        `occurredAt` as an unambiguous instant with its offset, `date` and `time` already split, and
+        `timeZone` naming the zone that split used. An expert who arrives at 01:30 local time is on
+        the *previous* calendar day in UTC, and arrival time is a field claims disputes turn on — so
+        rather than guess which clock NEXT3 records, the application sends all three and lets the
+        answer to #6 be a configuration change. Use whichever pair NEXT3 needs and ignore the rest.
+      parameters:
+        - $ref: "#/components/parameters/VisaNumber"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientRef, occurredAt, date, time, timeZone, latitude, longitude]
+              properties:
+                clientRef:
+                  $ref: "#/components/schemas/ClientRef"
+                occurredAt:
+                  type: string
+                  format: date-time
+                  description: The instant of arrival, with offset (RFC 3339).
+                  examples: ["2026-08-21T01:30:00+04:00"]
+                date:
+                  type: string
+                  format: date
+                  description: The calendar date of arrival **in `timeZone`**.
+                  examples: ["2026-08-21"]
+                time:
+                  type: string
+                  description: The wall-clock time of arrival in `timeZone`, 24-hour.
+                  examples: ["01:30:00"]
+                timeZone:
+                  type: string
+                  description: IANA zone id that `date` and `time` are expressed in.
+                  examples: ["PLACEHOLDER-IANA-ZONE"]
+                latitude:
+                  type: number
+                  format: double
+                  minimum: -90
+                  maximum: 90
+                  examples: [25.2048]
+                longitude:
+                  type: number
+                  format: double
+                  minimum: -180
+                  maximum: 180
+                  examples: [55.2708]
+      responses:
+        "204":
+          description: Arrival recorded, or already recorded under this `clientRef`.
+        "400":
+          $ref: "#/components/responses/Rejected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No claim with that visa number.
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /claims/{visaNumber}/documents:
+    post:
+      tags: [Claims]
+      operationId: uploadDocument
+      summary: Upload a document or photograph to a claim
+      description: |
+        **The core of the whole application.** Today these files travel by email and are re-filed by
+        hand under the right visa number; this endpoint is what replaces that.
+
+        The file arrives with the folder it belongs in (*Expert documents* or *Survey*, both named by
+        the BRD), its document type, and the `clientRef` that makes a retry safe. Uploads are sent
+        from a background queue, so NEXT3 being unavailable delays them rather than losing them — the
+        queue drains when NEXT3 returns.
+
+        **Please confirm NEXT3's limits (#9):** maximum file size, maximum number of files per claim
+        or per folder, and accepted formats. The application currently allows images and PDFs up to
+        15 MB, plus audio for the expert's voice note (#8 asks whether NEXT3 accepts audio at all).
+      parameters:
+        - $ref: "#/components/parameters/VisaNumber"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [clientRef, docType, folder, file]
+              properties:
+                clientRef:
+                  $ref: "#/components/schemas/ClientRef"
+                docType:
+                  type: string
+                  description: |
+                    NEXT3's document-type code (#12). Every value the application sends today is a
+                    placeholder — the real list is needed before go-live.
+                  examples: ["PLACEHOLDER-DOC-01"]
+                folder:
+                  $ref: "#/components/schemas/Folder"
+                file:
+                  type: string
+                  format: binary
+            encoding:
+              file:
+                contentType: image/jpeg, image/png, application/pdf, audio/webm, audio/mp4, audio/ogg
+      responses:
+        "201":
+          description: Stored, or already stored under this `clientRef`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentId:
+                    type: string
+                    description: NEXT3's identifier for the stored document, if it has one.
+                    examples: ["PLACEHOLDER-DOCUMENT-ID"]
+                  duplicate:
+                    type: boolean
+                    description: |
+                      True when this `clientRef` had already been accepted and nothing new was stored.
+                      Useful for our support diagnostics; not required.
+                    examples: [false]
+        "400":
+          $ref: "#/components/responses/Rejected"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No claim with that visa number.
+        "413":
+          description: The file exceeds NEXT3's size limit (#9).
+        "415":
+          description: NEXT3 does not accept this content type (#8 for audio, #9 for images).
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /experts/{expertId}/claims:
+    get:
+      tags: [Claims]
+      operationId: getExpertClaims
+      summary: The claims currently assigned to one expert
+      description: |
+        Two jobs, both important.
+
+        **Access control (#42).** The application must show an expert their own assigned claims and
+        refuse every other claim in the system. That relationship lives in NEXT3 and cannot be
+        reconstructed on our side — so if this endpoint (or an assignment field on the claim itself)
+        is not available, the application's own assignment records become the only source of truth for
+        it, and that limitation has to be agreed in writing rather than discovered later.
+
+        **Fallback delivery (#34).** If NEXT3 cannot call outwards when a claim is assigned (see
+        `webhooks`), the application polls this endpoint on a schedule instead. Polling is the weaker
+        option — it adds delay to the notification the expert's whole flow starts with — but it works
+        without NEXT3 initiating anything.
+      parameters:
+        - in: path
+          name: expertId
+          required: true
+          schema:
+            type: string
+          description: The expert's NEXT3 identifier, as returned by `GET /experts`.
+          examples:
+            expert:
+              value: "PLACEHOLDER-EXP-01"
+      responses:
+        "200":
+          description: The claims assigned to that expert.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No expert with that identifier.
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /experts:
+    get:
+      tags: [Master data]
+      operationId: getExperts
+      summary: Expert master data
+      description: |
+        So each application user can be matched to their NEXT3 record. The BRD mentions the expert
+        extract only, but all four profiles carry a NEXT3 identity — see the two endpoints below.
+
+        **Please confirm whether this is a one-time extract or stays synchronised (#8).** The
+        application re-reads it and updates identity fields, keeping its own active/inactive state.
+      responses:
+        "200":
+          description: Every expert NEXT3 knows, active or not.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Party"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /garages:
+    get:
+      tags: [Master data]
+      operationId: getGarages
+      summary: Garage master data
+      description: Same shape and same purpose as `GET /experts` (#8).
+      responses:
+        "200":
+          description: Every garage NEXT3 knows.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Party"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /claim-officers:
+    get:
+      tags: [Master data]
+      operationId: getClaimOfficers
+      summary: Claim officer master data
+      description: |
+        Same shape and same purpose as `GET /experts` (#8).
+
+        If brokers also hold a NEXT3 identity, an equivalent list is needed for them; otherwise the
+        application needs the source of the IRIS code list separately (#15).
+      responses:
+        "200":
+          description: Every claim officer NEXT3 knows.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Party"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+webhooks:
+
+  assignmentNotification:
+    post:
+      operationId: notifyAssignment
+      summary: NEXT3 tells the application a claim has been assigned to an expert
+      description: |
+        **This is the genuine hole in the BRD (#34).** The BRD says a back-office engine "triggers the
+        process", without saying how that reaches the application — and the expert's entire flow
+        begins with a notification arriving on their phone, so it has to be resolved for the primary
+        requirement to work at all.
+
+        A call *from* NEXT3 *to* the application is strongly preferred: the expert is notified within
+        seconds of assignment. The application will supply the URL. If NEXT3 cannot call outwards, it
+        polls `GET /experts/{expertId}/claims` instead, and the notification is delayed by up to one
+        polling interval.
+
+        **Replays are safe.** The application deduplicates on `assignmentRef`, so NEXT3 may retry this
+        call freely; a repeat is a no-op rather than a second assignment.
+
+        The request is signed with a shared secret (HMAC-SHA256 over the raw body) in the
+        `X-Next3-Signature` header, with `X-Next3-Timestamp` to bound replays. If that is
+        inconvenient, an API key or mutual TLS on the callback is equally acceptable — please say
+        which.
+      parameters:
+        - in: header
+          name: X-Next3-Signature
+          required: true
+          schema:
+            type: string
+          description: Hex HMAC-SHA256 of the raw request body, keyed with the shared secret.
+        - in: header
+          name: X-Next3-Timestamp
+          required: true
+          schema:
+            type: string
+            format: date-time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [visaNo, expertId, assignmentRef]
+              properties:
+                visaNo:
+                  type: string
+                  examples: ["PLACEHOLDER-VISA-0001"]
+                expertId:
+                  type: string
+                  description: The expert's NEXT3 identifier.
+                  examples: ["PLACEHOLDER-EXP-01"]
+                assignmentRef:
+                  type: string
+                  description: |
+                    NEXT3's stable identifier for this assignment. The application deduplicates on it,
+                    so it must be the same value on a replay of the same assignment.
+                  examples: ["PLACEHOLDER-ASSIGNMENT-REF-0001"]
+                assignedAt:
+                  type: string
+                  format: date-time
+      responses:
+        "204":
+          description: Accepted, or already known. NEXT3 need not retry.
+        "401":
+          description: The signature did not verify.
+
+components:
+
+  securitySchemes:
+    OAuth2ClientCredentials:
+      type: oauth2
+      description: Preferred if NEXT3 already supports it (#1).
+      flows:
+        clientCredentials:
+          tokenUrl: https://PLACEHOLDER-next3-sandbox.example/api/auth/token
+          scopes: {}
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: |
+        A static key, if that is what NEXT3 uses (#1). The header name is this proposal's suggestion —
+        any name works, it is one line of configuration on our side.
+    MutualTls:
+      type: mutualTLS
+      description: |
+        Supported in configuration but **not exercised**, because nothing has been available to test
+        it against. If NEXT3 requires mutual TLS, say so early: it needs a certificate exchange and a
+        connectivity test, which is schedule rather than code.
+
+  parameters:
+    VisaNumber:
+      in: path
+      name: visaNumber
+      required: true
+      schema:
+        type: string
+      description: |
+        The claim reference opened in NEXT3. Every photograph and document must land under the correct
+        one — the manual re-filing of these is the problem this application exists to remove.
+      examples:
+        visa:
+          value: "PLACEHOLDER-VISA-0001"
+
+  responses:
+    Unauthorized:
+      description: Authentication failed or the token has expired.
+    Rejected:
+      description: |
+        The request was understood and refused — a malformed payload, an unknown document type, a
+        value NEXT3 will not accept.
+
+        **The application does not retry these**, deliberately: it marks the item failed immediately
+        and shows it on an administrator screen with the error text, where somebody can act on it. So
+        anything returned in `detail` is read by a person, and a specific message is worth a great
+        deal more than a generic one.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServerError:
+      description: |
+        Something went wrong inside NEXT3.
+
+        **The application does retry these**, on a backoff schedule spread over roughly 26 hours, and
+        the same applies to timeouts and connection failures. A maintenance window or a short outage
+        therefore delays uploads rather than losing them, and nobody has to do anything. Please tell
+        us NEXT3's expected availability and maintenance windows (#33) so the schedule can be tuned to
+        them.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+
+    ClientRef:
+      type: string
+      maxLength: 100
+      description: |
+        **A reference supplied by the application to make retries safe (#32).**
+
+        It is stable: every retry of the same upload or the same arrival carries the same value, and
+        two different uploads never share one.
+
+        NEXT3 must reject or ignore a second submission carrying a `clientRef` it has already
+        accepted, answering as though it had succeeded. Without that, any connection that drops after
+        NEXT3 accepts a photograph but before it confirms produces a duplicate in the claim file — and
+        the application cannot tell the two cases apart from its side, which is exactly why the
+        guarantee has to live here.
+      examples: ["0199a1f4-6c3e-7c21-b5b1-PLACEHOLDER"]
+
+    Folder:
+      type: string
+      description: |
+        The NEXT3 folder the file belongs in. Both names are the BRD's own: expert media goes to
+        *Expert documents*, and everything from the garage survey flow — including the claim officer's
+        approval — goes to *Survey*.
+      enum:
+        - Expert documents
+        - Survey
+
+    ClaimDetail:
+      type: object
+      required:
+        [visaNo, policyNo, plateNo, insuredName, insuredPhone, carMakeModel, city, accidentDate]
+      properties:
+        visaNo:
+          type: string
+          examples: ["PLACEHOLDER-VISA-0001"]
+        policyNo:
+          type: string
+          examples: ["PLACEHOLDER-POL-0001"]
+        plateNo:
+          type: string
+          examples: ["PLC-TEST-01"]
+        insuredName:
+          type: string
+          examples: ["PLACEHOLDER Insured One"]
+        insuredPhone:
+          type: string
+          examples: ["+999000001001"]
+        carMakeModel:
+          type: string
+          examples: ["PLACEHOLDER Make One"]
+        city:
+          type: string
+          examples: ["PLACEHOLDER City A"]
+        accidentDate:
+          type: string
+          format: date
+          examples: ["2026-08-03"]
+
+    ClaimSummary:
+      type: object
+      description: Enough to pick a claim out of a list, not the full detail.
+      required: [visaNo, plateNo, insuredName, carMakeModel, accidentDate]
+      properties:
+        visaNo:
+          type: string
+          examples: ["PLACEHOLDER-VISA-0001"]
+        plateNo:
+          type: string
+          examples: ["PLC-TEST-01"]
+        insuredName:
+          type: string
+          examples: ["PLACEHOLDER Insured One"]
+        carMakeModel:
+          type: string
+          examples: ["PLACEHOLDER Make One"]
+        accidentDate:
+          type: string
+          format: date
+          examples: ["2026-08-03"]
+
+    Assignment:
+      type: object
+      required: [visaNo, assignmentRef]
+      properties:
+        visaNo:
+          type: string
+          examples: ["PLACEHOLDER-VISA-0001"]
+        assignmentRef:
+          type: string
+          description: Stable across repeats of the same assignment; the application deduplicates on it.
+          examples: ["PLACEHOLDER-ASSIGNMENT-REF-0001"]
+        assignedAt:
+          type: string
+          format: date-time
+
+    Party:
+      type: object
+      description: |
+        One master-data record — an expert, a garage or a claim officer. The same four fields serve all
+        three; if NEXT3 holds different fields per type, please say so (#8).
+      required: [id, name, mobile, active]
+      properties:
+        id:
+          type: string
+          description: The NEXT3 identifier the application stores against its own user record.
+          examples: ["PLACEHOLDER-EXP-01"]
+        name:
+          type: string
+          examples: ["PLACEHOLDER Expert One"]
+        mobile:
+          type: string
+          description: Used to send the invitation link; E.164 preferred.
+          examples: ["+999000002001"]
+        active:
+          type: boolean
+          examples: [true]
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples: ["PLACEHOLDER-ERROR-CODE"]
+        detail:
+          type: string
+          description: Read by a person on an administrator screen. Specific beats generic.
+          examples: ["PLACEHOLDER description of what was wrong with the request."]
+
+security:
+  - OAuth2ClientCredentials: []
+  - ApiKeyAuth: []
+  - MutualTls: []

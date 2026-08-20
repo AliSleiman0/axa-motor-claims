@@ -1,3 +1,5 @@
+using System.Net;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
@@ -54,6 +56,23 @@ public sealed class AzureBlobStore : IBlobStore
     {
         var container = await _container.Value;
         return await container.GetBlobClient(key).ExistsAsync(ct);
+    }
+
+    public async Task<Stream?> Open(string key, CancellationToken ct)
+    {
+        var container = await _container.Value;
+
+        try
+        {
+            return await container.GetBlobClient(key).OpenReadAsync(cancellationToken: ct);
+        }
+        catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
+        {
+            // "Not there" is a state, not a fault (see IBlobStore.Open): §7.3 deletes a blob once its
+            // push is confirmed, so the caller has to be able to tell an absent blob from a storage
+            // outage — and an outage must stay an exception, because that one is worth retrying.
+            return null;
+        }
     }
 
     public async Task<bool> Delete(string key, CancellationToken ct)

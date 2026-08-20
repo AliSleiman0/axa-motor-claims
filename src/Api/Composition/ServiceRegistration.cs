@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Api.Composition;
@@ -149,6 +150,43 @@ public static class ServiceRegistration
         services.AddSingleton<FakeNext3Client>();
 
         var mode = configuration["Next3:Mode"] ?? "fake";
+
+        // The app's first IHttpClientFactory (slice 3.3). Registered in both modes so the container
+        // shape does not depend on configuration; in fake mode nothing ever resolves it.
+        // Microsoft.Extensions.Http ships with the web SDK, so this needs no package reference.
+        services.AddHttpClient(Next3HttpClient.Name, (sp, client) =>
+        {
+            var next3 = sp.GetRequiredService<IOptions<Next3Options>>().Value;
+
+            // Only when it is usable: BaseAddress rejects a malformed URI, and every value in
+            // Appendix A's Next3 section is a PLACEHOLDER until #1 answers. Real mode has already
+            // been validated by then (Next3OptionsValidator); fake mode must still boot.
+            if (Uri.TryCreate(next3.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                // Trailing slash, or Uri resolution silently drops the last path segment of BaseUrl —
+                // "https://host/api" + "claims/X" would request "https://host/claims/X".
+                client.BaseAddress = new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
+            }
+
+            if (next3.TimeoutSeconds > 0)
+            {
+                client.Timeout = TimeSpan.FromSeconds(next3.TimeoutSeconds);
+            }
+        });
+
+        // Singleton so the OAuth token is cached across outbox passes rather than re-fetched per push.
+        services.AddSingleton<Next3TokenProvider>();
+
+        if (string.Equals(mode, "real", StringComparison.Ordinal))
+        {
+            // Fail-fast, and **only in real mode** — see Next3OptionsValidator for why this is not
+            // constructor validation, and why an always-on validator would stop the app booting on
+            // the placeholder file that every other environment runs on today.
+            services.AddSingleton<IValidateOptions<Next3Options>, Next3OptionsValidator>();
+            services.AddOptions<Next3Options>()
+                .Bind(configuration.GetSection(Next3Options.SectionName))
+                .ValidateOnStart();
+        }
         services.AddSingleton<INext3Client>(sp => mode switch
         {
             "fake" => sp.GetRequiredService<FakeNext3Client>(),

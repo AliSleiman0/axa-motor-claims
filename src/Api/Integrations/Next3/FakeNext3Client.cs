@@ -20,8 +20,12 @@ public sealed class FakeNext3Client(FakeBehavior behavior) : INext3Client
 
     // The idempotency guard the outbox (slice 2.2) is written against: a clientRef is consumed only
     // by a *successful* push, so a retry after a timeout that actually succeeded is a silent no-op,
-    // while a retry after a genuine failure still goes through. #32 asks whether the real NEXT3
-    // dedupes like this; until it answers, the real client keeps its own sent-log check too.
+    // while a retry after a genuine failure still goes through.
+    //
+    // This is the fake modelling what #32 asks NEXT3 to guarantee. RealNext3Client keeps no
+    // equivalent (slice 3.3): nothing on this side can know whether a timed-out push was accepted,
+    // and architecture rule 4 forbids this namespace from reading outbox rows anyway. The guarantee
+    // has to live at the receiver, which is why docs/next3-openapi.yaml states it as a requirement.
     private readonly ConcurrentDictionary<string, byte> _sentClientRefs = new(StringComparer.Ordinal);
 
     private readonly ConcurrentQueue<(string VisaNo, ArrivalInfo Info, string ClientRef)> _arrivals = new();

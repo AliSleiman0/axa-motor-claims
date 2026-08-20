@@ -33,6 +33,12 @@ public sealed class InMemoryBlobStore(TimeProvider time) : IBlobStore
     public Task<bool> Exists(string key, CancellationToken ct) =>
         Task.FromResult(_blobs.ContainsKey(key));
 
+    public Task<Stream?> Open(string key, CancellationToken ct) =>
+        // A fresh MemoryStream per call, never a shared one: two outbox workers may push different
+        // documents concurrently, and a stream handed to both would have one position between them.
+        Task.FromResult<Stream?>(
+            _blobs.TryGetValue(key, out var blob) ? new MemoryStream(blob.Content, writable: false) : null);
+
     public Task<bool> Delete(string key, CancellationToken ct) =>
         Task.FromResult(_blobs.TryRemove(key, out _));
 

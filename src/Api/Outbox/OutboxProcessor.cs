@@ -167,7 +167,12 @@ public sealed partial class OutboxProcessor(
     /// Unrecognised failures are treated as permanent on purpose: a bug or a malformed payload
     /// surfaces on A2 within seconds, where someone can see it, rather than being retried silently for
     /// fourteen hours first. A2's Retry button makes that decision reversible.
+    ///
+    /// <c>internal</c> rather than private since slice 3.3, so <c>RealNext3ClientTests</c> can ask the
+    /// real classifier what it makes of the exceptions the real client throws. Copying this list into
+    /// the test would prove only that the copy matches itself; the question worth answering is whether
+    /// a 400 burns 26 h 36 m of retries, and only this method knows.
     /// </summary>
-    private static bool IsTransient(Exception ex) =>
+    internal static bool IsTransient(Exception ex) =>
         ex is FakeTransientException or HttpRequestException or TimeoutException;
 }

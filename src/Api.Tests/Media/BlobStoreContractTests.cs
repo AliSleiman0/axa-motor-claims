@@ -50,8 +50,24 @@ public class BlobStoreContractTests
         {
             Assert.False(await store.Exists(key, ct));
 
+            // Absent is null, not an exception (slice 3.3). RealNext3Client is the first reader, and
+            // it has to tell "these bytes were already cleaned up, so no retry can help" from "storage
+            // is having a bad moment, so retry" — the first is terminal, the second is on the §6.3
+            // schedule. A store that threw for both would collapse that distinction.
+            Assert.Null(await store.Open(key, ct));
+
             await store.Put(key, Stream("PLACEHOLDER-contents"), "image/jpeg", ct);
             Assert.True(await store.Exists(key, ct));
+
+            // Reading back returns what was written, byte for byte: this is the payload that reaches
+            // NEXT3 under a visa number, so "close enough" is not a category that exists here.
+            using (var opened = await store.Open(key, ct))
+            {
+                Assert.NotNull(opened);
+                using var read = new MemoryStream();
+                await opened.CopyToAsync(read, ct);
+                Assert.Equal("PLACEHOLDER-contents", Encoding.UTF8.GetString(read.ToArray()));
+            }
 
             var listed = await store.List(run, ct);
             var item = Assert.Single(listed);
@@ -95,6 +111,10 @@ public class BlobStoreContractTests
             Assert.True(await store.Delete(key, ct));
             Assert.False(await store.Exists(key, ct));
             Assert.False(await store.Delete(key, ct));
+
+            // And a deleted blob reads back as absent rather than as stale bytes — the state
+            // RealNext3Client turns into a terminal "the bytes are gone" rather than a retry.
+            Assert.Null(await store.Open(key, ct));
         }
         finally
         {

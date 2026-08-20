@@ -252,18 +252,19 @@ Deliberately minimal — CRUD + invites + the failed-push screen, nothing more (
 
 ### 6.1 The operations
 
-`client-doc-src.html` §3.1 lists **eight operations — precisely: seven calls plus one environment obligation** (the sandbox is not an API call; saying so here beats silently inventing an eighth endpoint). Paths are illustrative; the operation and data are the contract. The OpenAPI proposal (HANDOFF §6) is the send-them-a-spec version of this table.
+**The operations, and the written contract for them.** This table used to say "eight operations — seven calls plus one environment obligation", counting `client-doc-src.html` §3.1 as it stood before the 2026-08-19 manager review. **Corrected 2026-08-21, slice 3.3:** the client document (v0.5) had since grown two more rows that this table never absorbed — `GET /experts/{expertId}/claims` and master data for **garages and claim officers**, not experts alone — and the two documents are sent to the same reader. They are folded in below, and `docs/next3-openapi.yaml` (written this slice, the artifact HANDOFF §8 item 3 points at) is the machine-readable version of exactly this set. Paths are illustrative; the operation and the data are the contract.
 
 | Operation | Illustrative path | Direction | Data |
 |---|---|---|---|
 | Authentication | `POST /auth/token` | app → NEXT3 | Service identity; OAuth client credentials, API key, or mTLS — NEXT3's choice (#1) |
-| Claim details | `GET /claims/{visaNumber}` | app → NEXT3 | visa, policy, plate, insured name + phone, make/model, city, accident date |
-| Claim search | `GET /claims/search` | app → NEXT3 | by plate or visa; serves the **officer's** visa lookup (§5.2). Not the expert's E1 search, which is local to their own assignments and makes no NEXT3 call — see §5.1's search row (corrected slice 3.2) |
-| Record arrival | `POST /claims/{visaNumber}/arrival` | app → NEXT3 | date, time, GPS (formats #6) |
+| Claim details | `GET /claims/{visaNumber}` | app → NEXT3 | visa, policy, plate, insured name + phone, make/model, city, accident date. **404 on unknown visa**, never 200-with-empty: §4's cache renders "no such claim" and "NEXT3 is down" as different screens, and the real client maps the 404 to `null` to keep them apart |
+| Claim search | `GET /claims/search` | app → NEXT3 | by plate or visa; serves the **officer's** visa lookup (§5.2). Not the expert's E1 search, which is local to their own assignments and makes no NEXT3 call — see §5.1's search row (corrected slice 3.2). Neither term supplied returns empty, never every claim |
+| Record arrival | `POST /claims/{visaNumber}/arrival` | app → NEXT3 | date, time, GPS (formats #6) + `clientRef`. The body carries the **instant, the split date and time, and the IANA zone that split used** — so an answer to #6 of "UTC actually" is a config change rather than a re-push of rows whose offset is already gone (§4's `ArrivalInfo`, slice 2.4) |
 | Upload document | `POST /claims/{visaNumber}/documents` | app → NEXT3 | **The core of the whole application.** File + document type + folder (*Expert documents* \| *Survey*) + `clientRef` (idempotency — #32) |
-| Expert list | `GET /experts` | app → NEXT3 | id, name, mobile, active status |
-| Assignment notification | inbound call from NEXT3 | **NEXT3 → app** | visa assigned to expert; poll fallback if NEXT3 cannot call out (#34) |
-| Sandbox | — | environment | Non-production, representative test data (#1) |
+| **Expert's assigned claims** | `GET /experts/{expertId}/claims` | app → NEXT3 | **Added to this table slice 3.3**, from client doc §3.1. Two jobs: the expert↔claim linkage authorization depends on (#42/Q5 — it lives in NEXT3 and cannot be reconstructed here), and the **poll fallback** for assignment delivery when NEXT3 cannot call out (#34). Specified, not built — see §6.2 |
+| Master data | `GET /experts`, **`GET /garages`, `GET /claim-officers`** | app → NEXT3 | id, name, mobile, active status. **All three, not experts alone** (#8, manager review 2026-08-19): every profile in §2 carries a NEXT3 identity. Only `GET /experts` is on `INext3Client` today — the other two are specified for when onboarding needs them |
+| Assignment notification | inbound call from NEXT3 | **NEXT3 → app** | visa assigned to expert; HMAC-signed, replay-safe on `assignmentRef`; poll fallback above if NEXT3 cannot call out (#34) |
+| Sandbox | — | environment | Non-production, representative test data (#1). Not an API call — saying so beats silently inventing an endpoint |
 
 ### 6.2 The interface and the fake
 
@@ -324,7 +325,7 @@ END
 **Transient vs permanent (realized 2026-08-20, slice 2.2).** Only transient failures consume the retry schedule: `FakeTransientException`, `HttpRequestException`, `TimeoutException`. Anything else goes to `failed` on the first attempt — a push against a visa NEXT3 does not know, a malformed payload, or a bug will never be fixed by waiting, and A2's Retry makes the decision reversible. Each message commits its own transition, so one poison row cannot roll back the outcomes of the rows beside it.
 
 **The two classic bugs, designed out:**
-- **Idempotency:** every push carries `clientRef` = the document id (stable across retries). Whether NEXT3 dedupes on it is #32 — until answered, the real client also keeps a sent-log check on our side, and the OpenAPI proposal makes `clientRef` a required parameter so the obligation is visibly theirs.
+- **Idempotency:** every push carries `clientRef` = the document id (stable across retries). Whether NEXT3 dedupes on it is #32, and the OpenAPI proposal (`docs/next3-openapi.yaml`, written slice 3.3) makes `clientRef` a **required** parameter and states the dedupe as a requirement on NEXT3, so the obligation is visibly theirs. **Corrected 2026-08-21, slice 3.3: there is no client-side sent-log** — this row used to promise one "until #32 is answered", and building it would have been wrong three times over. The outbox row's `sent` status already *is* the sent-log, so a second store of the same fact is a second answer that can disagree with it (3.1's normalise-once lesson). It cannot cover the case it exists for: the dangerous retry is the one after a **timeout**, where nothing client-side knows whether NEXT3 accepted the push — marking it sent loses a document, marking it unsent duplicates one, and only the receiver can tell which. And architecture rule 4 forbids `Api.Integrations.Next3` from referencing an outbox row at all, so it could not have been built where it was described.
 - **Blob deletion:** no blob is deleted before its outbox row is `sent` (§7). This rule is restated here because it is reliably broken during a week-6 "cleanup" refactor.
 
 If #5 resolves to "shared directory + DB inserts" instead of an API, `RealNext3Client` becomes a directory-writer + DB-inserter (second sanctioned stored-proc site) behind the **same interface** — the outbox, worker, and all feature code are unchanged. That is the point of the boundary.
@@ -478,7 +479,7 @@ Placeholder strategy: every unresolved value is a named key in **one config file
 
 | # | Blocked decision | Placeholder / interim design | What changes when answered |
 |---|---|---|---|
-| 1 | Real NEXT3 client, auth method, rate limits; the week-3 fake→real swap | Fake client everywhere; OpenAPI proposal sent | `RealNext3Client` wired; swap date set. Late answer = fake through UAT, said out loud |
+| 1 | Real NEXT3 client, auth method, rate limits; the week-3 fake→real swap | **`RealNext3Client` is built and unit-tested against a stubbed transport (slice 3.3), and `Next3:Mode` is still `fake` everywhere** — the swap did not happen in week 3 because the gate was closed. `docs/next3-openapi.yaml` is written and is the file to send. Both auth modes (`apikey`, `oauth`) are implemented; mTLS is config-ready and unexercised | A sandbox URL plus credentials in config, and `Next3:Mode=real`. The contract suite (`Next3ClientContractTests`) already has its sandbox half written and skipping, so the swap is a config value and a test run. Late answer = fake through UAT, said out loud in the weekly status |
 | 2 | Network path to NEXT3 (internet / VPN / allowlist / tunnel) | Design assumes HTTPS reachable from Container Apps; outbound tunnel proposed first if internal-only | Deployment config; possibly a tunnel component on AXA's side |
 | 5 | API vs shared-directory + DB insert | API-shaped interface; outbox unchanged either way | `RealNext3Client` internals only (directory writer + sanctioned stored proc) |
 | 6 | Arrived field names/formats — **and which clock the date and time are in** | `Next3.Arrival*` placeholder mapping, incl. `ArrivalTimeZone`. The outbox payload deliberately carries the **instant**, not a date-and-time pair: an expert arriving at 01:30 GST would otherwise be queued as arriving the previous day, and a queued row cannot be repaired from a value already collapsed into the wrong zone (realized 2026-08-20, slice 2.4) | Field mapping **and the zone split** in the real client |
@@ -491,9 +492,9 @@ Placeholder strategy: every unresolved value is a named key in **one config file
 | 24 | Option 2 link channel, validity, reuse, premium owner | Broker-copies-link; 7 days; reusable-until-locked; customer enters premium | (a) one send at B3; (b)(c) config; (d) form-level move |
 | 28–30 | Device mix, store vs MDM, Apple account | Both platforms assumed; Codemagic for iOS | 80%+ Android would shrink iOS risk to near zero; MDM removes review cycles; no Apple account = start provisioning **now** (multi-week) |
 | 31 | Who builds NEXT3's endpoints, budgeted/scheduled? | Fake covers ~through week 3 | Decides whether "they'll provide endpoints" means two weeks or two months — schedule risk #1, above InfoSec |
-| 32 | NEXT3 `clientRef` dedupe | clientRef sent always + our own sent-log check | If NEXT3 dedupes: belt and braces. If not: our check is the only guard and says so in the runbook |
+| 32 | NEXT3 `clientRef` dedupe | clientRef sent on both writes always; **no client-side sent-log** (corrected slice 3.3 — see §6.3). `docs/next3-openapi.yaml` makes it a *required* parameter and states the dedupe as a requirement on NEXT3 | If NEXT3 dedupes: retries are safe, which is what the whole outbox assumes. If not: **duplicate documents under a visa are unavoidable on any timed-out retry**, nothing on our side can prevent it, and that goes in the runbook and the scope letter rather than being papered over with a local check that cannot see what NEXT3 did |
 | 33 | NEXT3 availability windows | Backoff ceiling 6 h, config knob | Retune backoff; maintenance windows into the runbook |
-| 34 | Assignment webhook vs poll | `IAssignmentSource` with all three sources built; fake active | Config flip + one adapter |
+| 34 | Assignment webhook vs poll | `IAssignmentSource` exists with **the fake built and active**; webhook and poll are designed and throw loudly at startup if selected (corrected slice 3.3 — this row said "all three sources built", which was never true). Both are now *specified*: the callback and `GET /experts/{expertId}/claims` are in `docs/next3-openapi.yaml` | One adapter plus a config flip. Nothing downstream changes — the single idempotent handler and its `next3_assignment_ref` dedupe are already built (slice 2.1) |
 | 35 / 36 | Mandated DB platform; NEXT3's engine | Azure SQL assumed (their shop) | #35 contrary answer = real rework, raise immediately. #36 only matters if #5 says directory+DB |
 | 37 | Azure resource-group access | Dev subscription until granted | Deploy target switch; **request in week 1 — often slower than API credentials** |
 | 38 | WAF requirement | §9.1 controls stand alone; no WAF budgeted | Front Door Premium ~$330/mo on AXA's bill if required |
@@ -512,7 +513,19 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
   "Next3": {
     "Mode": "fake",                          // fake | real            (#1)
     "BaseUrl": "https://PLACEHOLDER-next3.example",
-    "AuthMode": "PLACEHOLDER",               // oauth | apikey | mtls  (#1)
+    "AuthMode": "PLACEHOLDER",               // apikey | oauth         (#1)
+    // The rest of the auth block realized 2026-08-21, slice 3.3. Validated only when Mode = real:
+    // every value here is a placeholder, so an always-on validator would stop the app booting.
+    "ApiKey": "PLACEHOLDER-next3-api-key",
+    "OAuth": {
+      "TokenUrl": "https://PLACEHOLDER-next3.example/auth/token",
+      "ClientId": "PLACEHOLDER-client-id",
+      "ClientSecret": "PLACEHOLDER-client-secret"
+    },
+    // mTLS is config-ready and deliberately NOT exercised — nothing exists to test it against (#1).
+    "ClientCertificatePath": "PLACEHOLDER-client-certificate-path",
+    // A real deadline: a hung NEXT3 must land on §6.3's retry schedule, not hold its outbox lease.
+    "TimeoutSeconds": 30,
     "DocTypes": {                            // (#12, #10)
       "InsuredDocument": "PLACEHOLDER-DOC-01",
       "InsuredCarPhoto": "PLACEHOLDER-DOC-02",
