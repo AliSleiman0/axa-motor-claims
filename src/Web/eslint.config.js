@@ -20,4 +20,17 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    // The service worker (slice 3.4). Plain JS in `public/`, so TypeScript never sees it —
+    // `tsconfig.app.json` includes only `src`. Linting it is the only automated check it gets, and
+    // without the serviceworker globals every `self`, `clients` and `registration` in it reads as an
+    // undefined variable. `/* eslint-env */` comments are gone in flat config, hence a block here.
+    files: ['public/sw.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'script',
+      globals: globals.serviceworker,
+    },
+  },
 ])

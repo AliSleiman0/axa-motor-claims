@@ -1,0 +1,281 @@
+using System.Buffers.Text;
+using System.Security.Claims;
+using Api.Infrastructure;
+using Api.Integrations.Push;
+using Api.Modules.Users;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
+namespace Api.Modules.Push;
+
+/// <summary>What the browser hands us after <c>pushManager.subscribe()</c>.</summary>
+public sealed record SubscribeRequest(string? Endpoint, string? P256dh, string? Auth);
+
+/// <summary>What the browser sends to stop being notified on this device.</summary>
+public sealed record UnsubscribeRequest(string? Endpoint);
+
+/// <summary>The public half of the VAPID pair, which the browser needs in order to subscribe at all.</summary>
+public sealed record VapidPublicKeyDto(string PublicKey);
+
+/// <summary>
+/// Device registration for web push (design.md §8, slice 3.4).
+///
+/// Under <c>ActiveUser</c> rather than the Expert policy: the expert is the first role to need a
+/// popup, but §8 has pushes going to claim officers, garages and brokers, and none of them should
+/// need a second copy of this endpoint. Every row is scoped to the caller, so a wider policy grants
+/// no wider access.
+/// </summary>
+public static class PushEndpoints
+{
+    public static IEndpointRouteBuilder MapPushEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/push").RequireAuthorization(AuthPolicies.ActiveUser);
+
+        group.MapGet("/vapid-public-key", (IOptions<PushOptions> options) =>
+            Results.Ok(new VapidPublicKeyDto(options.Value.Vapid.PublicKey)));
+
+        group.MapPost("/subscriptions", async (
+            SubscribeRequest? request, ClaimsPrincipal principal, AppDbContext db,
+            IOptions<PushOptions> options, TimeProvider time, CancellationToken ct) =>
+        {
+            var userId = principal.GetUserId();
+            if (userId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request?.Endpoint)
+                || string.IsNullOrWhiteSpace(request.P256dh)
+                || string.IsNullOrWhiteSpace(request.Auth))
+            {
+                return Results.BadRequest(new { error = "subscription_incomplete" });
+            }
+
+            // Checked rather than truncated: an endpoint we shortened would be an endpoint no push
+            // service recognises, and the failure would appear later as "this expert stopped getting
+            // popups" rather than here as a 400.
+            if (request.Endpoint.Length > PushSubscriptionLimits.EndpointLength)
+            {
+                return Results.BadRequest(new { error = "endpoint_too_long" });
+            }
+
+            if (!Uri.TryCreate(request.Endpoint, UriKind.Absolute, out var endpointUri)
+                || endpointUri.Scheme != Uri.UriSchemeHttps)
+            {
+                return Results.BadRequest(new { error = "endpoint_not_https" });
+            }
+
+            // **The API will make an outbound HTTPS POST to whatever is stored here.** Without this
+            // check, any authenticated user of any role could point it at an arbitrary host —
+            // including one reachable only from inside the deployment — and read the outcome from the
+            // `notification` log. That is a blind SSRF out of a service §9.1/#21 expects to survive an
+            // AXA Group InfoSec reading, and slice 1.5's rate limiting covers `/public/*` only.
+            if (!IsKnownPushService(endpointUri, options.Value.AllowedEndpointHosts))
+            {
+                return Results.BadRequest(new { error = "endpoint_host_not_allowed" });
+            }
+
+            // Exact sizes, not upper bounds. A `p256dh` is the 65-byte P-256 point and `auth` is a
+            // 16-byte secret; anything else is not a key. This matters because the failure is
+            // otherwise silent and total: a short key is stored happily, then throws out of the
+            // sender's key-setting call at send time, and before this slice hardened that loop one
+            // malformed row would have silenced every other device the expert owns. Same reasoning
+            // as PushOptionsValidator checking the VAPID public key to the character.
+            if (!IsKeyOf(request.P256dh, PushKeySizes.P256dhBytes))
+            {
+                return Results.BadRequest(new { error = "invalid_p256dh" });
+            }
+
+            if (!IsKeyOf(request.Auth, PushKeySizes.AuthBytes))
+            {
+                return Results.BadRequest(new { error = "invalid_auth" });
+            }
+
+            var now = time.GetUtcNow().UtcDateTime;
+            var hash = TokenHashing.Hash(request.Endpoint);
+
+            var existing = await db.Set<PushSubscription>()
+                .SingleOrDefaultAsync(s => s.UserId == userId.Value && s.EndpointHash == hash, ct);
+
+            if (existing is not null)
+            {
+                Refresh(existing, request);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = existing.Id });
+            }
+
+            // The sender loops over every live row serially, so an unbounded set is an unbounded
+            // stall on the assignment-ingestion path — one user's accumulated dead browsers would
+            // delay notifications for everyone. Counted after the upsert branch, so re-registering an
+            // existing browser is never refused.
+            var live = await db.Set<PushSubscription>()
+                .CountAsync(s => s.UserId == userId.Value && s.RevokedAt == null, ct);
+
+            if (live >= options.Value.MaxSubscriptionsPerUser)
+            {
+                return Results.BadRequest(new { error = "too_many_subscriptions" });
+            }
+
+            var subscription = new PushSubscription
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = userId.Value,
+                Endpoint = request.Endpoint,
+                EndpointHash = hash,
+                P256dh = request.P256dh,
+                Auth = request.Auth,
+                CreatedAt = now,
+            };
+
+            db.Set<PushSubscription>().Add(subscription);
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = subscription.Id });
+            }
+            catch (DbUpdateException)
+            {
+                // The read above lost a race — two tabs, a double-click, or a retry. The unique index
+                // on (user_id, endpoint_hash) is what actually enforces "one row per browser per
+                // user"; this catch is how that enforcement is reported as success rather than as a
+                // 500, because subscribing twice is not an error the user can act on.
+                //
+                // 1.5's lesson, fifth slice running: a read-then-write on a uniqueness rule is not a
+                // guarantee. Remove the index and this handler silently starts creating duplicates,
+                // which is the failure mode the concurrency test pins.
+                //
+                // **Careful if anything is ever added before the save above.** AuditWriter joins the
+                // caller's transaction, so an audit row staged before this point would be discarded
+                // here and the endpoint would still answer 200 — the shape of bug slice 2.3 found in
+                // the retention sweep. Anything of that kind belongs after the re-read, not before.
+                db.ChangeTracker.Clear();
+
+                var winner = await db.Set<PushSubscription>()
+                    .SingleOrDefaultAsync(s => s.UserId == userId.Value && s.EndpointHash == hash, ct);
+
+                if (winner is null)
+                {
+                    // Not the race after all — an FK violation for a deleted user, say. Rethrow the
+                    // original with its stack rather than substituting a confusing one.
+                    throw;
+                }
+
+                Refresh(winner, request);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = winner.Id });
+            }
+        });
+
+        // `[FromBody]` is not decoration: minimal APIs refuse to *infer* a body parameter on DELETE,
+        // and without it the application fails at startup with "Body was inferred but the method does
+        // not allow inferred body parameters" — every endpoint down, not just this one.
+        //
+        // Recorded caveat: some proxies strip a DELETE body. If that ever bites in deployment the fix
+        // is a POST route or a query parameter, not a client-side workaround — but the endpoint is up
+        // to 2048 characters, which is why it is not a query parameter already.
+        group.MapDelete("/subscriptions", async (
+            [FromBody] UnsubscribeRequest? request, ClaimsPrincipal principal, AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var userId = principal.GetUserId();
+            if (userId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request?.Endpoint))
+            {
+                return Results.BadRequest(new { error = "endpoint_required" });
+            }
+
+            var hash = TokenHashing.Hash(request.Endpoint);
+
+            // Scoped to the caller, so knowing someone else's endpoint buys nothing. Deleting rather
+            // than revoking: the user asked to stop, which is different from the push service telling
+            // us the browser is gone, and re-subscribing later should look like a fresh registration.
+            await db.Set<PushSubscription>()
+                .Where(s => s.UserId == userId.Value && s.EndpointHash == hash)
+                .ExecuteDeleteAsync(ct);
+
+            // Always 204: whether a row was there is not the caller's business, and telling them would
+            // make this endpoint answer "does this endpoint belong to someone" for any endpoint.
+            return Results.NoContent();
+        });
+
+        return app;
+    }
+
+    /// <summary>
+    /// Re-subscribing refreshes the keys and un-revokes. (Widths come from
+    /// <see cref="PushSubscriptionLimits"/>, beside the entity, so this validation and the column
+    /// definitions cannot drift into disagreeing about what fits.) The browser rotates `p256dh`/`auth` on its
+    /// own schedule, and a stale pair does not fail loudly — the push is accepted by the service and
+    /// then silently fails to decrypt on the device, which is the worst shape a bug can have here.
+    /// </summary>
+    private static void Refresh(PushSubscription subscription, SubscribeRequest request)
+    {
+        subscription.Endpoint = request.Endpoint!;
+        subscription.P256dh = request.P256dh!;
+        subscription.Auth = request.Auth!;
+        subscription.RevokedAt = null;
+
+        // `CreatedAt` is deliberately left alone. The panel offers the button again on every fresh
+        // session, so this method runs routinely — rewriting it would turn "when this device first
+        // registered" into "the last time somebody pressed the button", which is not what the column
+        // means on any other table in §4, and would make every row look permanently new to any
+        // future retention sweep. `LastUsedAt` is the moving value, and the sender owns it.
+    }
+
+    /// <summary>
+    /// Whether the endpoint belongs to a push service we are willing to call.
+    ///
+    /// An empty allow-list means "any https host", which is an explicit opt-out rather than an
+    /// accident: the shipped configuration lists the four real services, and a deployment that
+    /// deliberately clears it has chosen to accept the SSRF surface described at the call site.
+    /// Suffix matching, because these services shard across subdomains.
+    /// </summary>
+    private static bool IsKnownPushService(Uri endpoint, IReadOnlyList<string> allowedHosts)
+    {
+        if (allowedHosts.Count == 0)
+        {
+            return true;
+        }
+
+        return allowedHosts.Any(allowed =>
+            endpoint.Host.Equals(allowed, StringComparison.OrdinalIgnoreCase)
+            || endpoint.Host.EndsWith($".{allowed}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Whether a value is base64url that decodes to exactly <paramref name="bytes"/> bytes.</summary>
+    private static bool IsKeyOf(string value, int bytes)
+    {
+        // `IsValid` first, and it is load-bearing rather than belt-and-braces: despite the name,
+        // `TryDecodeFromChars` **throws** `FormatException` on a non-base64url character — it returns
+        // false only when the destination is too small. Without this line a junk key is a 500 instead
+        // of the 400 the next few lines exist to produce, which is how this was found.
+        if (!Base64Url.IsValid(value))
+        {
+            return false;
+        }
+
+        // Slack on the buffer so an over-long value decodes rather than failing for want of room —
+        // the length check is what rejects it, and "wrong size" is the answer we want to give.
+        Span<byte> buffer = stackalloc byte[bytes + 8];
+        return Base64Url.TryDecodeFromChars(value, buffer, out var written) && written == bytes;
+    }
+}
+
+/// <summary>
+/// The sizes the Push API fixes for a subscription's keys. Bytes rather than characters, because the
+/// encoded length depends on padding and the byte count does not.
+/// </summary>
+public static class PushKeySizes
+{
+    /// <summary>The uncompressed P-256 point the browser encrypts to.</summary>
+    public const int P256dhBytes = 65;
+
+    /// <summary>The shared auth secret.</summary>
+    public const int AuthBytes = 16;
+}

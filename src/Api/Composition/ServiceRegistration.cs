@@ -139,11 +139,49 @@ public static class ServiceRegistration
                 $"Unknown Blob:Mode '{blobMode}'. Expected 'fake' or 'azure' (see CLAUDE.md)."),
         });
 
-        // Senders are singletons and there are no real implementations yet (#7/#40 for SMS, and the
-        // email/push providers are equally unanswered). Each fake logs to `notification` (§8).
+        // Senders are singletons. SMS and email have no real implementation yet (#7/#40 for the SMS
+        // gateway; the email provider is equally unanswered). Each fake logs to `notification` (§8).
         services.AddSingleton<ISmsSender, FakeSmsSender>();
         services.AddSingleton<IEmailSender, FakeEmailSender>();
-        services.AddSingleton<IPushSender, FakePushSender>();
+
+        // Push is the first sender to get a real implementation (slice 3.4), so it gets the same mode
+        // switch as Blob and NEXT3 — third outing. `fake` everywhere by default: web push needs a
+        // VAPID key pair, and nothing (tests, a fresh clone, the week-4 demo) should require one.
+        services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
+        services.AddSingleton<FakePushSender>();
+
+        var pushMode = configuration[$"{PushOptions.SectionName}:Mode"] ?? PushModes.Fake;
+
+        // Registered in both modes so the container's shape does not depend on configuration; in fake
+        // mode nothing ever resolves it.
+        services.AddHttpClient(PushHttpClient.Name, (sp, client) =>
+        {
+            var push = sp.GetRequiredService<IOptions<PushOptions>>().Value;
+            if (push.TimeoutSeconds > 0)
+            {
+                client.Timeout = TimeSpan.FromSeconds(push.TimeoutSeconds);
+            }
+        });
+
+        if (string.Equals(pushMode, PushModes.WebPush, StringComparison.Ordinal))
+        {
+            // Only in the live mode, for the reason PushOptionsValidator spells out: the placeholder
+            // VAPID values are what every environment runs on today, so an always-on validator would
+            // stop the application booting everywhere.
+            services.AddSingleton<IValidateOptions<PushOptions>, PushOptionsValidator>();
+            services.AddOptions<PushOptions>()
+                .Bind(configuration.GetSection(PushOptions.SectionName))
+                .ValidateOnStart();
+        }
+
+        services.AddSingleton<IPushSender>(sp => pushMode switch
+        {
+            PushModes.Fake => sp.GetRequiredService<FakePushSender>(),
+            PushModes.WebPush => ActivatorUtilities.CreateInstance<WebPushSender>(sp),
+            _ => throw new InvalidOperationException(
+                $"Unknown Push:Mode '{pushMode}'. Expected '{PushModes.Fake}' or "
+                + $"'{PushModes.WebPush}' (design.md §8)."),
+        });
 
         // Singleton: the fake's seeded claims and its clientRef sent-log are state that must outlive
         // a request and be shared with the outbox worker.

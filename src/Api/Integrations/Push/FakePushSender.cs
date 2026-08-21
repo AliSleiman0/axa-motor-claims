@@ -8,22 +8,24 @@ public sealed partial class FakePushSender(
     NotificationLog notifications,
     FakeBehavior behavior) : IPushSender
 {
-    [LoggerMessage(Level = LogLevel.Information, Message = "FAKE PUSH to user {UserId} [{Title}]: {Body}")]
-    private static partial void LogPush(ILogger logger, Guid userId, string title, string body);
+    [LoggerMessage(Level = LogLevel.Information, Message = "FAKE PUSH to user {UserId} [{Title}]: {Body} -> {Url}")]
+    private static partial void LogPush(ILogger logger, Guid userId, string title, string body, string url);
 
     public async Task Send(
         Guid recipientUserId,
-        string title,
-        string body,
+        PushMessage message,
         string templateName,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(message);
+
         await behavior.Delay(ct);
 
-        // No device tokens exist yet (registration is slice 3.4), so the user id is the best address
-        // we have. When tokens arrive this becomes the token that was actually pushed to.
+        // The user id, because the fake has no devices. The real sender logs one row per subscription
+        // and puts that subscription's id here — see WebPushSender for why it is the id rather than
+        // the endpoint (`notification.recipient_address` is nvarchar(320); endpoints are longer).
         var address = recipientUserId.ToString();
-        var payload = $"{title}\n\n{body}";
+        var payload = message.ToJson();
 
         try
         {
@@ -36,7 +38,7 @@ public sealed partial class FakePushSender(
             throw;
         }
 
-        LogPush(logger, recipientUserId, title, body);
+        LogPush(logger, recipientUserId, message.Title, message.Body, message.Url);
         await notifications.Sent(NotificationChannels.Push, recipientUserId, address, templateName, payload, ct);
     }
 }

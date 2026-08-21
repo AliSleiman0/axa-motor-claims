@@ -134,8 +134,13 @@ public sealed partial class AssignmentHandler(
         {
             await push.Send(
                 row.ExpertUserId,
-                "New claim assigned",
-                $"Claim {row.VisaNo} has been assigned to you.",
+                new PushMessage(
+                    "New claim assigned",
+                    $"Claim {row.VisaNo} has been assigned to you.",
+                    // Straight to E2 (slice 3.4). The BRD's flow is "a popup message will show on the
+                    // expert mobile" and then the expert works the claim — landing them on the list to
+                    // hunt for it is a step this notification exists to remove.
+                    $"/expert/{row.Id}"),
                 NotificationTemplates.AssignmentReceived,
                 ct);
         }

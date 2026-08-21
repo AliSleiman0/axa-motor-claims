@@ -3,13 +3,26 @@ using Api.Modules.Broker;
 using Api.Modules.Expert;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
+using Api.Modules.Push;
 using Api.Modules.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Placeholders load after appsettings*.json; env vars are re-added last so real values
-// always override placeholders without code changes (design.md Appendix A).
+// Placeholders load after appsettings*.json, then everything that carries a *real* value is re-added
+// on top, so a real setting always beats a placeholder without a code change (design.md Appendix A).
 builder.Configuration.AddJsonFile("appsettings.Placeholders.json", optional: false, reloadOnChange: true);
+
+// **User secrets have to be re-added here, and the omission was a live bug** (found in slice 3.4's
+// browser pass, invisible to the whole suite). CreateBuilder already added them — but *before* the
+// line above, so the placeholder file silently overrode every one of them. Anything set with
+// `dotnet user-secrets` was accepted, stored, and then ignored: the app booted on PLACEHOLDER values
+// while the developer had every reason to believe otherwise. That is not push-specific — it applied
+// equally to `Auth:Jwt:SigningKey` and to NEXT3's credentials once #1 lands.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
+
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddAxaMotorClaims(builder.Configuration);
@@ -34,6 +47,7 @@ app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
 app.MapExpertEndpoints();
 app.MapExpertDocumentEndpoints();
+app.MapPushEndpoints();
 app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();
 app.MapPublicEndpoints();

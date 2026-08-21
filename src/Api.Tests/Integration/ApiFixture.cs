@@ -2,6 +2,7 @@ using Api.Infrastructure;
 using Api.Infrastructure.Cleanup;
 using Api.Integrations;
 using Api.Integrations.Blob;
+using Api.Integrations.Push;
 using Api.Integrations.Sms;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
@@ -88,6 +89,14 @@ public sealed class ApiFixture : IAsyncLifetime
             .GetRequiredService<IOptionsMonitor<ClarityOptions>>();
 
     /// <summary>
+    /// §8's push settings (slice 3.4). Mutable so a test can read the subscription cap rather than
+    /// hardcoding a number that would silently stop meaning the same thing if the config changed.
+    /// </summary>
+    public MutableOptionsMonitor<PushOptions> Push =>
+        (MutableOptionsMonitor<PushOptions>)Services
+            .GetRequiredService<IOptionsMonitor<PushOptions>>();
+
+    /// <summary>
     /// The §6.3 worker loop body. Tests drive it a pass at a time rather than letting the background
     /// service tick — see the <c>Outbox__WorkerEnabled</c> note in <see cref="InitializeAsync"/>.
     /// </summary>
@@ -120,6 +129,15 @@ public sealed class ApiFixture : IAsyncLifetime
         var dbName = $"AxaMotorClaims_Test_{Guid.NewGuid():N}";
         _connectionString = $"Server=(localdb)\\MSSQLLocalDB;Database={dbName};Integrated Security=true";
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", _connectionString);
+
+        // **Production, so the suite is hermetic against the developer's own machine.** Added slice
+        // 3.4: `Program.cs` now re-adds user secrets after the placeholder file (it had to — the
+        // placeholders were silently overriding them), and a test host running as Development would
+        // therefore read whatever that developer happens to have in `dotnet user-secrets`. That is
+        // not theoretical: it turned `TheVapidPublicKeyIsServedToAuthenticatedUsers` red on the
+        // machine that had just set a real VAPID key for the browser pass, and would have passed
+        // everywhere else. Nothing else in the application branches on the environment.
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Production");
 
         // The outbox worker is a registered hosted service, so without this it would tick every 30 s
         // against the database every test in this serialized collection shares — silently draining
@@ -185,6 +203,11 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<ClarityOptions>>(sp =>
                     new MutableOptionsMonitor<ClarityOptions>(
                         sp.GetRequiredService<IOptions<ClarityOptions>>().Value)));
+                // And §8's push settings, so a test can read the subscription cap instead of
+                // hardcoding it (slice 3.4).
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<PushOptions>>(sp =>
+                    new MutableOptionsMonitor<PushOptions>(
+                        sp.GetRequiredService<IOptions<PushOptions>>().Value)));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test
@@ -202,6 +225,7 @@ public sealed class ApiFixture : IAsyncLifetime
             await db.Database.EnsureDeletedAsync();
         }
 
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", null);
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", null);
         Environment.SetEnvironmentVariable("Outbox__WorkerEnabled", null);
         Environment.SetEnvironmentVariable("Retention__CleanupEnabled", null);

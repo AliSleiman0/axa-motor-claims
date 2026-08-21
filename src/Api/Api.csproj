@@ -1,7 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- So `dotnet user-secrets set "Push:Vapid:PrivateKey" ...` works (CLAUDE.md). The id names a
+         folder outside the repo; no secret is stored here. -->
+    <UserSecretsId>b5adc89a-ebbe-4ffc-a370-7b5852586df2</UserSecretsId>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
+    <PackageReference Include="Lib.Net.Http.WebPush" Version="3.3.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer">
       <Version>10.0.11</Version>

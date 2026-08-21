@@ -28,6 +28,14 @@ Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next 
   - Docker: `docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck`
 
   `--skipApiVersionCheck` is not optional: the Azure SDK's default API version runs ahead of the latest Azurite release, and without it every call fails with `InvalidHeaderValue`. Not running Azurite? Set `Blob__Mode=fake`. `BlobStoreContractTests` asserts the same contract against both stores and **skips the Azurite half when nothing is listening on port 10000**, so the real adapter is covered when the emulator is up without the suite depending on it.
+- **Web push — VAPID keys never live in the repo.** `Push:Mode` is `fake` everywhere by default, so **`dotnet test` and `npm test` need no keys at all** and `appsettings.Placeholders.json` holds only `PLACEHOLDER-*` values. A VAPID private key is a real credential — whoever holds it can send notifications browsers accept as coming from AXA — so for a real browser pass, generate a pair and put it in user-secrets:
+  ```
+  npx --yes web-push generate-vapid-keys
+  dotnet user-secrets set "Push:Vapid:Subject"    "mailto:you@example.com" --project src/Api
+  dotnet user-secrets set "Push:Vapid:PublicKey"  "<the public key>"       --project src/Api
+  dotnet user-secrets set "Push:Vapid:PrivateKey" "<the private key>"      --project src/Api
+  ```
+  Then run with `Push__Mode=webpush`. In deployment the same three values are Container Apps secrets (§10) — **never** appsettings, never a commit. Keys are per-environment: rotating them silently invalidates every stored subscription, because a browser subscribes against one specific public key.
 - Line endings are **LF everywhere** (`.editorconfig` + `.gitattributes`); the Write tool emits LF, so this keeps the `dotnet format` hook quiet. Don't switch to CRLF.
 
 ## Domain glossary

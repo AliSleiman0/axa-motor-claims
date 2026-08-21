@@ -1,5 +1,6 @@
 using Api.Composition;
 using Api.Integrations.Next3;
+using Api.Integrations.Push;
 using Api.Modules.PublicSurface;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,41 @@ public sealed class PortSelectionTests
         var client = Resolve<INext3Client>(("Next3:Mode", "real"));
 
         Assert.IsType<RealNext3Client>(client);
+    }
+
+    [Fact]
+    public void PushMode_Fake_ResolvesFakeSender()
+    {
+        var sender = Resolve<IPushSender>(("Push:Mode", "fake"));
+
+        Assert.IsType<FakePushSender>(sender);
+    }
+
+    [Fact]
+    public void PushMode_WebPush_ResolvesTheRealSender()
+    {
+        // Resolvable without any Push:Vapid:* settings, exactly as Next3Mode_Real_ResolvesRealClient
+        // is: validation lives in ValidateOnStart rather than in a constructor, so this test proves
+        // the DI switch and nothing else (slice 3.4).
+        var sender = Resolve<IPushSender>(("Push:Mode", "webpush"));
+
+        Assert.IsType<WebPushSender>(sender);
+    }
+
+    [Fact]
+    public void PushMode_Defaults_ToTheFake()
+    {
+        // No Push section at all — the state a fresh clone and every test run is in. Web push needs a
+        // VAPID key pair, and nothing should require one just to boot.
+        Assert.IsType<FakePushSender>(Resolve<IPushSender>());
+    }
+
+    [Fact]
+    public void PushMode_Unknown_Throws()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Resolve<IPushSender>(("Push:Mode", "apns")));
+
+        Assert.Contains("Push:Mode", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

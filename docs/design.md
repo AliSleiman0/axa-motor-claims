@@ -169,6 +169,7 @@ Conventions: `uniqueidentifier` PKs (client-generatable, sortable enough with se
 | `public_link_token` | Authoritative | Option 2 token (§9). `id`, `broker_request_id`, `token_hash` (SHA-256 of the 256-bit token; raw token never stored), `expires_at`, `locked_at` (set on successful submission), `created_at`, `row_version` (SQL `rowversion`; realized 2026-08-19, slice 1.5 — §9.1's "each link accepts exactly one submission" cannot hold in application code, where reading `locked_at` and writing it are two steps that two simultaneous submissions both pass; the concurrency token makes the database the arbiter and the loser renders as the same uniform 404) |
 | `next3_outbox` | Authoritative | The integration core (§6): `id uniqueidentifier`, **`visa_no nvarchar(50)`**, `operation 'upload_document'\|'update_arrival'\|'push_approval'`, `payload nvarchar(max)` (JSON: the `clientRef` plus blob keys and field values), `status 'pending'\|'processing'\|'sent'\|'failed'`, `attempts int`, `last_error nvarchar(max)`, `next_retry_at datetime2`, `created_at datetime2`, `sent_at datetime2`. Indexed `(status, next_retry_at)` for the dequeue and A2's failed list, and on `visa_no` for "why is this claim missing photos". **`claim_id uniqueidentifier` corrected to `visa_no` (realized 2026-08-20, slice 2.2)** — HANDOFF §3 spelled it `claim_id`, but no uniqueidentifier claim id exists anywhere in the model: `claim` is keyed on `visa_no`, and this row must hold no FK to it for the same reason `expert_assignment` holds none (the cache is disposable, and a NEXT3 outage that empties it must not take the queue with it). Every `INext3Client` push takes a visa number and §5.4's A2 displays "claim/visa", so the column now carries the value it is actually used for. **Must stay trigger-free**: §6.3's dequeue returns `OUTPUT inserted.*`, and EF abandons the OUTPUT clause on any table it knows carries a trigger |
 | `notification` | Authoritative | Log of every push/SMS/email attempt. `id`, `channel` (push/sms/email), `recipient_user_id?`, `recipient_address`, `template`, `payload`, `status` (queued/sent/failed), `sent_at`, `error`, `created_at` (realized 2026-08-19, slice 1.4 — a `failed` row never sets `sent_at`, so without it a failure has no timestamp). Written only by `NotificationLog`, which commits its own transaction rather than joining the caller's: a send already happened externally and its record must not vanish with a later rollback. **`payload` is null for SMS by rule** — every SMS this app sends carries a live credential (OTP code, invite token), and §9 hashes those precisely so a DB leak yields no working logins; copying the body here would hand that back |
+| `push_subscription` | Authoritative | **New table, realized 2026-08-21, slice 3.4** — §8's push rows had no table because until then the only sender wrote to the console. One row per browser per user, so an expert with a phone and a desk machine gets the popup on both. `id`, `user_id` (FK **Restrict** — a future hard delete must not take the record of which devices we notified), `endpoint` (nvarchar(2048)), **`endpoint_hash`** (SHA-256; the unique index cannot sit on the endpoint itself, because SQL Server caps an index key at 900 bytes — hashing here is for *length*, not secrecy, which is why the endpoint is stored beside it in the clear), `p256dh`, `auth` (the browser's own encryption keys, stored as given: they are useless without the endpoint, and the endpoint is useless without our VAPID private key, so unlike §9's tokens they grant nothing on their own), `created_at`, `last_used_at?`, `revoked_at?`. **Unique on `(user_id, endpoint_hash)`** — that index *is* the upsert (1.5's lesson, fifth time), and it is scoped to the user rather than global so two people sharing a browser profile each keep their own row. `revoked_at` is set when the push service answers 404/410, which is terminal; an explicit unsubscribe deletes instead |
 | `audit_log` | Authoritative | `id`, `actor_user_id?` (null = public customer or system), `action`, `entity_kind`, `entity_id?` (null when the event has no entity, e.g. failed login for an unknown phone — realized 2026-08-19, slice 1.3), `detail` (JSON), `at`. Append-only, enforced by a DB trigger (`INSTEAD OF UPDATE, DELETE`), not convention; the only code write path is `AuditWriter.Append`, which joins the caller's transaction. The InfoSec answer to "who uploaded which photo, when" (§9) |
 
 Cross-cutting rules:
@@ -395,7 +396,7 @@ All sends go through `IEmailSender` / `IPushSender` / `ISmsSender`, each with a 
 
 | Event | Channel | Recipient | Notes |
 |---|---|---|---|
-| Claim assigned to expert | Push (popup) | Expert | The BRD's primary trigger; native push via Capacitor (provisional), web push in browser/PWA |
+| Claim assigned to expert | Push (popup) | Expert | The BRD's primary trigger. **Web push is built (slice 3.4)**: `Push:Mode = fake \| webpush` selects `WebPushSender`, which sends to every live `push_subscription` of the user, revokes on 404/410, and writes **one `notification` row per subscription attempted** — plus one when the user has none, because "nobody was told" is the case `AssignmentHandler` must hear about in order to leave `notified_at` null. It throws unless at least one device accepted, so partial success is success. Payload `{title, body, url}` with `url = /expert/{assignmentId}`, read by `src/Web/public/sw.js`. Native APNs/FCM via Capacitor stays slice 6.3 and provisional |
 | Declaration submitted | Push (+ email fallback) | Claim officers | No per-officer routing — all officers |
 | Declaration approved / rejected | Push (popup) | Garage | Approval unlocks detail view; rejection shows status only |
 | Option 2 file ready to send | Push | Broker | On customer submission |
@@ -591,6 +592,30 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
   "Blob": {                                  // §7.3's transit buffer (realized 2026-08-20, slice 2.3)
     "Mode": "fake",                          // fake (in-memory) | azure (Azurite locally)
     "ContainerName": "media-transit"
+  },
+  "Push": {                                  // §8's push rows (realized 2026-08-21, slice 3.4)
+    "Mode": "fake",                          // fake | webpush
+    "Vapid": {
+      // A VAPID private key is a real credential: whoever holds it can send notifications that
+      // browsers accept as coming from AXA. These three stay PLACEHOLDER for ever — real values live
+      // in `dotnet user-secrets` locally and Container Apps secrets in deployment (CLAUDE.md has the
+      // commands). Generate a pair with `npx --yes web-push generate-vapid-keys`.
+      "Subject": "mailto:PLACEHOLDER-push-contact@example.invalid",
+      "PublicKey": "PLACEHOLDER-vapid-public-key",
+      "PrivateKey": "PLACEHOLDER-vapid-private-key"
+    },
+    "TimeoutSeconds": 15,
+    // Real values, not placeholders — these are the browsers' own push services, not client data,
+    // the same treatment as Media:ImageContentTypes. An **SSRF control**: the endpoint a browser
+    // registers is a URL this API later POSTs to, so an unchecked one would let any authenticated
+    // user aim it at a host reachable only from inside the deployment. Empty disables the check.
+    "AllowedEndpointHosts": [
+      "fcm.googleapis.com", "android.googleapis.com",
+      "updates.push.services.mozilla.com", "notify.windows.com", "push.apple.com"
+    ],
+    // The sender walks a user's subscriptions serially on the assignment-ingestion path, so an
+    // unbounded set is an unbounded stall — for every expert, not just that one.
+    "MaxSubscriptionsPerUser": 10
   },
   "Media": {                                 // §7.2 item 5's server-side re-validation
     "MaxFileMb": 15,

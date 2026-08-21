@@ -4,6 +4,7 @@ import { createQueryClient } from './api/queryClient'
 import { currentRole, homePathFor } from './api/session'
 import { getTokens } from './api/tokens'
 import { PROFILE_KINDS } from './admin/kinds'
+import { PushPanel } from './push/PushPanel'
 import LoginPage from './pages/LoginPage'
 import ProfileListPage from './pages/ProfileListPage'
 import ProfileFormPage from './pages/ProfileFormPage'
@@ -34,6 +35,10 @@ function ExpertLayout() {
   return (
     <main>
       <h1>AXA Motor Claims — Expert</h1>
+      {/* In the layout, not on a page: §8's assignment popup is the BRD's primary trigger, and an
+          expert who has not enabled it should be offered it on every screen, not only the one they
+          happened to land on. AdminLayout slots its <nav> in the same place. */}
+      <PushPanel />
       <Outlet />
     </main>
   )

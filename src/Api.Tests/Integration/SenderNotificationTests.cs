@@ -60,12 +60,19 @@ public sealed class SenderNotificationTests(ApiFixture fixture)
         var user = await fixture.CreateUser(UserRole.Garage, UserStatus.Active);
         var sender = new FakePushSender(NullLogger<FakePushSender>.Instance, NotificationLog(), FakeBehavior());
 
-        await sender.Send(user.Id, "PLACEHOLDER title", "PLACEHOLDER body", "test_push", CancellationToken.None);
+        await sender.Send(
+            user.Id,
+            new PushMessage("PLACEHOLDER title", "PLACEHOLDER body", "/expert/PLACEHOLDER"),
+            "test_push",
+            CancellationToken.None);
 
         var row = await SingleRow(n => n.RecipientUserId == user.Id && n.Channel == NotificationChannels.Push);
         Assert.Equal(NotificationStatuses.Sent, row.Status);
         Assert.Equal(user.Id.ToString(), row.RecipientAddress);
         Assert.Contains("PLACEHOLDER title", row.Payload, StringComparison.Ordinal);
+        // The payload is the JSON the service worker reads (slice 3.4), so the click target is part
+        // of what gets logged — "the popup arrived but went nowhere" is otherwise unanswerable.
+        Assert.Contains("/expert/PLACEHOLDER", row.Payload, StringComparison.Ordinal);
     }
 
     [Fact]
