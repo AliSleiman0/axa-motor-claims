@@ -20,6 +20,47 @@ public enum MediaKind
 }
 
 /// <summary>
+/// When a bucket's media joins the NEXT3 queue (design.md §5.2, slice 4.1).
+///
+/// Until this existed every upload wrote its outbox row in the same transaction as the document row,
+/// which is right for the expert — the photo is wanted at AXA immediately — and wrong for the garage,
+/// because §5.2 says "nothing goes to NEXT3 before approval" and had no mechanism to say it with.
+/// </summary>
+public enum PushTiming
+{
+    /// <summary>Queued at upload: the §5.1 expert path, and today's behaviour.</summary>
+    Immediate,
+
+    /// <summary>
+    /// Stored <c>deferred</c> with no outbox row, and queued by §5.2's approve transition once the
+    /// officer has linked a visa. There is no visa to push under before that, which is the other half
+    /// of why the wait is structural rather than a policy someone applies.
+    /// </summary>
+    OnApproval,
+
+    /// <summary>
+    /// Never pushed — <c>push_status = n/a</c>. §5.3's broker and public-customer media, whose
+    /// terminal act is an email; reserved here for slice 5.2, so no bucket carries it yet.
+    /// </summary>
+    Never,
+}
+
+/// <summary>
+/// Which NEXT3 operation a bucket's push is queued as (design.md §4's `next3_outbox.operation`).
+///
+/// The wire call is the same either way — §6.2's interface has no `push_approval` method — but A2 has
+/// to be able to tell "the approval never reached NEXT3" from "a photo never reached NEXT3", and that
+/// distinction is a property of the bucket. Keeping it here rather than in the approve handler is the
+/// point: a service that tested <c>bucket == "approval_image"</c> would be a §7.1 rule living outside
+/// the table §7.1 is encoded in, which is exactly the drift this class exists to prevent.
+/// </summary>
+public enum Next3PushKind
+{
+    Document,
+    Approval,
+}
+
+/// <summary>
 /// One row of design.md §7.1's table. <see cref="AllowUpload"/> is the BRD's hard rule — car photos
 /// are capture-only — and this record is the single place it is expressed, so 2.5's capture component
 /// and 5.x's garage and broker flows read the same table rather than re-deciding it.
@@ -34,15 +75,23 @@ public sealed record BucketRule(
     bool AllowUpload,
     string DocTypeKey,
     MediaKind Kind,
-    string Next3Folder);
+    string Next3Folder,
+    PushTiming Timing,
+    Next3PushKind PushKind = Next3PushKind.Document);
 
 /// <summary>
 /// design.md §7.1's bucket matrix, as data.
 ///
-/// Only the expert rows are encoded. §7.1's garage row — "Documents (survey, discharge, invoice)" —
-/// is one bucket carrying three different NEXT3 document-type codes, so it is not a 1:1 entry here,
-/// and modelling it belongs to slice 5.1 with 5.1's knowledge of the declaration flow. The broker and
-/// public rows (§5.3) push to NEXT3 not at all and get <c>push_status = n/a</c> instead of a doc type.
+/// The expert rows (§5.1) and the declaration rows (§5.2) are encoded. **The declaration buckets moved
+/// here in slice 4.1**, superseding this comment's earlier note that they belonged to 5.1: G2 attaches
+/// documents at Draft, so the state machine cannot ship without them. §7.1's garage documents row —
+/// "Documents (survey, discharge, invoice)" — is one bucket carrying several NEXT3 document-type
+/// codes; 4.1 encodes the *survey* code it needs, and slice 5.1 owns the repair buckets and the
+/// discharge/invoice split with 5.1's knowledge of G4.
+///
+/// The broker and public rows (§5.3) push to NEXT3 not at all and will carry
+/// <see cref="PushTiming.Never"/> with <c>push_status = n/a</c> instead of a doc type.
+///
 /// Each new bucket is a migration, because `bucket` is a check-constrained enum like every other §4
 /// state column — which makes adding one a reviewable decision rather than a string appearing.
 /// </summary>
@@ -55,32 +104,35 @@ public static class MediaBuckets
     public const string ExpertReport = "expert_report";
     public const string VoiceNote = "voice_note";
     public const string DamageDiagram = "damage_diagram";
+    public const string GarageDocuments = "garage_documents";
+    public const string GarageCarPhoto = "garage_car_photo";
+    public const string ApprovalImage = "approval_image";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
         {
             [InsuredDocuments] = new(
                 InsuredDocuments, DocumentOwnerKinds.Assignment, AllowUpload: true,
-                "InsuredDocument", MediaKind.Document, Next3Folders.ExpertDocuments),
+                "InsuredDocument", MediaKind.Document, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             // Capture-only: the BRD's rule, and the reason the whole app exists is that these photos
             // must be the ones taken at the scene.
             [InsuredCarPhoto] = new(
                 InsuredCarPhoto, DocumentOwnerKinds.Assignment, AllowUpload: false,
-                "InsuredCarPhoto", MediaKind.Image, Next3Folders.ExpertDocuments),
+                "InsuredCarPhoto", MediaKind.Image, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             [TpDocuments] = new(
                 TpDocuments, DocumentOwnerKinds.Assignment, AllowUpload: true,
-                "TpDocument", MediaKind.Document, Next3Folders.ExpertDocuments),
+                "TpDocument", MediaKind.Document, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             [TpCarPhoto] = new(
                 TpCarPhoto, DocumentOwnerKinds.Assignment, AllowUpload: false,
-                "TpCarPhoto", MediaKind.Image, Next3Folders.ExpertDocuments),
+                "TpCarPhoto", MediaKind.Image, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             // E5. §5.1: "upload allowed — a report is a document, not a car photo".
             [ExpertReport] = new(
                 ExpertReport, DocumentOwnerKinds.Assignment, AllowUpload: true,
-                "ExpertReport", MediaKind.Document, Next3Folders.ExpertDocuments),
+                "ExpertReport", MediaKind.Document, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             // §5.1's voice note and damage diagram (slice 3.1). Both land in *Expert documents* like
             // everything else the expert produces, and both are `AllowUpload: false` — not because
@@ -88,14 +140,40 @@ public static class MediaBuckets
             // no file to pick. An `origin: uploaded` on either is a client that has gone wrong.
             [VoiceNote] = new(
                 VoiceNote, DocumentOwnerKinds.Assignment, AllowUpload: false,
-                "VoiceNote", MediaKind.Audio, Next3Folders.ExpertDocuments),
+                "VoiceNote", MediaKind.Audio, Next3Folders.ExpertDocuments, PushTiming.Immediate),
 
             // Image, deliberately: the diagram is a canvas export, so §7.2's *server* resolution
             // floor applies to it exactly as it does to a photograph. That is what the web module's
             // fixed 1600x1200 render exists to clear.
             [DamageDiagram] = new(
                 DamageDiagram, DocumentOwnerKinds.Assignment, AllowUpload: false,
-                "DamageDiagram", MediaKind.Image, Next3Folders.ExpertDocuments),
+                "DamageDiagram", MediaKind.Image, Next3Folders.ExpertDocuments, PushTiming.Immediate),
+
+            // §5.2's three declaration buckets (slice 4.1). All land in the *Survey* folder — the name
+            // the BRD gives the folder a garage-initiated claim ends up in — and all wait for the
+            // officer's approval, because at Draft there is no visa to push them under and §5.2 pushes
+            // nothing on rejection.
+
+            // G2's supporting documents. Upload allowed: a garage scans a survey form or an invoice,
+            // and §7.1's garage documents row marks both provenances acceptable.
+            [GarageDocuments] = new(
+                GarageDocuments, DocumentOwnerKinds.Declaration, AllowUpload: true,
+                "SurveyDocument", MediaKind.Document, Next3Folders.Survey, PushTiming.OnApproval),
+
+            // Capture-only, the same BRD rule as the expert's car photos and for the same reason: the
+            // damage has to be the damage on the car that is actually in the garage.
+            [GarageCarPhoto] = new(
+                GarageCarPhoto, DocumentOwnerKinds.Declaration, AllowUpload: false,
+                "GarageCarPhoto", MediaKind.Image, Next3Folders.Survey, PushTiming.OnApproval),
+
+            // §5.2's "approval and comments captured as an image" (#18). Produced in-app by the
+            // officer's browser (slice 4.2 renders it), so there is no file to pick — `AllowUpload:
+            // false` for the 3.1 reason rather than the capture-only one. Image, so §7.2's server
+            // resolution floor applies to the render exactly as to a photograph.
+            [ApprovalImage] = new(
+                ApprovalImage, DocumentOwnerKinds.Declaration, AllowUpload: false,
+                "ApprovalImage", MediaKind.Image, Next3Folders.Survey, PushTiming.OnApproval,
+                Next3PushKind.Approval),
         };
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>

@@ -15,6 +15,19 @@ Work proceeds **slice by slice per `docs/build-playbook.md`** — pick the next 
 3. **Run the tests before any commit.** Never change a test to make it pass without saying so explicitly — the developer reviews test diffs at every gate.
 4. **Placeholder discipline:** any client-specific value (insurance types, recipients, NEXT3 codes, thresholds) exists only as a named key in the placeholder config (design.md Appendix A). A client literal anywhere else is a bug.
 
+## Recurring bug classes — check these before declaring a slice done
+
+Each of these was caught by review, not by the author, and at least twice (slice numbers in `docs/build-playbook.md` Notes):
+
+- **"This may only happen once" belongs in the schema or the `WHERE`, never in an `if`.** A read-then-write on a state column is not a state machine: four simultaneous requests all pass the read. Use a unique index, a concurrency token, or `UPDATE … WHERE state = @expected`, and **verify by removing the guard** — the parallel test must go red. (1.5 token lock, 2.2 outbox lease, 2.4 Arrived, 3.4 subscriptions, 4.1 `state` token.)
+- **`HttpClient` reports its own timeout as `TaskCanceledException`**, which derives from `OperationCanceledException` — so a catch filter naming `TimeoutException`, or one excluding `OperationCanceledException`, silently misroutes it. Discriminate on `ct.IsCancellationRequested`, convert to `TimeoutException` at the adapter edge, and pin both directions. **Check every HTTP adapter, not just the one you are writing** — 3.3 fixed this and 3.4 reintroduced it the next day.
+- **A lesson learned in one adapter is not learned until it is checked in the others.** When a slice fixes a class of bug, grep the codebase for siblings before closing.
+- **Accept loosely, store canonically.** Case-insensitive and parameter-tolerant comparisons are fine; what gets persisted, pushed and matched ordinally must be the canonical value the bytes were recognised as (3.1).
+- **Deciding a file's treatment from its MIME type alone is the trap** — the caller knows something the type does not (`photographic` on `useCapture.select`, 3.1; PDF-in-an-`<img>`, 2.5).
+- **A test that asserts the code's own arithmetic back to itself can never go red** (2.4 arrival split, 2.5 variance). Work the expected value out by hand.
+- **A guard that quietly stops covering new code is worse than none** — nested folders walked out of the reusability glob (3.1); an arch rule sat green while its namespace was empty (1.5). Pair every guard with a non-vacuity assertion.
+- **Review the db-reviewer's findings on the *new code*, not just the schema** — in six of seven migration slices the worst bug was in the adjacent code it read.
+
 ## Source layout (decided week 0; created in week 1)
 
 - `AxaMotorClaims.sln` at repo root

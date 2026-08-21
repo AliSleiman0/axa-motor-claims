@@ -12,8 +12,15 @@ using Microsoft.Net.Http.Headers;
 namespace Api.Modules.Media;
 
 /// <summary>Where an upload is going: the owning row, its visa, and who is uploading.</summary>
+/// <param name="VisaNo">
+/// Null when the owner has no visa yet — a garage declaration at Draft (§5.2), where the officer has
+/// not linked one and may yet reject the whole thing. Required for any
+/// <see cref="PushTiming.Immediate"/> bucket, because that is the value its outbox row is addressed
+/// to; <see cref="MediaUploadService"/> refuses the combination rather than pushing under an empty
+/// string, which NEXT3 would file somewhere nobody looks.
+/// </param>
 /// <param name="ActorUserId">Null for the unauthenticated Option 2 customer (§5.3).</param>
-public sealed record MediaUploadTarget(string OwnerKind, Guid OwnerId, string VisaNo, Guid? ActorUserId);
+public sealed record MediaUploadTarget(string OwnerKind, Guid OwnerId, string? VisaNo, Guid? ActorUserId);
 
 /// <summary>Either a created document or a refusal with the code the client branches on.</summary>
 public sealed record MediaUploadOutcome(int StatusCode, string? ErrorCode, Document? Document)
@@ -60,8 +67,18 @@ public sealed class MediaUploadService(
     private const string OriginField = "origin";
     private const int MaxFieldValueBytes = 256;
 
+    /// <param name="allowedBuckets">
+    /// Narrows the caller to a subset of the buckets its owner kind allows, refused **before the file
+    /// is read** so no blob and no row are written. §5.2's officer needs it: the approval image and the
+    /// garage's own documents share an owner kind, so the bucket rules alone would accept a
+    /// `garage_car_photo` from an officer — the right owner kind, and nothing else to refuse it. §5.2
+    /// grants the officer review, not the ability to add evidence to a claim.
+    /// </param>
     public async Task<MediaUploadOutcome> Upload(
-        HttpRequest request, MediaUploadTarget target, CancellationToken ct)
+        HttpRequest request,
+        MediaUploadTarget target,
+        CancellationToken ct,
+        IReadOnlyCollection<string>? allowedBuckets = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(target);
@@ -122,6 +139,15 @@ public sealed class MediaUploadService(
             if (rule is null || rule.OwnerKind != target.OwnerKind)
             {
                 return MediaUploadOutcome.Refused(StatusCodes.Status400BadRequest, "unknown_bucket");
+            }
+
+            if (allowedBuckets is not null && !allowedBuckets.Contains(rule.Bucket))
+            {
+                // A distinct code from `unknown_bucket`: this bucket is real and this owner kind has
+                // it, the *caller* may not use it. Refused here, before StoreFile, so the rejection
+                // costs no blob and leaves no row for the orphan sweep to find later.
+                return MediaUploadOutcome.Refused(
+                    StatusCodes.Status400BadRequest, "bucket_not_allowed_for_caller");
             }
 
             return await StoreFile(section, disposition, rule, origin, target, ct);
@@ -235,6 +261,13 @@ public sealed class MediaUploadService(
     /// by a single SaveChanges. If this throws, the blob is already written and becomes the orphan
     /// §7.3 accepts — deliberately not deleted here, because the alternative failure (a queued push
     /// naming bytes that are gone) is the one that reaches AXA as a missing photo.
+    ///
+    /// **The outbox row is conditional on <see cref="BucketRule.Timing"/> (slice 4.1).** For an
+    /// <see cref="PushTiming.OnApproval"/> bucket the row is stored <c>deferred</c> with no outbox row
+    /// at all, and §5.2's approve transition enqueues it once a visa exists. That is what makes
+    /// "nothing goes to NEXT3 before approval" a property of the schema — <c>CK_document_push_status_outbox</c>
+    /// makes a deferred document with an outbox row unrepresentable — rather than a rule the garage
+    /// endpoint has to remember.
     /// </summary>
     private async Task<Document> Record(
         Guid documentId,
@@ -253,10 +286,17 @@ public sealed class MediaUploadService(
 
         // clientRef = the document id (§5.1), so it is stable across every retry of this push by
         // construction and the fake's — later the real client's — dedupe check has something to hold.
-        var outboxMessageId = outbox.EnqueueDocument(
-            target.VisaNo,
-            new DocumentPush(rule.Next3Folder, docType, fileName, contentType, blobKey),
-            documentId.ToString());
+        // Null for a deferred bucket: §5.2's approve transition enqueues those, under the visa the
+        // officer has by then chosen, using the same document id as the clientRef.
+        var outboxMessageId = rule.Timing switch
+        {
+            PushTiming.Immediate => outbox.EnqueueDocument(
+                RequireVisa(target, rule),
+                new DocumentPush(rule.Next3Folder, docType, fileName, contentType, blobKey),
+                documentId.ToString()),
+            PushTiming.OnApproval or PushTiming.Never => (Guid?)null,
+            _ => throw new ArgumentOutOfRangeException(nameof(rule), rule.Timing, null),
+        };
 
         var document = new Document
         {
@@ -269,8 +309,9 @@ public sealed class MediaUploadService(
             ClarityResult = clarityResult,
             BlobKey = blobKey,
             ContentType = contentType,
+            FileName = fileName,
             SizeBytes = sizeBytes,
-            PushStatus = DocumentPushStatuses.Queued,
+            PushStatus = PushStatusFor(rule.Timing),
             OutboxMessageId = outboxMessageId,
             CreatedBy = target.ActorUserId,
             CreatedAt = time.GetUtcNow().UtcDateTime,
@@ -286,6 +327,32 @@ public sealed class MediaUploadService(
         await db.SaveChangesAsync(ct);
         return document;
     }
+
+    /// <summary>
+    /// The push status that goes with a timing. Paired with the outbox-row decision above by
+    /// <c>CK_document_push_status_outbox</c>, which rejects any row where the two disagree — so a
+    /// future fourth timing cannot half-land.
+    /// </summary>
+    private static string PushStatusFor(PushTiming timing) => timing switch
+    {
+        PushTiming.Immediate => DocumentPushStatuses.Queued,
+        PushTiming.OnApproval => DocumentPushStatuses.Deferred,
+        PushTiming.Never => DocumentPushStatuses.NotApplicable,
+        _ => throw new ArgumentOutOfRangeException(nameof(timing), timing, null),
+    };
+
+    /// <summary>
+    /// An immediate push has to be addressed to a visa, and the only callers that can supply one are
+    /// the ones whose owner row already carries it. A miswired endpoint is a bug here rather than at
+    /// the far end of the queue 26 hours later, where the symptom would be a `failed` row on A2 for a
+    /// document nobody can re-file.
+    /// </summary>
+    private static string RequireVisa(MediaUploadTarget target, BucketRule rule) =>
+        target.VisaNo is { Length: > 0 } visaNo
+            ? visaNo
+            : throw new InvalidOperationException(
+                $"Bucket '{rule.Bucket}' pushes immediately, so its upload target must carry a visa "
+                + $"(owner kind '{target.OwnerKind}', id {target.OwnerId}).");
 
     private string ResolveDocType(BucketRule rule) =>
         next3Options.Value.DocTypes.GetValueOrDefault(rule.DocTypeKey)
@@ -355,12 +422,43 @@ public sealed class MediaUploadService(
     };
 
     /// <summary>
+    /// Characters a stored file name may never contain, spelled out because the framework's answer is
+    /// not the same on two operating systems.
+    ///
+    /// <c>Path.GetInvalidFileNameChars()</c> was used here until slice 4.1's db-reviewer pass. On
+    /// Windows it returns 41 characters and the sanitiser looks thorough; **on Linux it returns
+    /// exactly <c>'\0'</c> and <c>'/'</c>**, and design.md §3 and §10 put this application on Linux
+    /// containers. So the guard did almost nothing precisely where it runs, and everything where it is
+    /// developed and tested — the worst arrangement available.
+    ///
+    /// CR and LF are the ones that matter beyond tidiness: this value is written into a
+    /// <c>Content-Disposition</c> header by <c>RealNext3Client</c>, and a newline in a header value is
+    /// a header-injection primitive supplied by whoever picked the file.
+    /// </summary>
+    private const string UnsafeFileNameChars = "\"<>|:*?\\/";
+
+    /// <summary>
+    /// Every control character goes as well as <see cref="UnsafeFileNameChars"/> — that is the half
+    /// <c>Path.GetInvalidFileNameChars()</c> silently stopped covering the moment this ran on Linux.
+    /// </summary>
+    private static bool IsSafeFileNameChar(char c) =>
+        !char.IsControl(c) && !UnsafeFileNameChars.Contains(c, StringComparison.Ordinal);
+
+    /// <summary>
     /// The client's filename, stripped to a leaf name. It reaches NEXT3 and a filesystem at the other
     /// end (#5 may yet make that literal), so a path separator in it is not decoration.
+    ///
+    /// Since slice 4.1 the result is also *stored* (<see cref="Document.FileName"/>) rather than only
+    /// used in the moment, because a deferred push is queued in a later request — which makes it worth
+    /// stating that the sanitising happens once, here, and the stored value is the sanitised one.
     /// </summary>
     private static string SafeFileName(
         ContentDispositionHeaderValue disposition, Guid documentId, string contentType)
     {
+        // FileNameStar first: it is the RFC 5987 form and is already percent-decoded, so a name with
+        // non-ASCII characters survives. Both getters strip surrounding quotes — verified rather than
+        // assumed, because the ASP.NET section helpers call RemoveQuotes and it is a fair question
+        // whether that is because these do not.
         var raw = disposition.FileNameStar.Value ?? disposition.FileName.Value;
         if (string.IsNullOrWhiteSpace(raw))
         {
@@ -368,7 +466,7 @@ public sealed class MediaUploadService(
         }
 
         var leaf = raw.AsSpan()[(raw.LastIndexOfAny(['/', '\\']) + 1)..].ToString();
-        var cleaned = string.Concat(leaf.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+        var cleaned = string.Concat(leaf.Where(IsSafeFileNameChar)).Trim();
 
         return string.IsNullOrWhiteSpace(cleaned)
             ? $"{documentId:N}{Extension(contentType)}"

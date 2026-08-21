@@ -21,6 +21,15 @@ public static class AuditActions
     // point of the event is where the expert said they were.
     public const string AssignmentArrived = "assignment_arrived";
 
+    // §5.2's declaration machine. §9 requires "every declaration transition with actor" and
+    // "approval/rejection with comments hash" — a claims dispute turns on who decided what and when,
+    // and the declaration row only keeps the *latest* state, so the trail is where the history lives.
+    public const string DeclarationCreated = "declaration_created";
+    public const string DeclarationSubmitted = "declaration_submitted";
+    public const string DeclarationApproved = "declaration_approved";
+    public const string DeclarationRejected = "declaration_rejected";
+    public const string DeclarationRepairsStarted = "declaration_repairs_started";
+
     // §9's "public-page submissions (actor null, token id logged)".
     public const string PublicLinkIssued = "public_link_issued";
     public const string PublicLinkOpened = "public_link_opened";
@@ -46,4 +55,5 @@ public static class AuditEntityKinds
     public const string ExpertAssignment = "expert_assignment";
     public const string PublicLinkToken = "public_link_token";
     public const string Document = "document";
+    public const string Declaration = "declaration";
 }

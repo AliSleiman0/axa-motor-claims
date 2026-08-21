@@ -47,4 +47,16 @@ public static class NotificationTemplates
 
     /// <summary>The BRD's primary trigger: "a popup message will show on the expert mobile" (§8).</summary>
     public const string AssignmentReceived = "assignment_received";
+
+    /// <summary>
+    /// §8's officer row. Fanned out to every active claim officer — §5.2 defines no per-officer
+    /// routing and we do not invent a queue — so one submission writes one row per officer, and per
+    /// device beneath that.
+    /// </summary>
+    public const string DeclarationSubmitted = "declaration_submitted";
+
+    /// <summary>§8's garage rows. Approval unlocks G3's detail view; rejection shows status only (§1).</summary>
+    public const string DeclarationApproved = "declaration_approved";
+
+    public const string DeclarationRejected = "declaration_rejected";
 }

@@ -28,7 +28,7 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
 
             table.HasCheckConstraint(
                 "CK_document_push_status",
-                $"[push_status] IN ('{DocumentPushStatuses.Queued}', '{DocumentPushStatuses.NotApplicable}')");
+                $"[push_status] IN ({Quoted(DocumentPushStatuses.All)})");
 
             table.HasCheckConstraint(
                 "CK_document_clarity_result",
@@ -38,11 +38,17 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             // `queued` with no outbox row is a document that is never pushed, never appears on A2
             // (there is no row for A2 to list) and never becomes eligible for deletion — retained
             // for ever and invisible everywhere. `n/a` with an outbox row is a broker document that
-            // quietly went to NEXT3. Both are unrepresentable now.
+            // quietly went to NEXT3. Both are unrepresentable.
+            //
+            // Widened in slice 4.1 for `deferred` (§5.2), which sits on the same side as `n/a`: it has
+            // no outbox row *yet*, because the visa it would be addressed to does not exist until the
+            // officer approves. That is what makes "nothing goes to NEXT3 before approval" structural
+            // — a deferred document that had somehow queued a push would fail this constraint at
+            // SaveChanges rather than surfacing as a photo filed under the wrong claim.
             table.HasCheckConstraint(
                 "CK_document_push_status_outbox",
                 $"([push_status] = '{DocumentPushStatuses.Queued}' AND [outbox_message_id] IS NOT NULL) "
-                + $"OR ([push_status] = '{DocumentPushStatuses.NotApplicable}' "
+                + $"OR ([push_status] IN ({Quoted(DocumentPushStatuses.WithoutOutboxRow)}) "
                 + "AND [outbox_message_id] IS NULL)");
         });
 
@@ -61,6 +67,10 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.Property(d => d.ClarityResult).HasColumnName("clarity_result").HasMaxLength(20).IsRequired();
         builder.Property(d => d.BlobKey).HasColumnName("blob_key").HasMaxLength(400).IsRequired();
         builder.Property(d => d.ContentType).HasColumnName("content_type").HasMaxLength(100).IsRequired();
+
+        // 128 is the length SafeFileName already truncates to, so the column cannot be the thing that
+        // rejects a name the upload path was willing to accept.
+        builder.Property(d => d.FileName).HasColumnName("file_name").HasMaxLength(128);
         builder.Property(d => d.SizeBytes).HasColumnName("size_bytes").IsRequired();
         builder.Property(d => d.PushStatus).HasColumnName("push_status").HasMaxLength(10).IsRequired();
         builder.Property(d => d.OutboxMessageId).HasColumnName("outbox_message_id");
@@ -96,4 +106,12 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         // and a uniqueness violation would surface only after the blob had already been written.
         builder.HasIndex(d => d.BlobKey).HasFilter("[blob_deleted_at] IS NULL");
     }
+
+    /// <summary>
+    /// Renders a status list as SQL literals. Ordinal-ordered so the constraint text is stable
+    /// between runs — an unordered set would regenerate a different string each build and make every
+    /// migration diff look like a schema change.
+    /// </summary>
+    private static string Quoted(IEnumerable<string> values) =>
+        string.Join(", ", values.Order(StringComparer.Ordinal).Select(v => $"'{v}'"));
 }

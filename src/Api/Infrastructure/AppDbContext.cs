@@ -1,5 +1,6 @@
 using Api.Modules.Broker;
 using Api.Modules.Claims;
+using Api.Modules.Declarations;
 using Api.Modules.Expert;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
@@ -34,6 +35,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<CachedClaim> CachedClaims => Set<CachedClaim>();
 
     public DbSet<ExpertAssignment> ExpertAssignments => Set<ExpertAssignment>();
+
+    /// <summary>§5.2's state machine row, and the comments an officer attaches to a decision.</summary>
+    public DbSet<Declaration> Declarations => Set<Declaration>();
+
+    public DbSet<DeclarationComment> DeclarationComments => Set<DeclarationComment>();
 
     /// <summary>
     /// §4's media metadata. Unlike audit_log, notification and next3_outbox this does have a DbSet:

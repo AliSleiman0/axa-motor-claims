@@ -9,6 +9,7 @@ using Api.Integrations.Push;
 using Api.Integrations.Sms;
 using Api.Modules.Audit;
 using Api.Modules.Claims;
+using Api.Modules.Declarations;
 using Api.Modules.Expert;
 using Api.Modules.Media;
 using Api.Modules.Notifications;
@@ -64,6 +65,9 @@ public static class ServiceRegistration
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<ClaimCache>();
+
+        // §5.2's transitions and the transactions they own (slice 4.1).
+        services.AddScoped<DeclarationService>();
         services.AddScoped<AssignmentHandler>();
         // Subscribes the single idempotent handler to whichever assignment source is configured
         // (§6.2). Fails at startup rather than at first delivery if the source is unimplemented.

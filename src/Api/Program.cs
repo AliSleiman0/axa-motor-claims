@@ -1,5 +1,6 @@
 using Api.Composition;
 using Api.Modules.Broker;
+using Api.Modules.Declarations;
 using Api.Modules.Expert;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
@@ -47,6 +48,8 @@ app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
 app.MapExpertEndpoints();
 app.MapExpertDocumentEndpoints();
+app.MapGarageDeclarationEndpoints();
+app.MapOfficerEndpoints();
 app.MapPushEndpoints();
 app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();

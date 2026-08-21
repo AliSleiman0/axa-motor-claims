@@ -7,23 +7,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Api.Modules.Expert;
 
 /// <summary>
-/// A document as the expert's screens see it. There is no blob URL: §9 allows blob reads through
-/// short-lived SAS only, and nothing in the expert flow needs to read a file back — the app's job is
-/// to get it into NEXT3, which is the system of record from the moment the push lands.
-/// </summary>
-public sealed record DocumentDto(
-    Guid Id,
-    string Bucket,
-    string? DocType,
-    string Origin,
-    string ClarityResult,
-    string ContentType,
-    long SizeBytes,
-    string PushStatus,
-    bool BlobRetained,
-    DateTime CreatedAt);
-
-/// <summary>
 /// E3's write surface (design.md §5.1's "Capture media on E3" row) and its read side.
 ///
 /// The POST is `multipart/form-data` and is **streamed** — see <see cref="MediaUploadService"/> for
@@ -67,7 +50,7 @@ public static class ExpertDocumentEndpoints
                 ? Results.Json(new { error = outcome.ErrorCode }, statusCode: outcome.StatusCode)
                 : Results.Created(
                     $"/api/expert/assignments/{id}/documents/{outcome.Document.Id}",
-                    ToDto(outcome.Document));
+                    DocumentDto.From(outcome.Document));
         });
 
         group.MapGet("/", async (
@@ -90,7 +73,7 @@ public static class ExpertDocumentEndpoints
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new DocumentDto(
                     d.Id, d.Bucket, d.DocType, d.Origin, d.ClarityResult, d.ContentType,
-                    d.SizeBytes, d.PushStatus, d.BlobDeletedAt == null, d.CreatedAt))
+                    d.FileName, d.SizeBytes, d.PushStatus, d.BlobDeletedAt == null, d.CreatedAt))
                 .ToListAsync(ct);
 
             return Results.Ok(documents);
@@ -103,16 +86,4 @@ public static class ExpertDocumentEndpoints
         AppDbContext db, Guid id, Guid expertUserId, CancellationToken ct) =>
         db.ExpertAssignments.AsNoTracking()
             .SingleOrDefaultAsync(a => a.Id == id && a.ExpertUserId == expertUserId, ct);
-
-    private static DocumentDto ToDto(Document document) => new(
-        document.Id,
-        document.Bucket,
-        document.DocType,
-        document.Origin,
-        document.ClarityResult,
-        document.ContentType,
-        document.SizeBytes,
-        document.PushStatus,
-        document.BlobDeletedAt is null,
-        document.CreatedAt);
 }

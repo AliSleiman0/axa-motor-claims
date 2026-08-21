@@ -30,17 +30,6 @@ public sealed record ExpertAssignmentListItemDto(
     DateOnly? AccidentDate,
     int MediaCount);
 
-/// <summary>The claim as NEXT3 owns it (§6.1), served from the §4 cache.</summary>
-public sealed record ClaimDto(
-    string VisaNo,
-    string PolicyNo,
-    string PlateNo,
-    string InsuredName,
-    string InsuredPhone,
-    string CarMakeModel,
-    string City,
-    DateOnly AccidentDate);
-
 /// <summary>
 /// E2 (§5.1). <c>ClaimStatus</c> is "fresh", "stale" or "not_found": stale is §4's staleness banner,
 /// and it carries <c>ClaimFetchedAt</c> so the screen can say how old the data is rather than
@@ -229,9 +218,9 @@ public static class ExpertEndpoints
                 assignment.ReceivedAt,
                 assignment.OpenedAt,
                 assignment.ArrivedAt,
-                Describe(lookup.Status),
+                lookup.Status.Describe(),
                 lookup.Claim?.FetchedAt,
-                lookup.Claim is null ? null : ToDto(lookup.Claim)));
+                lookup.Claim is null ? null : ClaimDto.From(lookup.Claim)));
         });
 
         group.MapPost("/{id:guid}/arrival", async (
@@ -350,20 +339,4 @@ public static class ExpertEndpoints
     private static IResult Already(ExpertAssignment assignment) =>
         Results.Ok(new ArrivalDto(assignment.ArrivedAt!.Value, assignment.ArrivalLat, assignment.ArrivalLng));
 
-    private static string Describe(ClaimLookupStatus status) => status switch
-    {
-        ClaimLookupStatus.Fresh => "fresh",
-        ClaimLookupStatus.Stale => "stale",
-        _ => "not_found",
-    };
-
-    private static ClaimDto ToDto(CachedClaim claim) => new(
-        claim.VisaNo,
-        claim.PolicyNo,
-        claim.PlateNo,
-        claim.InsuredName,
-        claim.InsuredPhone,
-        claim.CarMakeModel,
-        claim.City,
-        claim.AccidentDate);
 }

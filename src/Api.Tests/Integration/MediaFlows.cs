@@ -15,6 +15,7 @@ internal sealed record DocumentBodyDto(
     string Origin,
     string ClarityResult,
     string ContentType,
+    string? FileName,
     long SizeBytes,
     string PushStatus,
     bool BlobRetained,
@@ -76,9 +77,18 @@ internal static class MediaFlows
         return content;
     }
 
+    /// <summary>
+    /// Posts a multipart body to any upload endpoint. Generalized in slice 4.1: §5.2's garage and
+    /// officer surfaces post the same bodies to their own paths, and the alternative was a second copy
+    /// of this helper that could drift from the one the expert tests use.
+    /// </summary>
+    public static Task<HttpResponseMessage> Upload(
+        HttpClient client, string path, MultipartFormDataContent body) =>
+        client.PostAsync(new Uri(path, UriKind.Relative), body);
+
     public static Task<HttpResponseMessage> Upload(
         HttpClient client, Guid assignmentId, MultipartFormDataContent body) =>
-        client.PostAsync(new Uri($"/api/expert/assignments/{assignmentId}/documents", UriKind.Relative), body);
+        Upload(client, $"/api/expert/assignments/{assignmentId}/documents", body);
 
     /// <summary>The common case: a valid captured car photo into a capture-only bucket.</summary>
     public static Task<HttpResponseMessage> UploadCarPhoto(
