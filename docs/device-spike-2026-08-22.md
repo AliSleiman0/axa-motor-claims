@@ -55,7 +55,7 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 
 | # | Check | What was done | What to look for | Observed | Screenshot | Verdict | Feeds |
 |---|---|---|---|---|---|---|---|
-| B0 | The mkcert leaf is trusted | Install `rootCA.crt`, then enable full trust | Whether Safari accepts a leaf valid to **23 Nov 2028** (~27 months) — Apple's 398-day ceiling exempts user-installed roots, but that is the claim under test | _pending_ | `b0-cert.png` | _pending_ | blocks every other B row |
+| B0 | The mkcert leaf is trusted | Installed `rootCA.crt` as a profile, enabled full trust in Certificate Trust Settings, opened `https://192.168.10.90:5174` | Whether Safari accepts a leaf valid to **23 Nov 2028** (~27 months) — Apple's 398-day ceiling exempts user-installed roots, but that is the claim under test | **"iphone worked"** — padlock, no certificate warning | `b0-cert.png` | **PASS** | blocks every other B row |
 | B1 | Safari's capture input | E2 → each capture-only input | Safari offers a sheet: record exactly what it lists. "Photo Library" appearing is §7.1 unenforceable in Safari | _pending_ | `b1-capture.png` | _pending_ | §7A Q4 · §7.1 |
 | B2 | `MediaRecorder` | E3 voice note | Supported at all; the type produced (`audio/mp4` expected); server acceptance | _pending_ | `b2-voice.png` | _pending_ | §7A Q5 |
 | B3 | Arrived geolocation | E2 → Arrived | Prompt, accuracy, time to fix, denied path | _pending_ | `b3-arrived.png` | _pending_ | §7A Q6 |
