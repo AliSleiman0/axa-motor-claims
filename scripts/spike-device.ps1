@@ -52,6 +52,7 @@ $WebDir = Join-Path $RepoRoot 'src\Web'
 $PidFile = Join-Path $Artifacts 'spike.pids'
 $WebLog = Join-Path $Artifacts 'spike-web.log'
 $WebErrLog = Join-Path $Artifacts 'spike-web.err.log'
+$HttpsDescriptor = Join-Path $CertDir 'spike-https.json'
 
 $HttpPort = 5173      # started by demo-reset.ps1; the Samsung's target via adb reverse
 $HttpsPort = 5174     # started here; the iPhone's target over the LAN
@@ -185,16 +186,22 @@ Copy-Item (Join-Path $caRoot 'rootCA.pem') $caCopy -Force
 
 Write-Step "Starting the HTTPS dev server on $HttpsPort"
 Remove-Item $WebLog, $WebErrLog -Force -ErrorAction SilentlyContinue
-$env:SPIKE_HTTPS_CERT = $certFile
-$env:SPIKE_HTTPS_KEY = $keyFile
-try {
-    $web = Start-Process -PassThru -WindowStyle Hidden -FilePath 'npm.cmd' `
-        -ArgumentList 'run', 'dev', '--', '--port', $HttpsPort, '--strictPort' `
-        -WorkingDirectory $WebDir -RedirectStandardOutput $WebLog -RedirectStandardError $WebErrLog
-    Add-Content -LiteralPath $PidFile -Value $web.Id
-} finally {
-    Remove-Item Env:SPIKE_HTTPS_CERT, Env:SPIKE_HTTPS_KEY -ErrorAction SilentlyContinue
-}
+
+<#
+    The certificate reaches Vite through a file on disk, NOT through the environment, and that is a
+    bug fix rather than a preference. The first version exported SPIKE_HTTPS_CERT/KEY into the child
+    process; it worked until `git checkout` touched vite.config.ts, Vite restarted the server
+    in-process, re-evaluated its config without those variables, and silently came back on plain http
+    with no LAN binding. Safari then loses the secure context and the camera, the voice note and web
+    push all fail at once - looking exactly like the platform limits this spike exists to measure.
+    A file survives a restart; an env var set by a script that has already exited does not.
+#>
+@{ cert = $certFile; key = $keyFile } | ConvertTo-Json | Set-Content -LiteralPath $HttpsDescriptor -Encoding utf8
+
+$web = Start-Process -PassThru -WindowStyle Hidden -FilePath 'npm.cmd' `
+    -ArgumentList 'run', 'dev', '--', '--config', 'vite.config.spike.ts', '--port', $HttpsPort, '--strictPort' `
+    -WorkingDirectory $WebDir -RedirectStandardOutput $WebLog -RedirectStandardError $WebErrLog
+Add-Content -LiteralPath $PidFile -Value $web.Id
 
 $deadline = (Get-Date).AddSeconds(60)
 while ((Get-Date) -lt $deadline -and (Get-PortOwner $HttpsPort) -eq 0) { Start-Sleep -Milliseconds 300 }

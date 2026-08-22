@@ -19,7 +19,7 @@ the PWA installed to the Home Screen). Screenshots in `docs/device-spike-2026-08
 |---|---|
 | API | `http://localhost:5180`, `Blob__Mode=azure`, `Push__Mode=webpush`, `Next3:Mode=fake` (`demo-reset.ps1`) |
 | Vite (http) | `:5173` — the Samsung reaches it via `adb reverse tcp:5173 tcp:5173` |
-| Vite (https) | `:5174` on `192.168.10.90` — the iPhone, mkcert leaf, root installed as an iOS profile |
+| Vite (https) | `:5174` on `192.168.10.90` via `vite.config.spike.ts` — the iPhone, mkcert leaf, root installed as an iOS profile |
 | Capacitor | 8.5.0 · `appId` `PLACEHOLDER.axa.motorclaims` · `server.url` `http://localhost:5173` |
 | Android build | AGP 8.13.0, Gradle 8.14.3, JDK 21.0.12, compileSdk/targetSdk 36, minSdk 24 |
 | APK | `app-debug.apk`, 4.3 MB, debug-signed |
@@ -80,6 +80,27 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 - **`@capacitor/cli` brings three moderate advisories** — `xcode` → `uuid <11.1.1`
   (GHSA-w5hq-g745-h8pq). A dev-only CLI chain that never enters the app bundle; `npm audit fix --force`
   would downgrade the CLI. Recorded, not fixed, and worth a line in the handover.
+- **The HTTPS dev server silently downgraded itself to plain http, and that is the incident worth
+  reading.** The first version enabled HTTPS from `SPIKE_HTTPS_CERT`/`SPIKE_HTTPS_KEY` env vars inside
+  `vite.config.ts`. It worked — until `git checkout` touched that file, Vite restarted the server
+  **in-process** (same pid, confirmed), re-evaluated the config *without* those variables, and came
+  back on `http://localhost:5174` with no LAN binding and **no error anywhere**. The phone would have
+  lost its secure context, and the camera, the voice note and web push would all have stopped at once
+  — indistinguishable, from the handset, from the platform limitations this spike exists to measure.
+  It is 2.5's PDF-in-an-`<img>` shape again: the failure is invisible to the thing doing the failing.
+  Fixed by making the config a pure function of files on disk — a separate `vite.config.spike.ts`
+  reading a descriptor the script writes — and by **throwing rather than falling back to http**, since
+  there is no useful degraded mode for a server whose entire job is providing a secure context.
+  **`vite.config.ts` is now byte-identical to its 4.4 state**, so `npm run dev` and `demo-reset.ps1`
+  cannot be affected at all. Verified by reproducing the exact trigger: `touch vite.config.ts`, watch
+  the restart in the log, confirm HTTPS still answers on both the root and the proxied `/api`.
+- **The API is run from a published copy, not `dotnet run`.** `demo-reset.ps1` runs the API out of
+  `src/Api/bin`, which locks `Api.exe` — so the Stop hook's `dotnet test` could not rebuild and failed
+  on a file lock every turn. **A guard that always fails is a guard that has stopped meaning
+  anything**, and it would have masked a genuine test failure later in the slice. `dotnet publish -o
+  demo-artifacts/api-run` and running that exe leaves `src/Api/bin` free. The one thing this gives up
+  is the demo's live reload of `appsettings.Placeholders.json` (content root moves), which beat 3 needs
+  and this spike does not.
 - **curl on Windows cannot verify the mkcert chain** — schannel reports "the revocation status is
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
