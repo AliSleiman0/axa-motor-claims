@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1080px; min-height: 1020px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Components</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">TextField · PhoneField · SearchField · TextArea</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 820px;">Labels are always visible above the control, never a placeholder standing in for one. Input text is 16&nbsp;px everywhere — below that iOS zooms the page the moment a field is focused, which on a phone at a crash site loses the whole layout.</div>
+  </div>
+
+  <!-- TextField -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">TextField</h2>
+      <span style="font-size: 12px; color: #5F6C79;">48&nbsp;px touch · 36&nbsp;px desktop · maxLength shown as a limit, not a counter</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">default</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Plate number</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">focus</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Plate number</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #2E6BB8; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #0F1418; outline: 2px solid #2E6BB8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(46,107,184,0.22);">PLC<span style="display: inline-block; width: 1px; height: 20px; background: #0F1418; margin-left: 1px;"></span></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">filled</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Plate number</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #0F1418;">PLC-TEST-01</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">error</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Plate number</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 2px solid #A33A31; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+        <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; color: #A33A31;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.8" stroke-linecap="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+          <span>A plate number is needed before this declaration can be created.</span>
+        </span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">disabled</span>
+        <span style="font-size: 13px; font-weight: 500; color: #8B96A1;">Phone (E.164)</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #E4E9ED; border-radius: 6px; background: #F4F6F8; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #8B96A1;">+999 000 003 001</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #5F6C79;">Immutable after create — it is the login identity.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PhoneField -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PhoneField</h2>
+      <span style="font-size: 12px; color: #5F6C79;">The sign-in field · mono, tabular · numeric keypad</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">empty</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Phone (E.164)</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #8B96A1;">+999...</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">filled</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Phone (E.164)</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; letter-spacing: 0.02em; color: #0F1418;">+999 000 003 001</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">error</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Phone (E.164)</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 2px solid #A33A31; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #0F1418;">+999 000 003</span>
+        <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; color: #A33A31;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.8" stroke-linecap="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+          <span>Could not request a code (400).</span>
+        </span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">OTP code</span>
+        <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Code</span>
+        <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 20px; letter-spacing: 0.32em; color: #0F1418;">418239</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #5F6C79;">One field, not six boxes — a pasted or autofilled code has to land in one place.</span>
+      </div>
+    </div>
+    <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: #2B333B;">Both carry a numeric keypad and one-time-code autofill; the build currently ships a plain text input, so this is a small fix to make at implementation time rather than a redesign.</p>
+  </section>
+
+  <!-- SearchField + TextArea -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start;">
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <h2 style="margin: 0 0 16px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">SearchField</h2>
+      <div style="display: flex; flex-direction: column; gap: 18px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">default</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Search visa or plate</span>
+          <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+            <span style="font-size: 16px; color: #8B96A1;">&nbsp;</span>
+          </span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">searching</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Search visa or plate</span>
+          <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #2E6BB8; border-radius: 6px; background: #FFFFFF; outline: 2px solid #2E6BB8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(46,107,184,0.22);">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #0F1418; flex: 1;">PLC-TEST</span>
+            <span style="width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #F4F6F8;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10"></path><path d="M15 5L5 15"></path></svg>
+            </span>
+          </span>
+          <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Stays mounted while results load — unmounting it takes the caret with it.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">error</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Search visa or plate</span>
+          <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border: 2px solid #A33A31; border-radius: 6px; background: #FFFFFF;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.6" stroke-linecap="round"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #0F1418; flex: 1;">PLC-TEST-01</span>
+          </span>
+          <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; color: #A33A31;">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.8" stroke-linecap="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+            <span>The search failed (503).</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <h2 style="margin: 0 0 16px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">TextArea</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">default</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Comments</span>
+          <span style="height: 104px; padding: 10px 12px; display: block; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+          <span style="font-size: 12px; color: #5F6C79;">Up to 2000 characters.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">filled</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Comments</span>
+          <span style="height: 104px; padding: 10px 12px; display: block; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-size: 16px; line-height: 1.45; color: #0F1418;">PLACEHOLDER - duplicate of an existing claim.</span>
+          <span style="font-size: 12px; line-height: 1.4; color: #5F6C79;">Three rows minimum; grows, never scrolls at four lines.</span>
+        </div>
+        <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">error</span>
+          <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Comments</span>
+          <span style="height: 80px; padding: 10px 12px; display: block; border: 2px solid #A33A31; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+          <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; color: #A33A31;">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.8" stroke-linecap="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+            <span>Comments are limited to 2000 characters.</span>
+          </span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div style="padding: 14px 18px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 13px; line-height: 1.5; color: #2B333B;">
+    <strong style="font-weight: 600;">Error convention, kept from the build:</strong> a plain sentence, with the HTTP status in parentheses before the full stop when the failure came from the API — <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">Could not request a code (400).</span> The message sits under the field it belongs to; anything that is not about one field is an AlertBanner instead.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

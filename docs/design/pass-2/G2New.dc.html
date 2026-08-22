@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #F4F6F8; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; background: #F4F6F8; display: flex; flex-direction: column; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; background: #FFFFFF; border-bottom: 1px solid #E4E9ED; flex: none;">
+    <span style="display: flex; flex-direction: column;">
+      <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+      <span style="font-size: 11px; color: #5F6C79;">Garage</span>
+    </span>
+    <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #E4E9ED;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+    </span>
+  </div>
+
+  <div style="flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+    <span style="font-size: 15px; color: #2E6BB8; text-decoration: underline;">← My declarations</span>
+    <span style="font-size: 22px; font-weight: 600; line-height: 1.25;">New declaration</span>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Plate number</span>
+      <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px;">PLC-TEST-06</span>
+      <span style="font-size: 12px; color: #5F6C79;">Required. It is how the claim officer finds the claim in NEXT3.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Insured name (optional)</span>
+      <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Note (optional)</span>
+      <span style="height: 96px; padding: 10px 12px; display: block; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 16px; color: #8B96A1;">&nbsp;</span>
+      <span style="font-size: 12px; color: #5F6C79;">Up to 1000 characters.</span>
+    </div>
+
+    <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500;">Create declaration</span>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 6px; border-top: 1px solid #E4E9ED;">
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">plate empty — the other two states of the button</span>
+      <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #E4E9ED; border: 1px solid #D6DCE1; color: #8B96A1; font-size: 16px; font-weight: 500;">Create declaration</span>
+      <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #5C87BF; border: 1px solid #5C87BF; color: #FFFFFF; font-size: 16px; font-weight: 500;">Creating…</span>
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBEBE9; border: 1px solid #A33A31; border-left-width: 4px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+        <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">A plate number is needed before this declaration can be created.</span>
+      </div>
+      <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Disabling the button while the plate is blank is the affordance; the server refuses the same thing independently, and that is the control.</span>
+    </div>
+  </div>
+
+  <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border-top: 1px solid #D6DCE1; background: #FFFFFF; flex: none;">
+    <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+      <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+      <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Declarations</span>
+    </span>
+    <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+      <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+      <span style="font-size: 12px; color: #5F6C79;">Notifications</span>
+    </span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

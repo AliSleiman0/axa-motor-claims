@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Button } from '../../ui/Button'
 import { ClarityConfirm } from '../ClarityConfirm'
 import type { MediaConfig } from '../config'
 import { shortId } from '../recorder'
@@ -83,21 +84,25 @@ export function DiagramPanel({
   const marked = markLabels(marks)
 
   return (
-    <section>
-      <h4>
+    <section className="panel">
+      <h4 className="panel__title">
+        {/* One text node, not a span for the count: the count is part of the heading, and a test
+            asserting the shipped string "Insured car photos (3)" reads direct text children only. */}
         {label}
         {typeof count === 'number' ? ` (${count})` : ''}
       </h4>
 
       {!capture.configLoaded ? (
-        <p>Loading diagram settings…</p>
+        <p className="muted">Loading diagram settings…</p>
       ) : !capture.ready ? (
-        <p role="alert">This section is not configured for uploads yet, so nothing can be sent to it.</p>
+        <p className="banner banner--alert" role="alert">
+          This section is not configured for uploads yet, so nothing can be sent to it.
+        </p>
       ) : !fitsFloor ? (
         // The loud half of the floor guard. Silently letting the expert draw a diagram the server
         // will refuse as `image_too_small` would blame the drawing for a configuration change; the
         // other half is `TheClarityFloorAdmitsADamageDiagram`, which fails the build instead.
-        <p role="alert">
+        <p className="banner banner--alert" role="alert">
           Diagrams cannot be sent: AXA now requires at least {config?.clarity.minWidth}×
           {config?.clarity.minHeight}, and this diagram is drawn at {DIAGRAM_RENDER.width}×
           {DIAGRAM_RENDER.height}. Report this — it is a settings problem, not something you can fix
@@ -113,24 +118,42 @@ export function DiagramPanel({
           onRetake={capture.retake}
         />
       ) : (
-        <div>
+        <div className="diagram">
           <CarDiagram
             marks={marks}
             svgRef={svg}
             onToggle={(id) => setMarks((current) => toggleMark(current, id))}
           />
-          <p>{marked.length > 0 ? `Marked: ${marked.join(', ')}` : 'Tap the damaged panels.'}</p>
-          <button type="button" onClick={() => setMarks(clearMarks())} disabled={marks.length === 0}>
-            Clear
-          </button>{' '}
-          <button type="button" onClick={use}>
-            Use this diagram
-          </button>
+          {/* The caption is the readout: the marks are kept in tap order, so an expert can check
+              what they marked without re-reading the drawing. */}
+          <p className="muted">
+            {marked.length > 0 ? `Marked: ${marked.join(', ')}` : 'Tap the damaged panels.'}
+          </p>
+          <div className="actions">
+            <Button
+              variant="secondary"
+              onClick={() => setMarks(clearMarks())}
+              disabled={marks.length === 0}
+            >
+              Clear
+            </Button>
+            <Button variant="primary" onClick={use}>
+              Use this diagram
+            </Button>
+          </div>
         </div>
       )}
 
-      {problem ? <p role="alert">{problem}</p> : null}
-      {capture.problem ? <p role="alert">{capture.problem}</p> : null}
+      {problem ? (
+        <p className="banner banner--alert" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      {capture.problem ? (
+        <p className="banner banner--alert" role="alert">
+          {capture.problem}
+        </p>
+      ) : null}
     </section>
   )
 }

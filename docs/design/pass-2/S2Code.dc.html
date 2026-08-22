@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 20px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="padding-top: 56px; display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+    <span style="font-size: 13px; color: #5F6C79;">Motor claim management</span>
+  </div>
+
+  <div style="padding-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Enter the code</span>
+    <span style="font-size: 15px; line-height: 1.5; color: #2B333B;">Sent to <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-weight: 500;">+999 000 003 001</span>. It is valid for five minutes.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+    <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Code</span>
+    <span style="height: 56px; padding: 0 14px; display: flex; align-items: center; border: 1px solid #2E6BB8; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 24px; letter-spacing: 0.32em; outline: 2px solid #2E6BB8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(46,107,184,0.22);">418239</span>
+    <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">One field, not six boxes — a pasted or autofilled code has to land somewhere.</span>
+  </div>
+
+  <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500;">Sign in</span>
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+    <span style="min-height: 44px; display: inline-flex; align-items: center; font-size: 15px; color: #2E6BB8; text-decoration: underline;">← Change number</span>
+    <span style="min-height: 44px; display: inline-flex; align-items: center; font-size: 15px; color: #8B96A1;">Resend in 42 s</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #E4E9ED;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">after 60 s — resend becomes live</span>
+    <span style="min-height: 44px; display: inline-flex; align-items: center; font-size: 15px; color: #2E6BB8; text-decoration: underline;">Send a new code</span>
+    <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">The countdown is read from the server&#39;s own answer, not guessed by the phone, so it stays right across a reload.</span>
+  </div>
+
+  <div style="margin-top: auto; padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+    Five minutes, five attempts, one resend a minute. All three come from config, so a change is a settings edit rather than a rebuild.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

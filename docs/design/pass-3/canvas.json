@@ -1,0 +1,71 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Claim officer" },
+    { "id": "page-2", "name": "Broker" },
+    { "id": "page-3", "name": "Admin" },
+    { "id": "page-4", "name": "States gallery" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "O2 Declaration review (live)", "page": "page-1", "x": 0, "y": 0, "w": 1440, "h": 1212 },
+    { "file": "O2States.dc.html", "title": "O2 Decision states", "page": "page-1", "x": 1560, "y": 0, "w": 1440, "h": 926 },
+    { "file": "O1Inbox.dc.html", "title": "O1 Inbox", "page": "page-1", "x": 3120, "y": 0, "w": 1440, "h": 944 },
+    { "file": "O1States.dc.html", "title": "O1 Loading, empty, failed", "page": "page-1", "x": 0, "y": 1372, "w": 1440, "h": 784 },
+    { "file": "DesktopFrame.dc.html", "title": "Top navigation", "page": "page-1", "x": 1560, "y": 1372, "w": 1440, "h": 824 },
+
+    { "file": "B1List.dc.html", "title": "B1 Requests", "page": "page-2", "x": 0, "y": 0, "w": 1440, "h": 944 },
+    { "file": "B2New.dc.html", "title": "B2 New request (Option 1)", "page": "page-2", "x": 1560, "y": 0, "w": 1440, "h": 1008 },
+    { "file": "B3Link.dc.html", "title": "B3 Customer link (Option 2)", "page": "page-2", "x": 3120, "y": 0, "w": 1440, "h": 944 },
+    { "file": "B4Review.dc.html", "title": "B4 Review + send", "page": "page-2", "x": 0, "y": 1168, "w": 1440, "h": 1090 },
+    { "file": "BrokerStates.dc.html", "title": "B2 · B4 outcomes", "page": "page-2", "x": 1560, "y": 1168, "w": 1440, "h": 784 },
+
+    { "file": "A1List.dc.html", "title": "A1 Profiles", "page": "page-3", "x": 0, "y": 0, "w": 1440, "h": 967 },
+    { "file": "A1Form.dc.html", "title": "A1 Profile form", "page": "page-3", "x": 1560, "y": 0, "w": 1440, "h": 1002 },
+    { "file": "A2Queue.dc.html", "title": "A2 Failed pushes", "page": "page-3", "x": 3120, "y": 0, "w": 1440, "h": 988 },
+    { "file": "A2Empty.dc.html", "title": "A2 Nothing failed", "page": "page-3", "x": 0, "y": 1162, "w": 1440, "h": 944 },
+
+    { "file": "DesktopStates.dc.html", "title": "Desktop states", "page": "page-4", "x": 0, "y": 0, "w": 1440, "h": 1050 }
+  ],
+  "annotations": [
+    {
+      "id": "pass-3-scope",
+      "page": "page-1",
+      "x": 0,
+      "y": -280,
+      "w": 560,
+      "text": "Pass 3 of 3 — desktop screens, 1440 wide.\nThe three office roles. Every control is a pass-1 component at its desktop values; pass 2 drew the phone.\n\nScreens carry a dashed marker at 900: that is where a 1440×900 window stops without scrolling.\n\nEvery value shown is deliberately fake."
+    },
+    {
+      "id": "officer-irreversible",
+      "page": "page-1",
+      "x": 3120,
+      "y": -280,
+      "w": 480,
+      "text": "O2 is the screen this project turns on: it is where a garage's photographs are finally linked to a claim.\n\nApproving is the one irreversible act in the whole product, so it waits for a visa, verifies it with NEXT3 first, and refuses outright while NEXT3 is unreachable."
+    },
+    {
+      "id": "broker-unbuilt",
+      "page": "page-2",
+      "x": 0,
+      "y": -280,
+      "w": 520,
+      "text": "Four of these five screens have no API behind them at all — only the customer link exists.\n\nThat is not a gap in the design: the broker module is later work, and these screens are its specification. Each one carries an amber note saying which part is real."
+    },
+    {
+      "id": "admin-value",
+      "page": "page-3",
+      "x": 0,
+      "y": -280,
+      "w": 500,
+      "text": "Admin is deliberately small: four CRUDs, invitations, and the failed-push queue.\n\nThe queue is the screen AXA will value most and open least. It is also unbuilt — the queue behind it runs today, and nothing surfaces it."
+    },
+    {
+      "id": "states-note",
+      "page": "page-4",
+      "x": 0,
+      "y": -200,
+      "w": 480,
+      "text": "Nothing new was invented for the desktop. Same tokens, same banners, same chip anatomy — denser controls and one extra set of states the phone never shows."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

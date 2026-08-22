@@ -50,8 +50,7 @@ public sealed class InviteService(
         });
         await db.SaveChangesAsync(ct);
 
-        await sms.Send(
-            user.Phone, $"Your registration invite token is {raw}", NotificationTemplates.Invite, userId, ct);
+        await sms.Send(user.Phone, InviteMessage(raw), NotificationTemplates.Invite, userId, ct);
         return raw;
     }
 
@@ -109,6 +108,34 @@ public sealed class InviteService(
         }
 
         return (row.invite, row.user);
+    }
+
+    /// <summary>
+    /// The onboarding SMS: a tappable link, and the raw token after it (design.md §5.4, pass-2
+    /// decision 2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both, not either.</b> The link is the path anybody will actually use; the token stays
+    /// because carriers and clients strip or mangle URLs, and because somebody reading the message
+    /// on a handset while registering on a laptop needs something they can type across. S1 offers a
+    /// paste box for exactly that case.
+    /// </para>
+    /// <para>
+    /// The phrase <c>invite token is {token}</c> is kept verbatim on purpose — it is what
+    /// <c>CapturingSmsSender</c> and <c>scripts/demo-reset.ps1</c> read the token back out of, and
+    /// the full stop after it keeps a greedy pattern from swallowing punctuation into the token.
+    /// </para>
+    /// <para>
+    /// §4's rule still holds above this: <c>notification.payload</c> stays null for SMS, so none of
+    /// this — link or token — is written to the database. Both are live credentials.
+    /// </para>
+    /// </remarks>
+    private string InviteMessage(string raw)
+    {
+        var baseUrl = options.Value.AppBaseUrl.TrimEnd('/');
+        return $"Your registration invite token is {raw}. "
+            + $"Activate your AXA Motor Claims profile: {baseUrl}/invite/{raw}";
     }
 
     private static string HashToken(string raw) => TokenHashing.Hash(raw);

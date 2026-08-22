@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 900px; background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 18px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="padding-top: 40px; display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Confirm your number</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Code</span>
+    <span style="height: 56px; padding: 0 14px; display: flex; align-items: center; border: 2px solid #A33A31; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 24px; letter-spacing: 0.32em;">601700</span>
+    <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 13px; line-height: 1.45; color: #A33A31;">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.8" stroke-linecap="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+      <span>That code was not accepted. Check the last message and try again.</span>
+    </span>
+  </div>
+
+  <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500;">Activate my account</span>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid #E4E9ED;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">too many attempts</span>
+    <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBF1DE; border: 1px solid #8A6116; border-left-width: 4px;">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8A6116" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+      <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">A code can be tried five times, then it stops working. Send a new one and use the newest message.</span>
+    </div>
+    <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 16px; font-weight: 500;">Send a new code</span>
+    <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">The invitation itself is still good — only the code expired. A new code does not consume the invitation.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid #E4E9ED;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">resend throttled</span>
+    <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #F4F6F8; border: 1px solid #D6DCE1; border-left: 4px solid #5F6C79;">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.4"></circle><path d="M10 6v4.2l2.8 1.6"></path></svg>
+      <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">A code was just sent. You can ask for another in <strong style="font-weight: 600;">42 s</strong>.</span>
+    </div>
+  </div>
+
+  <div style="margin-top: auto; padding: 10px 12px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+    <strong style="font-weight: 600;">Contract note.</strong> Same uniform answer as sign-in: wrong, expired and exhausted are one empty 401. The five-attempts message is the screen counting its own tries — honest, and it needs no server change. Distinguishing them for real is a deliberate decision about what the app is willing to reveal.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

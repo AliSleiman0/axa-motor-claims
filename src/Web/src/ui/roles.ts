@@ -1,0 +1,75 @@
+/**
+ * What each role's shell says and shows.
+ *
+ * Keyed by the **server's** role strings verbatim (`UserRoles`, check-constrained on `app_user.role`)
+ * — snake case, so `claim_officer` and not `claimOfficer`. `api/session.ts` makes the same point about
+ * `HOME_PATHS`, and for the same reason: a typo here is a garage looking at a header that names
+ * somebody else's job.
+ *
+ * A `.ts` file rather than living beside the components, for `push/copy.ts`'s reason —
+ * `react-refresh/only-export-components` allows a `.tsx` file to export components and nothing else.
+ */
+
+export interface NavTab {
+  to: string
+  label: string
+}
+
+export interface RoleShell {
+  /** Named in the header because five different people use the same address. */
+  name: string
+  /** Field roles get 48 px controls and no desktop nav; office roles get 36 px and a tab bar. */
+  touch: boolean
+  tabs: NavTab[]
+  /**
+   * What this role calls its landing screen, for a button that has to name a destination rather
+   * than point at one — S1's "Go to My claims" after activation. `homePathFor` gives the path; this
+   * gives the words, and the two are deliberately separate because the path is a contract with
+   * §8's push URLs while the label is only ever read by a person.
+   */
+  home: string
+}
+
+/**
+ * The admin's four profile tabs, from the same list the admin pages route on.
+ *
+ * `PROFILE_KINDS` lives in `admin/kinds.ts` and `ui/` may not import a role module, so the four slugs
+ * are repeated here — deliberately, and the cost is one build failure away from being noticed, since
+ * `ProfileListPage` renders "Unknown profile type." for a slug `findKind` does not know.
+ */
+const ADMIN_TABS: NavTab[] = [
+  { to: '/admin/experts', label: 'Experts' },
+  { to: '/admin/garages', label: 'Garages' },
+  { to: '/admin/claim-officers', label: 'Claim officers' },
+  { to: '/admin/brokers', label: 'Brokers' },
+  /*
+   * A2 is slice 6.2 and its route does not exist yet, so this tab is rendered **disabled with no
+   * count** — see `DesktopNav`. It is in the shell now because pass 3 makes the count the only number
+   * in the chrome and argues it earns its place: nobody opens that screen on a hunch, so if it never
+   * announces itself it is never read, and a failed push is a photograph AXA does not have.
+   */
+  { to: '/admin/failed-pushes', label: 'Failed pushes' },
+]
+
+export const ROLE_SHELLS: Record<string, RoleShell> = {
+  expert: { name: 'Expert', touch: true, tabs: [], home: 'My claims' },
+  garage: { name: 'Garage', touch: true, tabs: [], home: 'My declarations' },
+  claim_officer: {
+    name: 'Claim officer',
+    touch: false,
+    tabs: [{ to: '/officer', label: 'Inbox' }],
+    home: 'Declarations to review',
+  },
+  // 5.2 builds B1. The shell exists now so the three office roles are visibly the same product.
+  broker: { name: 'Broker', touch: false, tabs: [{ to: '/broker', label: 'Requests' }], home: 'Requests' },
+  admin: { name: 'Admin', touch: false, tabs: ADMIN_TABS, home: 'Experts' },
+}
+
+/** Routes that are not built yet, so their tab renders as a plain disabled item. */
+export const UNBUILT_TABS = new Set(['/admin/failed-pushes', '/broker'])
+
+export function shellFor(role: string | null): RoleShell {
+  // `api/session.ts` falls back to the admin screens for a role it cannot read, and this follows it:
+  // the header must name *something*, and the API answers 403 to anything that role may not see.
+  return (role ? ROLE_SHELLS[role] : undefined) ?? ROLE_SHELLS.admin
+}

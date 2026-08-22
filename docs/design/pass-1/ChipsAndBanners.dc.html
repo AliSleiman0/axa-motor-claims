@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1200px; min-height: 960px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Components</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">StatusChip · AlertBanner · StatusBanner · PushIndicator</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 860px;">An outage is a normal condition in this product, not an exception screen: NEXT3 has maintenance windows and the field user is on a roadside connection. The banners below are built so the app can say what is wrong without ever taking work away from the person holding the phone.</div>
+  </div>
+
+  <!-- StatusChip -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">StatusChip</h2>
+      <span style="font-size: 12px; color: #5F6C79;">Labels are the shipped strings — a garage never sees the word &ldquo;rejected&rdquo;.</span>
+    </div>
+    <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #2B333B;">Colour carries meaning, never decoration: grey is not started, amber is with someone else, green is agreed, red is finished badly, blue is work in progress, dark is finished well. Every chip pairs a tint, a border and a text colour, so it survives a greyscale print and a colour-blind reader.</p>
+
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #EDF0F3; border: 1px solid #C4CCD4; color: #2B333B; font-size: 13px; font-weight: 500;">Draft</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">draft · neutral</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 13px; font-weight: 500;">Waiting for AXA</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">submitted · warn</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #E8F2EC; border: 1px solid #74A98D; color: #2F6B4F; font-size: 13px; font-weight: 500;">Approved</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">approved · ok</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #FBEBE9; border: 1px solid #C98B84; color: #A33A31; font-size: 13px; font-weight: 500;">Not accepted</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">rejected · danger</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #E7EFF9; border: 1px solid #7FA6D3; color: #245793; font-size: 13px; font-weight: 500;">Repairs in progress</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">repairs_in_progress · accent</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+        <span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 4px; background: #2B333B; border: 1px solid #2B333B; color: #FFFFFF; font-size: 13px; font-weight: 500;">Repair documents sent</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">repair_docs_submitted · ink</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #E4E9ED; display: flex; gap: 28px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 13px; color: #2B333B;">In a table row:</span>
+        <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 12px; font-weight: 500;">Waiting for AXA</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 13px; color: #2B333B;">As a page status:</span>
+        <span style="display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 4px; background: #E8F2EC; border: 1px solid #74A98D; color: #2F6B4F; font-size: 15px; font-weight: 600;">Approved</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; line-height: 1.45; color: #5F6C79; max-width: 380px;">Two sizes only. The chip never becomes a button — the state changes through an action elsewhere on the screen.</div>
+    </div>
+  </section>
+
+  <!-- Banners -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">AlertBanner &nbsp;vs&nbsp; StatusBanner</h2>
+      <span style="font-size: 12px; color: #5F6C79;">role=&quot;alert&quot; · role=&quot;status&quot;</span>
+    </div>
+    <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #2B333B;">The difference has to be visible at arm&#39;s length: an <strong style="font-weight: 600;">AlertBanner</strong> is filled and bordered on its intent colour and it means something did not happen. A <strong style="font-weight: 600;">StatusBanner</strong> is a quiet strip on a neutral tint and it means the app is telling you where things stand. Both carry an icon and a whole sentence — never a code, never &ldquo;an error occurred&rdquo;.</p>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 6px; background: #FBEBE9; border: 1px solid #A33A31; border-left-width: 4px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 600; color: #8C2F27;">AlertBanner / blocking</span>
+          <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">Arrival was not sent. AXA records where the expert arrived, so this app cannot report an arrival without a location. Allow location access for this site and press Arrived again.</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 6px; background: #FBF1DE; border: 1px solid #8A6116; border-left-width: 4px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#8A6116" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 600; color: #6F4E11;">AlertBanner / outage</span>
+          <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">NEXT3 is unreachable. Showing the copy last fetched on 20 Aug 2026, 09:30.</span>
+          <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Phone form, where the width is not there: <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">NEXT3 unreachable — showing last known details.</span></span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 6px; background: #F4F6F8; border: 1px solid #D6DCE1; border-left: 4px solid #5F6C79;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 9.2v4.2"></path><path d="M10 6.6h.01"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 600; color: #2B333B;">StatusBanner / informational</span>
+          <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">This declaration is with a claim officer. You will get a notification on this device when it has been reviewed.</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 6px; background: #E7EFF9; border: 1px solid #D6DCE1; border-left: 4px solid #2E6BB8;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#245793" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M5.4 15.4a3.4 3.4 0 0 1 .3-6.8 4.6 4.6 0 0 1 8.8-1 3.6 3.6 0 0 1 .3 7.1"></path><path d="M10 9.6v6"></path><path d="m7.6 12 2.4-2.4 2.4 2.4"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 600; color: #245793;">StatusBanner / queue</span>
+          <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">3 photos are queued for AXA. They stay on this device and go automatically — keep working.</span>
+          <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Proposed copy; there is no such banner in the build yet. Nothing here blocks capture: an upload that cannot reach NEXT3 still succeeds locally, which is the whole point of the queue behind it.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PushIndicator -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PushIndicator</h2>
+      <span style="font-size: 12px; color: #5F6C79;">Used on DocumentRow · three states, one line each</span>
+    </div>
+    <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #2B333B;">Deliberately quiet — grey text and a 16&nbsp;px glyph, not a chip. A document&#39;s delivery is reassurance, not a status the user has to act on; the only one that ever needs attention is a failure, and failures are the admin&#39;s failed-push queue, not the field user&#39;s problem.</p>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #5F6C79;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.4"></circle><path d="M10 6v4.2l2.8 1.6"></path></svg>
+          Queued, will send
+        </span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">push_status queued · deferred</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #2F6B4F;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2F6B4F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m4.4 10.4 3.6 3.6 7.6-8"></path></svg>
+          Sent to AXA
+        </span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">outbox sent</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #5F6C79;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 5.4h13.2v3H3.4z"></path><path d="M4.6 8.4v6.2h10.8V8.4"></path><path d="M8.2 11.4h3.6"></path></svg>
+          Sent to AXA; the local copy has been removed
+        </span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #5F6C79;">blobRetained false</span>
+      </div>
+    </div>
+    <p style="margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Only the third of these exists in the build today; the first two are new surface over a value the API already returns. The third state is also the one that must never render as a broken thumbnail — the bytes are genuinely gone, so the row shows the file name and no preview.</p>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

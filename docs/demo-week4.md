@@ -172,6 +172,24 @@ Say, close to verbatim:
 | Anything at all | `.\scripts\demo-reset.ps1` — 20 seconds to a clean start. You lose the beats already shown, not the demo. |
 | The API log | `demo-artifacts\api.log`. |
 
+## When you are done — stop the rig
+
+```powershell
+.\scripts\demo-reset.ps1 -Stop
+```
+
+**Do this before going back to writing code.** The demo runs the API with `dotnet run`, so a live
+demo holds a lock on `src\Apiin\Debug
+et10.0\Api.exe` and the next `dotnet build` or
+`dotnet test` fails with `MSB3027: ... file is locked by "Api"`. It reads like a broken build and is
+not one.
+
+Stopping also takes Azurite down, which changes the test counts in a way worth recognising:
+`BlobStoreContractTests.TheAzureStore_SatisfiesTheContract` skips when nothing is listening on port
+10000, so the suite reads **499 passed / 2 skipped** instead of **500 / 1**. Same suite, same code —
+the second skip is the emulator being off, exactly as CLAUDE.md describes. Leave Azurite up
+(`-SkipAzurite` on the next reset, or just don't stop it) if you want the Azure half covered.
+
 ## What this demo deliberately does not show
 
 The failed-push admin screen (week 6), the garage's repair uploads (week 5), the broker module —

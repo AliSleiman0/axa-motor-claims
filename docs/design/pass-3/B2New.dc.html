@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 980px; background: #EEF1F4; display: flex; flex-direction: column; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 900px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 8px; top: 904px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 900</span>
+
+  <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border-bottom: 1px solid #D6DCE1; flex: none;">
+    <span style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+      <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Broker</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Requests</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 16px;">
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 003 004</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+        Sign out
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; color: #2E6BB8; text-decoration: underline;">← Requests</span>
+      <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">New request</span>
+      <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">Option 1 — you fill this in with the customer in front of you. Option 2 sends them a link instead.</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 560px 1fr 1fr; gap: 24px; align-items: start;">
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 16px; font-size: 17px; font-weight: 600;">Details</h2>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Insured name</span>
+            <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-size: 14px;">PLACEHOLDER Insured Three</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Insurance type</span>
+            <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-size: 14px;">
+              MOTOR ALL RISK
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="m5.6 8 4.4 4.4L14.4 8"></path></svg>
+            </span>
+            <span style="font-size: 12px; color: #5F6C79;">Three options today: MOTOR ALL RISK, MOTOR TOTAL LOSS, PLACEHOLDER-TYPE-3. This choice decides where the email goes.</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Address</span>
+            <span style="height: 68px; padding: 8px 10px; display: block; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #8B96A1;">&nbsp;</span>
+          </div>
+          <div style="display: flex; gap: 14px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Car value</span>
+              <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; color: #8B96A1;">0.00</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Estimated premium</span>
+              <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; color: #8B96A1;">0.00</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Effective date</span>
+              <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; color: #8B96A1;">dd/mm/yyyy</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #E4E9ED; display: flex; gap: 10px; align-items: center;">
+          <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500;">Submit</span>
+          <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 6px; background: #5C87BF; border: 1px solid #5C87BF; color: #FFFFFF; font-size: 14px; font-weight: 500;">Sending…</span>
+          <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 6px; background: #E4E9ED; border: 1px solid #D6DCE1; color: #8B96A1; font-size: 14px; font-weight: 500;">Submit</span>
+          <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Disabled until all six are filled.</span>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Documents</h2>
+          <span style="font-size: 12px; color: #5F6C79;">upload allowed</span>
+        </div>
+        <p style="margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: #5F6C79;">Every file carries how it arrived. AXA asked for that flag and it is on every row in the system, not only here.</p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+          <span style="flex: 1; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+            Photo
+          </span>
+          <span style="flex: 1; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 14px; font-weight: 500;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+            File
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 44px; border: 1px solid #E4E9ED; border-radius: 6px;">
+            <span style="width: 44px; height: 34px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1; flex: none;"></span>
+            <span style="flex: 1; font-size: 14px;">id-card.jpg</span>
+            <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #E7EFF9; border: 1px solid #7FA6D3; color: #245793; font-size: 12px; font-weight: 500;">captured</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 44px; border: 1px solid #E4E9ED; border-radius: 6px;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+            <span style="flex: 1; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px;">car-papers.pdf</span>
+            <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #EDF0F3; border: 1px solid #C4CCD4; color: #2B333B; font-size: 12px; font-weight: 500;">uploaded</span>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Documents</h2>
+          <span style="font-size: 12px; color: #A33A31; font-weight: 500;">upload switched off</span>
+        </div>
+        <p style="margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: #5F6C79;">The same panel with the kill-switch off. The file control is <strong style="font-weight: 600;">gone</strong>, not greyed: a disabled picker is a picker somebody finds a way to use, and the whole point of the switch is that AXA can insist on photographs taken here.</p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+          <span style="flex: 1; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+            Photo
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 44px; border: 1px solid #E4E9ED; border-radius: 6px;">
+          <span style="width: 44px; height: 34px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1; flex: none;"></span>
+          <span style="flex: 1; font-size: 14px;">id-card.jpg</span>
+          <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #E7EFF9; border: 1px solid #7FA6D3; color: #245793; font-size: 12px; font-weight: 500;">captured</span>
+        </div>
+
+        <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">One config value, one screen difference. It is a switch AXA can throw per environment without a release.</p>
+      </section>
+    </div>
+
+    <div style="padding: 12px 16px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+      <strong style="font-weight: 600;">Not built.</strong> Nothing writes an Option 1 request — the entity supports it and the states exist, but no endpoint reaches them, and there is no broker media bucket. The six fields, their limits and the three insurance types are real; the upload panel is a specification.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

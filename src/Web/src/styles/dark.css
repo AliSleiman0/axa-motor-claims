@@ -1,0 +1,51 @@
+/*
+ * Dark counterparts — **defined and deliberately not applied**.
+ *
+ * Pass 1 worked them out so the token set is complete and a later theme is a switch rather than a
+ * redesign, but design.md §1 keeps dark mode out of the 8-week build and §11 has no descope lever
+ * left to pay for it. Shipping a half-tested dark theme into a claims app used in sunlight is worse
+ * than shipping none.
+ *
+ * To turn it on, stamp `data-theme="dark"` on the root and change the selector below from the
+ * unreachable `:root[data-theme='dark'][data-dark-enabled]` to `:root[data-theme='dark']`. Nothing
+ * else in the codebase needs to know: every colour in `ui/` reads a token.
+ */
+:root[data-theme='dark'][data-dark-enabled] {
+  --ink-900: #e9eef2;
+  --ink-700: #c6cfd7;
+  --ink-500: #93a0ab;
+  --line-300: #2c363e;
+  --line-200: #232c33;
+  --canvas: #0f1418;
+  --surface-100: #171e24;
+  --surface-0: #171e24;
+
+  --accent-600: #6aa3e8;
+  --accent-700: #8bb9ef;
+  --accent-100: #1b2b3f;
+  --accent-halo: rgba(106, 163, 232, 0.32);
+  --on-accent: #0f1418;
+
+  --neutral-tint: #1b232a;
+  --neutral-line: #2c363e;
+  --neutral-text: #c6cfd7;
+
+  --warn-tint: #2e2415;
+  --warn-line: #d9a441;
+  --warn-text: #d9a441;
+
+  --ok-tint: #16281f;
+  --ok-line: #7fcba4;
+  --ok-text: #7fcba4;
+
+  --danger-tint: #2c1917;
+  --danger-line: #e88a80;
+  --danger-text: #e88a80;
+
+  --info-tint: var(--accent-100);
+  --info-line: var(--accent-600);
+  --info-text: var(--accent-600);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+}

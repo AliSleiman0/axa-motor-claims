@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1080px; min-height: 880px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Component</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">Button</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 800px;">Three intents, two sizes. One primary per screen. Pending never spins — the label becomes the gerund the build already uses and the control disables, so a field user on a slow connection can read what is happening.</div>
+  </div>
+
+  <!-- touch size -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Touch — 48&nbsp;px, 16&nbsp;px label</h2>
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">Expert · Garage · public customer</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 130px repeat(5, minmax(0, 1fr)); gap: 14px; align-items: center;">
+      <span></span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">default</span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">hover</span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">focus</span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">pending</span>
+      <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">disabled</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #0F1418;">Button/Primary</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500; border: 1px solid #2E6BB8;">Submit to AXA</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #245793; color: #FFFFFF; font-size: 16px; font-weight: 500; border: 1px solid #245793;">Submit to AXA</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500; border: 1px solid #2E6BB8; outline: 2px solid #2E6BB8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(46,107,184,0.28);">Submit to AXA</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #5C87BF; color: #FFFFFF; font-size: 16px; font-weight: 500; border: 1px solid #5C87BF;">Sending…</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #E4E9ED; color: #8B96A1; font-size: 16px; font-weight: 500; border: 1px solid #D6DCE1;">Submit to AXA</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #0F1418;">Button/Secondary</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #0F1418; font-size: 16px; font-weight: 500; border: 1px solid #5F6C79;">Retake</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #F4F6F8; color: #0F1418; font-size: 16px; font-weight: 500; border: 1px solid #2B333B;">Retake</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #0F1418; font-size: 16px; font-weight: 500; border: 1px solid #5F6C79; outline: 2px solid #2E6BB8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(46,107,184,0.28);">Retake</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #8B96A1; font-size: 16px; font-weight: 500; border: 1px solid #D6DCE1;">Finishing…</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #F4F6F8; color: #8B96A1; font-size: 16px; font-weight: 500; border: 1px solid #E4E9ED;">Retake</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #0F1418;">Button/Destructive</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #A33A31; font-size: 16px; font-weight: 500; border: 1px solid #A33A31;">Reject</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FBEBE9; color: #8C2F27; font-size: 16px; font-weight: 500; border: 1px solid #8C2F27;">Reject</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #A33A31; font-size: 16px; font-weight: 500; border: 1px solid #A33A31; outline: 2px solid #A33A31; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(163,58,49,0.24);">Reject</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; color: #C08984; font-size: 16px; font-weight: 500; border: 1px solid #E2BEBA;">Working…</span>
+      <span style="height: 48px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #F4F6F8; color: #8B96A1; font-size: 16px; font-weight: 500; border: 1px solid #E4E9ED;">Reject</span>
+    </div>
+
+    <p style="margin: 18px 0 0; font-size: 13px; line-height: 1.5; color: #2B333B;">Destructive is outlined, not filled: on the officer&#39;s review screen Reject sits beside Approve, and two filled buttons of equal weight is how the wrong one gets pressed. Rejection is terminal — the build has no resubmit path.</p>
+  </section>
+
+  <!-- desktop size + icon button -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Desktop — 36&nbsp;px, 14&nbsp;px label</h2>
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">Claim officer · Broker · Admin</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500; border: 1px solid #2E6BB8;">Approve</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #5C87BF; color: #FFFFFF; font-size: 14px; font-weight: 500; border: 1px solid #5C87BF;">Working…</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; color: #0F1418; font-size: 14px; font-weight: 500; border: 1px solid #5F6C79;">Search</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; color: #8B96A1; font-size: 14px; font-weight: 500; border: 1px solid #D6DCE1;">Searching…</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; color: #A33A31; font-size: 14px; font-weight: 500; border: 1px solid #A33A31;">Deactivate</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; color: #2E6BB8; font-size: 14px; font-weight: 500; border: 1px solid #D6DCE1;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4v12"></path><path d="M4 10h12"></path></svg>
+        New declaration
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid #E4E9ED;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">Button/Icon · 44px</span>
+        <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+        </span>
+        <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="5.4"></circle><path d="M13 13l4 4"></path></svg>
+        </span>
+        <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7.4" y="2.6" width="5.2" height="9" rx="2.6"></rect><path d="M4.6 9.4a5.4 5.4 0 0 0 10.8 0"></path><path d="M10 14.8v2.6"></path></svg>
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">Button/Link</span>
+        <span style="font-size: 14px; color: #2E6BB8; text-decoration: underline;">← My claims</span>
+        <span style="font-size: 14px; color: #2E6BB8; text-decoration: underline;">Use this visa</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- pending labels -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <h2 style="margin: 0 0 4px; font-size: 17px; font-weight: 600;">Pending labels are fixed, not invented</h2>
+    <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: #2B333B;">These are the strings the build ships. Passes 2 and 3 reuse them exactly; a new action gets a new gerund added here rather than a spinner.</p>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Submit to AXA</span><span style="font-size: 13px; color: #5F6C79;">Sending…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Confirm</span><span style="font-size: 13px; color: #5F6C79;">Sending…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Arrived</span><span style="font-size: 13px; color: #5F6C79;">Sending…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Enable notifications</span><span style="font-size: 13px; color: #5F6C79;">Enabling notifications…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Stop</span><span style="font-size: 13px; color: #5F6C79;">Finishing…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Create declaration</span><span style="font-size: 13px; color: #5F6C79;">Creating…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Start repairs</span><span style="font-size: 13px; color: #5F6C79;">Starting…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Approve / Reject</span><span style="font-size: 13px; color: #5F6C79;">Working…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Search</span><span style="font-size: 13px; color: #5F6C79;">Searching…</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 6px;"><span style="font-size: 13px; font-weight: 500;">Open garage-invoice.pdf</span><span style="font-size: 13px; color: #5F6C79;">Opening…</span></div>
+      <div style="grid-column: span 2; display: flex; align-items: center; padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.45; color: #5F6C79;">Pending labels end in the single character …, never three dots. Both siblings of a pending pair disable together where the build shares one latch (Approve / Reject).</div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

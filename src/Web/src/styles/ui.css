@@ -1,0 +1,965 @@
+/*
+ * The component layer: every class the `ui/` folder and the restyled panels use.
+ *
+ * Plain CSS with tokens rather than a styling library — one more dependency at handover for a
+ * codebase that renders about twenty screens is a cost with no return, and CLAUDE.md puts this app
+ * in AXA's hands after week 8.
+ *
+ * Nothing here knows a role. `--control` is set once by the shell (touch on phone shells, desktop on
+ * office shells) and every control inside inherits it, so a button does not have to be told which
+ * kind of user is pressing it.
+ */
+
+/* ── shells ──────────────────────────────────────────────────────────── */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  --control: var(--control-desktop);
+}
+
+/* Expert and Garage. Field users, so every control in the subtree grows to the touch size. */
+.app-shell--touch {
+  --control: var(--control-touch);
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--header-desktop);
+  padding: 0 var(--space-5);
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--line-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-shell--touch .app-header {
+  min-height: var(--header-phone);
+  padding: 0 var(--space-4);
+}
+
+/* Plain type, not a logo — the one place AXA's mark would eventually sit. */
+.app-header__brand {
+  font-size: var(--section-size);
+  font-weight: var(--section-weight);
+  line-height: var(--section-line);
+  white-space: nowrap;
+}
+
+/*
+ * The role is named because five different people use the same address, and the first thing support
+ * asks is what the screen says at the top.
+ */
+.app-header__role {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  line-height: var(--label-line);
+  color: var(--ink-500);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--line-300);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.app-header__spacer {
+  flex: 1 1 auto;
+}
+
+.app-header__phone {
+  color: var(--ink-500);
+  font-size: var(--caption-size);
+}
+
+/*
+ * Not on the phone shells. At 390 px the header does not fit — wordmark, role, phone number and
+ * Sign out together measure 443 against 386 of viewport, and the overflow pushes Sign out off the
+ * right edge, on the two shells that have no other navigation to sign out from. Measured in the 4.4
+ * browser pass.
+ *
+ * The phone number is what gives way, and keyed on the **shell** rather than on a viewport width:
+ * the distinction pass 1 draws is field-versus-office, not narrow-versus-wide. Its job is "which
+ * account am I on", which is a question about a shared office machine — a field user's handset is
+ * theirs, and pass 1's phone artboards draw the wordmark and the role and nothing else. The role
+ * stays because it is what support asks for; Sign out stays because here it is the only way out.
+ */
+.app-shell--touch .app-header__phone {
+  display: none;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.app-shell--touch .app-main {
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+/*
+ * One tab is not a navigation bar, and the officer and broker have one screen each today. The bar
+ * stays anyway so the shell is identical the day a second screen lands, and so the three office
+ * roles are visibly the same product.
+ */
+.desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.desktop-nav__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-min);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--ink-700);
+  font-size: var(--compact-size);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.desktop-nav__tab:hover {
+  background: var(--surface-100);
+  color: var(--ink-900);
+}
+
+/*
+ * A tab whose screen is not built yet. It has to read as unavailable rather than as a link that
+ * happens to do nothing — found in the 4.4 browser pass, where "Failed pushes" was pixel-identical
+ * to the four tabs beside it and an admin would have clicked it before believing otherwise.
+ */
+.desktop-nav__tab[aria-disabled='true'] {
+  color: var(--ink-500);
+  opacity: 0.6;
+  cursor: default;
+  font-style: italic;
+}
+
+.desktop-nav__tab[aria-disabled='true']:hover {
+  background: none;
+  color: var(--ink-500);
+}
+
+/* Colour is never the only signal: the active tab changes weight and gains a rule as well. */
+.desktop-nav__tab[aria-current='page'] {
+  background: var(--accent-100);
+  color: var(--accent-700);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent-600);
+}
+
+.desktop-nav__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--danger-line);
+  color: var(--surface-0);
+  font-size: var(--caption-size);
+  font-weight: 600;
+}
+
+/* ── page furniture ──────────────────────────────────────────────────── */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page__title {
+  font-size: var(--title-size);
+  font-weight: var(--title-weight);
+  line-height: var(--title-line);
+}
+
+.app-shell:not(.app-shell--touch) .page__title {
+  font-size: var(--display-size);
+  line-height: var(--display-line);
+}
+
+.page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-size: var(--section-size);
+  font-weight: var(--section-weight);
+  line-height: var(--section-line);
+}
+
+.panel {
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.panel__title {
+  font-size: var(--panel-size);
+  font-weight: var(--panel-weight);
+  line-height: var(--panel-line);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.panel__count {
+  color: var(--ink-500);
+  font-weight: 400;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: var(--ink-500);
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+}
+
+.caption {
+  color: var(--ink-500);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
+.back-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  color: var(--accent-600);
+  font-size: var(--compact-size);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* ── buttons ─────────────────────────────────────────────────────────── */
+
+/*
+ * One primary action per screen. **Pending never spins** — the label becomes the gerund and the
+ * control disables, which is what every call site in this codebase already does and is also the only
+ * honest thing to show: a spinner claims progress it cannot measure.
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control, var(--control-desktop));
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: var(--input-size);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn--primary {
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: var(--on-accent);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-700);
+  border-color: var(--accent-700);
+}
+
+.btn--secondary {
+  background: var(--surface-0);
+  border-color: var(--ink-500);
+  color: var(--ink-900);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-100);
+}
+
+/*
+ * Outlined, never filled. Reject sits beside Approve, and two filled buttons of equal weight is a
+ * screen that has no opinion about which one is the ordinary outcome.
+ */
+.btn--destructive {
+  background: var(--surface-0);
+  border-color: var(--danger-line);
+  color: var(--danger-text);
+}
+
+.btn--destructive:hover:not(:disabled) {
+  background: var(--danger-tint);
+}
+
+.btn--link {
+  min-height: var(--tap-min);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-600);
+  text-decoration: underline;
+  font-weight: 400;
+}
+
+.btn--link:hover:not(:disabled) {
+  color: var(--accent-700);
+}
+
+.btn--icon {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+/* ── fields ──────────────────────────────────────────────────────────── */
+
+/* Labels are always visible above the control; a placeholder is not a label. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  line-height: var(--label-line);
+  color: var(--ink-700);
+}
+
+.field__control {
+  width: 100%;
+  min-height: var(--control, var(--control-desktop));
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-0);
+  border: 1px solid var(--line-300);
+  border-radius: var(--radius-sm);
+  color: var(--ink-900);
+}
+
+.field__control:hover:not(:disabled) {
+  border-color: var(--ink-500);
+}
+
+.field__control:disabled {
+  background: var(--surface-100);
+  color: var(--ink-500);
+  cursor: not-allowed;
+}
+
+/* Phone numbers and visa numbers compare down a column, so they are mono and tabular. */
+.field__control--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+textarea.field__control {
+  min-height: calc(var(--body-size) * var(--body-line) * 3);
+  resize: vertical;
+}
+
+/* A plain sentence with the status in parentheses — never a bare code. */
+.field__error {
+  color: var(--danger-text);
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+}
+
+.field__control[aria-invalid='true'] {
+  border-color: var(--danger-line);
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.field-row .field {
+  flex: 1 1 180px;
+}
+
+/* ── chips ───────────────────────────────────────────────────────────── */
+
+/*
+ * Tint + border + text on every chip, so the label survives greyscale and a colour-blind reader.
+ * Never a button: a status is what happened, not something to press.
+ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--neutral-line);
+  border-radius: var(--radius-sm);
+  background: var(--neutral-tint);
+  color: var(--neutral-text);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  line-height: var(--label-line);
+  white-space: nowrap;
+}
+
+.chip--sm {
+  padding: 0 var(--space-2);
+  font-size: var(--caption-size);
+}
+
+.chip--warn { background: var(--warn-tint); border-color: var(--warn-line); color: var(--warn-text); }
+.chip--ok { background: var(--ok-tint); border-color: var(--ok-line); color: var(--ok-text); }
+.chip--danger { background: var(--danger-tint); border-color: var(--danger-line); color: var(--danger-text); }
+.chip--accent { background: var(--accent-100); border-color: var(--accent-600); color: var(--accent-700); }
+.chip--ink { background: var(--ink-700); border-color: var(--ink-700); color: var(--surface-0); }
+
+/* ── banners ─────────────────────────────────────────────────────────── */
+
+/*
+ * Two shapes, distinct at arm's length. `AlertBanner` (role=alert, filled and bordered on its intent
+ * colour) says something did not happen; `StatusBanner` (role=status, quiet neutral strip) says where
+ * things stand. Both carry a whole sentence, never a code — the HTTP status goes in parentheses
+ * inside the sentence.
+ */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+}
+
+.banner__icon {
+  flex: 0 0 auto;
+  font-weight: 700;
+  line-height: inherit;
+}
+
+.banner--alert {
+  border: 1px solid var(--danger-line);
+  background: var(--danger-tint);
+  color: var(--danger-text);
+}
+
+/* Amber means "wait, it may fix itself"; red names the next action (pass 3). */
+.banner--warn {
+  border: 1px solid var(--warn-line);
+  background: var(--warn-tint);
+  color: var(--warn-text);
+}
+
+.banner--info {
+  border: 1px solid var(--info-line);
+  background: var(--info-tint);
+  color: var(--info-text);
+}
+
+.banner--status {
+  border: 1px solid var(--line-200);
+  background: var(--surface-100);
+  color: var(--ink-700);
+}
+
+/* ── detail table ────────────────────────────────────────────────────── */
+
+/*
+ * Two columns on a desktop, label-above-value on a phone. Missing is an em dash, never a blank: a
+ * blank reads as a rendering fault, and half these fields are legitimately absent while the NEXT3
+ * cache is cold.
+ */
+.detail {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: var(--space-1) var(--space-4);
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.detail__label {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  line-height: var(--label-line);
+  color: var(--ink-500);
+  padding: var(--space-2) 0;
+}
+
+.detail__value {
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+  padding: var(--space-2) 0;
+  word-break: break-word;
+}
+
+.detail__value--mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell--touch .detail {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.app-shell--touch .detail__label {
+  padding-bottom: 0;
+}
+
+.app-shell--touch .detail__value {
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line-200);
+}
+
+.app-shell--touch .detail__value:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* ── worklists ───────────────────────────────────────────────────────── */
+
+/* Desktop: a real table, whole row is the hit area. */
+.worklist {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  font-size: var(--compact-size);
+}
+
+.worklist th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-100);
+  border-bottom: 1px solid var(--line-300);
+  color: var(--ink-500);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  white-space: nowrap;
+}
+
+.worklist td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-200);
+  height: var(--row-min);
+  vertical-align: middle;
+}
+
+.worklist tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.worklist tbody tr:hover {
+  background: var(--accent-100);
+}
+
+.worklist td.mono,
+.worklist th.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.worklist__scroll {
+  overflow-x: auto;
+}
+
+/* Phone: one card per row, the reference number leading. */
+.worklist-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.worklist-card {
+  position: relative;
+  min-height: var(--row-min);
+  padding: var(--space-4);
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.worklist-card:hover {
+  border-color: var(--accent-600);
+}
+
+/*
+ * The whole card is the hit area, but only the reference is the link. The overlay is what gives a
+ * gloved thumb the full 56 px card while the announced name stays "PLACEHOLDER-VISA-0001" instead of
+ * every label and value in the card read out in order.
+ */
+.worklist-card__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+
+.worklist-card__pair {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.worklist-card__label::after {
+  content: ':';
+}
+
+.worklist-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.worklist-card__ref {
+  font-family: var(--font-mono);
+  font-size: var(--mono-size);
+  font-weight: var(--mono-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-700);
+}
+
+.worklist-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  color: var(--ink-500);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
+/* ── documents ───────────────────────────────────────────────────────── */
+
+.doc-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: var(--row-min);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line-200);
+}
+
+.doc-row:last-child {
+  border-bottom: none;
+}
+
+.doc-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.doc-row__name {
+  font-size: var(--compact-size);
+  font-weight: 500;
+}
+
+.doc-row__bucket {
+  color: var(--ink-500);
+  font-size: var(--caption-size);
+}
+
+/* Grey text, never a chip: where a document is in the queue is background, not a status to act on. */
+.push-indicator {
+  color: var(--ink-500);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
+/* ── capture, clarity, diagram ───────────────────────────────────────── */
+
+.capture-controls {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/*
+ * A file input styled as a button: the `<input>` itself is visually hidden and the `<label>` is the
+ * control. Clicking the label opens the picker exactly as clicking the input would, so nothing about
+ * the behaviour changes — and the input keeps its own accessible name, which is where the per-bucket
+ * qualifier lives.
+ */
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control, var(--control-desktop));
+  padding: 0 var(--space-4);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+  color: var(--ink-900);
+  font-size: var(--input-size);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  background: var(--surface-100);
+}
+
+.file-button--primary {
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: var(--on-accent);
+}
+
+.file-button--primary:hover {
+  background: var(--accent-700);
+  border-color: var(--accent-700);
+}
+
+/* The input is hidden but still focusable, so the control is reachable by keyboard. */
+.file-button__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-button__input:focus-visible + .file-button,
+.file-button:focus-within {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--accent-halo);
+}
+
+/*
+ * design.md §7.2 item 3: the E4 confirm screen shows the candidate full-bleed. The expert is deciding
+ * whether this photo is good enough for a claims assessor, which a thumbnail cannot support. Capped
+ * in height so Retake and Confirm stay reachable without scrolling on a handset.
+ */
+.capture-preview {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: var(--ink-900);
+  border-radius: var(--radius-md);
+}
+
+/*
+ * Inside a document row the same image is a *review thumbnail*, not a decision surface, and it must
+ * be bounded. E4's rule is that the person confirming a capture sees it full-bleed, because that
+ * screen exists so somebody looks at the photograph — but O2 lists every document on the claim, and
+ * inheriting 60vh there gave the officer one screen-height photograph per row. A claim with a dozen
+ * car photos became a scroll nobody would read to the end of. Found in the 4.4 browser pass.
+ *
+ * `width: auto` as well as the height cap, so a landscape photo is not stretched to the panel.
+ */
+.doc-row .capture-preview {
+  width: auto;
+  max-width: 100%;
+  max-height: 320px;
+}
+
+.clarity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.clarity__file {
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+}
+
+.clarity audio {
+  width: 100%;
+}
+
+.diagram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-md);
+}
+
+/* ── push panel ──────────────────────────────────────────────────────── */
+
+.push-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-lg);
+}
+
+.push-panel__copy {
+  flex: 1 1 240px;
+  color: var(--ink-500);
+  font-size: var(--compact-size);
+  line-height: var(--compact-line);
+}
+
+/* The sign-in card is not a worklist: it is one short form, and full width reads as a mistake. */
+.app-main--narrow {
+  max-width: 460px;
+}
+
+/* ── O2's review layout ──────────────────────────────────────────────────── */
+
+/*
+ * Three columns on a desktop, one on anything narrower (pass 3's `O2States`).
+ *
+ * The proportions are the screen's argument: the declaration fields are a fixed reference, the
+ * documents get the room because they are what the officer is actually judging, and the decision
+ * panel is wide enough for a visa number and a comment. **Only the right column ever branches** —
+ * the left and centre are identical in every state, so an officer can read what the garage sent
+ * whether the declaration is waiting, decided, or blocked on an unreachable NEXT3.
+ */
+.review {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .review {
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.3fr) minmax(320px, 1.1fr);
+  }
+}
+
+.review__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/*
+ * **Inside a review column the detail table stacks, at every width** — label above value, exactly as
+ * it does on a phone shell.
+ *
+ * Not a nicety. The two-column default gives the label up to 200 px, and a third of a 1180 px page
+ * is about 320 px; after the panel's own padding that left the *value* 75 px, and every field on O2
+ * wrapped mid-word — "PLACEHOLDER Insured 88" came out as PLAC/EHO/LDER/Insur/ed/88, and a plate
+ * number broke across three lines. A column this narrow is phone-width, so it gets the phone
+ * treatment. Found in the 4.4 browser pass; no test could see it, because none of them has a width.
+ */
+.review .detail {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.review .detail__label {
+  padding-bottom: 0;
+}
+
+.review .detail__value {
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line-200);
+}
+
+.review .detail__value:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* ── the confirmation dialog, and the muted row ──────────────────────────── */
+
+.confirm {
+  max-width: 420px;
+  padding: var(--space-5);
+  border: 1px solid var(--line-300);
+  border-radius: var(--radius-lg);
+  background: var(--surface-0);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-md);
+}
+
+.confirm::backdrop {
+  background: rgba(15, 20, 24, 0.45);
+}
+
+.confirm__message {
+  margin-bottom: var(--space-4);
+  font-size: var(--body-size);
+  line-height: var(--body-line);
+}
+
+/*
+ * Three states, three row treatments (pass 3's `A1List`). The chip already names the status; this is
+ * for the admin scanning a long list, who should see who is switched off without reading a column.
+ * Muted rather than hidden — an inactive profile keeps its history and is still edited from here.
+ */
+.worklist__row--muted td {
+  color: var(--ink-500);
+  background: var(--surface-100);
+}

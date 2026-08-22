@@ -1,0 +1,21 @@
+/*
+ * Self-hosted IBM Plex (pass-1 decision 6).
+ *
+ * The canvas loads IBM Plex from Google Fonts; the app must not. A Capacitor shell at a crash site
+ * has whatever connectivity the roadside gives it, and a font that arrives from a CDN or not at all
+ * is a screen that reflows under the expert's thumb. Vite bundles these woff2 files into the build,
+ * so the whole type system is on the device.
+ *
+ * Only the weights the contract uses, latin subset only: Sans 400/500/600, Mono 400/500. Every extra
+ * weight here is bytes shipped to a phone for nothing.
+ *
+ * Licence: IBM Plex is SIL OFL 1.1 (`@fontsource/*` declares OFL-1.1 in its own package metadata,
+ * checked before installing — slice 3.4's rule). OFL permits embedding and redistribution and puts
+ * no obligation on this application's own source, which is what HANDOFF §5's open IP conversation
+ * needs it not to do.
+ */
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';

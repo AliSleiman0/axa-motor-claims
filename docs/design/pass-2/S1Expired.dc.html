@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 18px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="padding-top: 48px; display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+  </div>
+
+  <div style="padding-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center;">
+    <span style="width: 64px; height: 64px; border-radius: 999px; background: #F4F6F8; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+      <svg width="30" height="30" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.4"></circle><path d="M10 6v4.2l2.8 1.6"></path></svg>
+    </span>
+    <span style="font-size: 24px; font-weight: 600; line-height: 1.25;">This invitation cannot be used</span>
+    <span style="font-size: 15px; line-height: 1.5; color: #2B333B;">It may have expired, or it may already have been used. Ask the person at AXA who set up your profile to send a new one.</span>
+  </div>
+
+  <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 16px; font-weight: 500;">Go to sign in</span>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      One screen for three causes — expired, already used, and never valid — because the server answers all three identically on purpose. Naming which one it was would let anyone test invitations to see which exist.
+    </div>
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      The message says <em>may</em> rather than picking one, and the way out is a person rather than a retry: an admin can re-issue an invitation from the profile screen while the account is still in the invited state.
+    </div>
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      Sign in stays offered because an already-used invitation usually means the account is active — the person is not stuck, they just need the other door.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

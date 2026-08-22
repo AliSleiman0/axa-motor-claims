@@ -121,14 +121,11 @@ export function rejectDeclaration(
   )
 }
 
-/** The signed-in user, for the name that goes on #18's approval image. */
-export interface Me {
-  id: string
-  phone: string
-  role: string
-  displayName: string
-}
-
-export function getMe(signal?: AbortSignal): Promise<Me> {
-  return api<Me>('/auth/me', { signal })
-}
+/**
+ * The signed-in user, for the name that goes on #18's approval image.
+ *
+ * Re-exported rather than declared here since slice 4.4: `AppHeader` needs the same call for every
+ * role, and `ui/` may not import a role module. One definition, one query key (`meKey`) — the header
+ * and the approval image must not be able to disagree about who is signed in.
+ */
+export { getMe, meKey, type Me } from '../api/me'

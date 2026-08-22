@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Api.Modules.Users;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Api.Tests.Integration;
 
@@ -35,6 +37,46 @@ public sealed class InviteFlowTests(ApiFixture fixture)
 
         client.WithBearer(tokens!.AccessToken);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/garage/ping")).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheInviteSms_CarriesATappableLink_AndStillCarriesTheTokenItself()
+    {
+        // pass-2 decision 2. The link is the path anybody will actually use; the token stays because
+        // carriers strip URLs and because somebody reading the text on a handset while registering on
+        // a laptop needs something they can type across — which is the paste box S1 offers.
+        var user = await fixture.CreateUser(UserRole.Expert, UserStatus.Invited);
+        var token = await fixture.IssueInvite(user.Id);
+
+        var message = fixture.Sms.LastMessageFor(user.Phone);
+        var baseUrl = fixture.Services.GetRequiredService<IOptions<AuthOptions>>().Value.AppBaseUrl;
+
+        Assert.Contains($"{baseUrl.TrimEnd('/')}/invite/{token}", message, StringComparison.Ordinal);
+
+        // The half that keeps the existing suite honest: `CapturingSmsSender` and
+        // `scripts/demo-reset.ps1` both read the token back out of this exact phrase, and
+        // demo-reset seeds the demo **through the real onboarding path**, so a message this could
+        // not be parsed out of would fail the reset rather than the demo. The full stop after the
+        // token is load-bearing for the same reason — it stops a greedy pattern swallowing the URL.
+        Assert.Equal(token, fixture.Sms.LastInviteTokenFor(user.Phone));
+    }
+
+    [Fact]
+    public async Task TheInviteLink_ComesFromConfiguration_NotFromTheRequest()
+    {
+        // Building it from `Request.Host` would be shorter and is wrong: the header is
+        // attacker-controlled, and this URL carries a live credential into an SMS sent in AXA's
+        // name. Asserting the configured origin is what pins that — the invite here is issued
+        // through an HTTP request whose host is the test server's, and the link must not mention it.
+        var user = await fixture.CreateUser(UserRole.Garage, UserStatus.Invited);
+        await fixture.IssueInvite(user.Id);
+
+        var message = fixture.Sms.LastMessageFor(user.Phone);
+        var configured = fixture.Services.GetRequiredService<IOptions<AuthOptions>>().Value.AppBaseUrl;
+
+        Assert.StartsWith("https://PLACEHOLDER-", configured, StringComparison.Ordinal);
+        Assert.Contains(configured.TrimEnd('/'), message, StringComparison.Ordinal);
+        Assert.DoesNotContain("localhost", message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

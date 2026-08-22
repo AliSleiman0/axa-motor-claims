@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 952px; min-height: 1060px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Component</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">CapturePanel</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B;">A capture-only bucket has <strong style="font-weight: 600;">no file control at all</strong> — not a disabled one. AXA needs the pictures taken at the scene, and a picker that is merely greyed out is a picker somebody will find a way to use.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 432px); gap: 24px; align-items: start;">
+
+    <!-- camera + file -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">CapturePanel / camera + file</h2>
+        <span style="font-size: 12px; color: #5F6C79;">document buckets · allowUpload true</span>
+      </div>
+
+      <div style="width: 390px; border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+          <span style="font-size: 15px; font-weight: 600;">Insured documents</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: #EDF0F3; border: 1px solid #D6DCE1; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500; color: #2B333B;">2</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="min-height: 56px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8;">
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+            <span style="display: flex; flex-direction: column;">
+              <span style="font-size: 16px; font-weight: 500; color: #FFFFFF;">Take a photo</span>
+              <span style="font-size: 12px; color: #D5E3F3;">insured document</span>
+            </span>
+          </span>
+          <span style="min-height: 56px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79;">
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+            <span style="display: flex; flex-direction: column;">
+              <span style="font-size: 16px; font-weight: 500; color: #0F1418;">Choose a file</span>
+              <span style="font-size: 12px; color: #5F6C79;">insured document</span>
+            </span>
+          </span>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <span style="width: 60px; height: 46px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8B96A1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+          </span>
+          <span style="width: 60px; height: 46px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8B96A1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- camera only -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">CapturePanel / camera only</h2>
+        <span style="font-size: 12px; color: #5F6C79;">car photo buckets · allowUpload false</span>
+      </div>
+
+      <div style="width: 390px; border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+          <span style="font-size: 15px; font-weight: 600;">Insured car photos</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: #EDF0F3; border: 1px solid #D6DCE1; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500; color: #2B333B;">3</span>
+        </div>
+
+        <span style="min-height: 56px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8;">
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 16px; font-weight: 500; color: #FFFFFF;">Take a photo</span>
+            <span style="font-size: 12px; color: #D5E3F3;">insured car</span>
+          </span>
+        </span>
+
+        <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; color: #5F6C79;">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 9.2v4.2"></path><path d="M10 6.6h.01"></path></svg>
+          <span>Camera only. Car photos have to be taken here, at the vehicle.</span>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <span style="width: 60px; height: 46px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1;"></span>
+          <span style="width: 60px; height: 46px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1;"></span>
+          <span style="width: 60px; height: 46px; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1;"></span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- the five expert buckets -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Five buckets, five distinct controls</h2>
+      <span style="font-size: 12px; color: #5F6C79;">the fix this pass owes the build</span>
+    </div>
+    <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #2B333B;">Today every capture control on the expert screen reads <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">Take a photo</span> and every file control reads <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">Choose a file</span> — five and three identical names in one page, which is unusable with a screen reader and ambiguous with a glove on. The qualifier line under each label is the whole fix: it is also the control&#39;s accessible name.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 8px;">
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3;">Insured documents</span>
+        <span style="font-size: 12px; color: #5F6C79;">camera + file</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #2B333B;">&ldquo;Take a photo — insured document&rdquo;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 8px;">
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3;">Insured car photos</span>
+        <span style="font-size: 12px; color: #A33A31; font-weight: 500;">camera only</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #2B333B;">&ldquo;Take a photo — insured car&rdquo;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 8px;">
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3;">Third-party documents</span>
+        <span style="font-size: 12px; color: #5F6C79;">camera + file</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #2B333B;">&ldquo;Take a photo — third-party document&rdquo;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 8px;">
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3;">Third-party car photos</span>
+        <span style="font-size: 12px; color: #A33A31; font-weight: 500;">camera only</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #2B333B;">&ldquo;Take a photo — third-party car&rdquo;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #F4F6F8; border: 1px solid #E4E9ED; border-radius: 8px;">
+        <span style="font-size: 14px; font-weight: 600; line-height: 1.3;">Expert report</span>
+        <span style="font-size: 12px; color: #5F6C79;">camera + file</span>
+        <span style="font-size: 12px; line-height: 1.4; color: #2B333B;">&ldquo;Take a photo — expert report&rdquo;</span>
+      </div>
+    </div>
+    <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The garage&#39;s two buckets follow the same rule: <strong style="font-weight: 600;">Survey documents</strong> (camera + file) and <strong style="font-weight: 600;">Car photos</strong> (camera only).</p>
+  </section>
+
+  <!-- rungs -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">The rungs before a control exists</h2>
+      <span style="font-size: 12px; color: #5F6C79;">two different failures, deliberately not one message</span>
+    </div>
+    <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #2B333B;">&ldquo;Settings have not arrived yet&rdquo; and &ldquo;the server has never heard of this bucket&rdquo; look identical from the code and are opposite from the user&#39;s chair. Collapsed into one message, the second spins forever with a clean network tab.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">loading</span>
+        <div style="border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 15px; font-weight: 600;">Insured car photos</span>
+          <span style="height: 12px; width: 60%; border-radius: 3px; background: #E4E9ED;"></span>
+          <span style="height: 56px; border-radius: 6px; background: #F4F6F8; border: 1px dashed #D6DCE1;"></span>
+          <span style="font-size: 13px; color: #5F6C79;">Loading photo settings…</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">not configured</span>
+        <div style="border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 15px; font-weight: 600;">Repair photos</span>
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBF1DE; border: 1px solid #8A6116; border-left-width: 4px;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8A6116" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+            <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">This section is not configured for uploads yet, so nothing can be sent to it.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">checking</span>
+        <div style="border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 15px; font-weight: 600;">Insured car photos</span>
+          <span style="min-height: 56px; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-radius: 6px; background: #F4F6F8; border: 1px solid #E4E9ED;">
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#8B96A1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+            <span style="font-size: 16px; font-weight: 500; color: #8B96A1;">Take a photo</span>
+          </span>
+          <span style="font-size: 13px; color: #2B333B;">Checking the photo…</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

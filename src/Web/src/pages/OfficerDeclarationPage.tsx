@@ -14,13 +14,21 @@ import {
   useOfficerDeclaration,
   useOfficerDocuments,
   useVisaSearch,
+  type DecisionStep,
 } from '../officer/useOfficer'
 import type { SvgRenderer } from '../media/png'
+import { AlertBanner, StatusBanner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { DetailTable } from '../ui/DetailTable'
+import { DocumentRow, PushIndicator } from '../ui/DocumentRow'
+import { StatusChip } from '../ui/StatusChip'
+import { TextArea, TextField } from '../ui/fields'
+import { Worklist } from '../ui/Worklist'
 
 /** O2 (design.md §5.2): review the garage's evidence, find the visa, approve or reject. */
 export default function OfficerDeclarationPage({ render }: { render?: SvgRenderer } = {}) {
   const { id } = useParams()
-  if (!id) return <p role="alert">No declaration selected.</p>
+  if (!id) return <AlertBanner>No declaration selected.</AlertBanner>
   return <ReviewView declarationId={id} render={render} />
 }
 
@@ -29,67 +37,86 @@ function ReviewView({ declarationId, render }: { declarationId: string; render?:
   const [visaNo, setVisaNo] = useState('')
   const [comment, setComment] = useState('')
 
-  if (isPending) return <p>Loading declaration…</p>
-  if (error) return <p role="alert">{describe(error)}</p>
+  if (isPending) return <p className="muted">Loading declaration…</p>
+  if (error) return <AlertBanner>{describe(error)}</AlertBanner>
 
   return (
-    <section>
-      <p>
-        <Link to="/officer">← Declarations to review</Link>
-      </p>
-      <h2>Declaration {data.plateNo}</h2>
-      <p>
+    <section className="page">
+      <Link className="back-link" to="/officer">
+        ← Declarations to review
+      </Link>
+      <div className="page__head">
+        <h2 className="page__title">Declaration {data.plateNo}</h2>
+        <StatusChip label={STATE_LABELS[data.state]} />
+      </div>
+      <p className="muted">
         Status: <strong>{STATE_LABELS[data.state]}</strong>
       </p>
 
-      <DeclarationFields detail={data} />
-      <DocumentList declarationId={declarationId} />
-
-      {data.state === 'submitted' ? (
-        <DecisionPanel
-          declarationId={declarationId}
-          visaNo={visaNo}
-          setVisaNo={setVisaNo}
-          comment={comment}
-          setComment={setComment}
-          render={render}
-        />
-      ) : (
-        <DecidedPanel detail={data} />
-      )}
+      {/*
+        Three columns on a desktop, one on anything narrower (pass 3's O2States). **The left and
+        centre columns are identical in every state** — an officer can always read what the garage
+        sent, whether the declaration is waiting, decided or unreachable — so only the right column
+        branches. That is the layout carrying a rule rather than decorating one.
+      */}
+      <div className="review">
+        <div className="review__col">
+          <DeclarationFields detail={data} />
+        </div>
+        <div className="review__col">
+          <DocumentList declarationId={declarationId} />
+        </div>
+        <div className="review__col">
+          {data.state === 'submitted' ? (
+            <DecisionPanel
+              declarationId={declarationId}
+              visaNo={visaNo}
+              setVisaNo={setVisaNo}
+              comment={comment}
+              setComment={setComment}
+              render={render}
+            />
+          ) : (
+            <DecidedPanel detail={data} />
+          )}
+        </div>
+      </div>
     </section>
   )
 }
 
 function DeclarationFields({ detail }: { detail: OfficerDeclarationDetail }) {
   return (
-    <table border={1} cellPadding={4}>
-      <tbody>
-        <Row label="Plate" value={detail.plateNo} />
-        <Row label="Insured" value={detail.insuredName} />
-        <Row label="Garage note" value={detail.note} />
-        <Row label="Garage" value={detail.garageName} />
-        <Row label="Garage email" value={detail.garageEmail} />
-        <Row label="Garage phone" value={detail.garagePhone} />
-        <Row label="Submitted" value={detail.submittedAt ? formatDateTime(detail.submittedAt) : null} />
-        <Row label="Claim" value={detail.visaNo} />
-      </tbody>
-    </table>
+    <DetailTable
+      rows={[
+        { label: 'Plate', value: detail.plateNo, mono: true },
+        { label: 'Insured', value: detail.insuredName },
+        { label: 'Garage note', value: detail.note },
+        { label: 'Garage', value: detail.garageName },
+        { label: 'Garage email', value: detail.garageEmail },
+        { label: 'Garage phone', value: detail.garagePhone, mono: true, tel: true },
+        {
+          label: 'Submitted',
+          value: detail.submittedAt ? formatDateTime(detail.submittedAt) : null,
+        },
+        { label: 'Claim', value: detail.visaNo, mono: true },
+      ]}
+    />
   )
 }
 
 function DocumentList({ declarationId }: { declarationId: string }) {
   const { data, isPending, error } = useOfficerDocuments(declarationId)
 
-  if (isPending) return <p>Loading documents…</p>
-  if (error) return <p role="alert">The documents could not be loaded.</p>
-  if (!data || data.length === 0) return <p>This declaration has no documents.</p>
+  if (isPending) return <p className="muted">Loading documents…</p>
+  if (error) return <AlertBanner>The documents could not be loaded.</AlertBanner>
+  if (!data || data.length === 0) return <p className="muted">This declaration has no documents.</p>
 
   return (
-    <section>
-      <h3>Documents ({data.length})</h3>
+    <section className="panel">
+      <h3 className="panel__title">Documents ({data.length})</h3>
       {data.map((document) => (
-        <DocumentRow key={document.id} declarationId={declarationId} document={document} />
+        <ReviewDocument key={document.id} declarationId={declarationId} document={document} />
       ))}
     </section>
   )
@@ -102,7 +129,7 @@ function DocumentList({ declarationId }: { declarationId: string }) {
  * Neither branch points a `src` or an `href` at the API. A browser sends no Authorization header for
  * an `<img>` or a plain link, so the URL below is always a `blob:` one — see `useDocumentBlobUrl`.
  */
-function DocumentRow({
+function ReviewDocument({
   declarationId,
   document,
 }: {
@@ -120,22 +147,35 @@ function DocumentRow({
   const name = document.fileName ?? document.bucket
 
   return (
-    <section>
-      <h4>
-        {name} <em>({document.bucket})</em>
-      </h4>
-
+    <DocumentRow
+      name={name}
+      bucket={document.bucket}
+      /*
+        Where this document is in the §6.3 queue, in pass 1's three words. Grey text and never a
+        chip: it is background to the officer's decision, not a status to act on. `deferred` renders
+        nothing at all, which is right — before approval there is no push to be in a state about.
+      */
+      indicator={
+        <PushIndicator pushStatus={document.pushStatus} blobRetained={document.blobRetained} />
+      }
+    >
       {!document.blobRetained ? (
-        // §7.3 swept the bytes once NEXT3 confirmed the push, and that is terminal. Saying so beats
-        // a link that 404s, and beats a broken image far more.
-        <p>Sent to AXA; the local copy has been removed.</p>
+        // Nothing in the body: §7.3 swept the bytes once NEXT3 confirmed the push, and that is
+        // terminal — there is no preview to show and no link to offer. **The indicator above says
+        // so**, and it says it once. It used to be a second `<p>` here with the same sentence, which
+        // was fine while nothing else rendered it and became a duplicate the moment `PushIndicator`
+        // was wired in — the shape of bug this codebase keeps calling "two answers that can
+        // disagree", in its mildest form.
+        null
       ) : isImage ? (
         preview.url ? (
           <img className="capture-preview" src={preview.url} alt={`Document ${name}`} />
         ) : preview.failed ? (
-          <p role="alert">This document could not be loaded.</p>
+          <p className="banner banner--alert" role="alert">
+            This document could not be loaded.
+          </p>
         ) : (
-          <p>Loading preview…</p>
+          <p className="muted">Loading preview…</p>
         )
       ) : preview.url ? (
         <p>
@@ -144,20 +184,20 @@ function DocumentRow({
           </a>
         </p>
       ) : (
-        <p>
-          <button
-            type="button"
+        <p className="actions">
+          <Button
+            variant="secondary"
             disabled={preview.pending}
             onClick={() => {
               setWanted(true)
             }}
           >
             {preview.pending ? 'Opening…' : `Open ${name}`}
-          </button>
+          </Button>
           {preview.failed && <span role="alert"> This document could not be loaded.</span>}
         </p>
       )}
-    </section>
+    </DocumentRow>
   )
 }
 
@@ -179,61 +219,80 @@ function DecisionPanel({
   const decision = useDecision(declarationId, { render })
 
   return (
-    <section>
+    <section className="stack">
       <VisaSearch onUse={setVisaNo} />
 
-      <h3>Decision</h3>
-      <p>
-        <label htmlFor="visa-no">Visa number</label>{' '}
-        <input
+      <div className="panel">
+        <h3 className="panel__title">Decision</h3>
+        <TextField
           id="visa-no"
+          label="Visa number"
           value={visaNo}
+          className="field__control--mono"
           onChange={(event) => {
             setVisaNo(event.target.value)
           }}
         />
-      </p>
-      <p>
-        <label htmlFor="decision-comment">Comments</label>{' '}
-        <textarea
+        <TextArea
           id="decision-comment"
+          label="Comments"
           value={comment}
           maxLength={2000}
           onChange={(event) => {
             setComment(event.target.value)
           }}
         />
-      </p>
-      {/*
-        One latch across both buttons: they are alternatives, and a screen that let both be pressed
-        at once would be racing its own user. Approve renders and uploads #18's decision image before
-        it calls approve, so a render or upload failure leaves the declaration untouched.
-      */}
-      <button
-        type="button"
-        disabled={decision.pending}
-        onClick={() => {
-          decision.approve(visaNo, comment)
-        }}
-      >
-        {decision.pending ? 'Working…' : 'Approve'}
-      </button>{' '}
-      <button
-        type="button"
-        disabled={decision.pending}
-        onClick={() => {
-          decision.reject(comment)
-        }}
-      >
-        Reject
-      </button>
-      <p>
-        Approving sends the garage&rsquo;s documents and a record of this decision to AXA under the
-        visa above. Rejecting is final — the garage would have to file a new declaration.
-      </p>
-      {decision.failed && <p role="alert">{decision.failed}</p>}
+        {/*
+          One latch across both buttons: they are alternatives, and a screen that let both be pressed
+          at once would be racing its own user. Approve renders and uploads #18's decision image
+          before it calls approve, so a render or upload failure leaves the declaration untouched.
+
+          Reject is outlined and never filled — two filled buttons of equal weight would be a screen
+          with no opinion about which outcome is the ordinary one.
+        */}
+        <div className="actions">
+          <Button
+            variant="primary"
+            disabled={decision.pending}
+            onClick={() => {
+              decision.approve(visaNo, comment)
+            }}
+          >
+            {decision.pending ? approveLabel(decision.step) : 'Approve'}
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={decision.pending}
+            onClick={() => {
+              decision.reject(comment)
+            }}
+          >
+            Reject
+          </Button>
+        </div>
+        <p className="muted">
+          Approving sends the garage&rsquo;s documents and a record of this decision to AXA under the
+          visa above. Rejecting is final — the garage would have to file a new declaration.
+        </p>
+        {decision.failed && <AlertBanner>{decision.failed}</AlertBanner>}
+      </div>
     </section>
   )
+}
+
+/**
+ * Approve's label while it runs. The three steps are real and they are not equivalent — a failure at
+ * *Rendering* or *Uploading* leaves the declaration undecided, and only the third commits — so the
+ * officer is told which one they are on rather than watching one flat word for all three.
+ *
+ * `Working…` is the fallback and is what a **rejection** shows throughout, because a rejection is a
+ * single call with nothing to narrate.
+ */
+function approveLabel(step: DecisionStep | null): string {
+  if (step === 'rendering') return 'Rendering decision…'
+  if (step === 'uploading') return 'Uploading…'
+  if (step === 'approving') return 'Approving…'
+  return 'Working…'
 }
 
 function VisaSearch({ onUse }: { onUse: (visaNo: string) => void }) {
@@ -242,75 +301,65 @@ function VisaSearch({ onUse }: { onUse: (visaNo: string) => void }) {
   const search = useVisaSearch()
 
   return (
-    <section>
-      <h3>Find the claim in NEXT3</h3>
-      <p>
-        <label htmlFor="search-plate">Plate</label>{' '}
-        <input
+    <section className="panel">
+      <h3 className="panel__title">Find the claim in NEXT3</h3>
+      <div className="field-row">
+        <TextField
           id="search-plate"
+          label="Plate"
           value={plateNo}
+          className="field__control--mono"
           onChange={(event) => {
             setPlateNo(event.target.value)
           }}
-        />{' '}
-        <label htmlFor="search-visa">Visa</label>{' '}
-        <input
+        />
+        <TextField
           id="search-visa"
+          label="Visa"
           value={visaNo}
+          className="field__control--mono"
           onChange={(event) => {
             setVisaNo(event.target.value)
           }}
-        />{' '}
-        <button
-          type="button"
+        />
+        <Button
+          variant="primary"
           disabled={search.pending}
           onClick={() => {
             search.run(plateNo, visaNo)
           }}
         >
           {search.pending ? 'Searching…' : 'Search'}
-        </button>
-      </p>
+        </Button>
+      </div>
 
-      {search.failed && <p role="alert">{search.failed}</p>}
+      {search.failed && <AlertBanner>{search.failed}</AlertBanner>}
 
       {search.results !== null &&
         (search.results.length === 0 ? (
           // #16, verbatim from §5.2's officer-review row: there is no create-visa API and this
           // release does not build one, so the officer leaves, creates it, and searches again.
-          <p role="alert">
-            No claim matches. Create the visa in NEXT3, then search again.
-          </p>
+          <AlertBanner>No claim matches. Create the visa in NEXT3, then search again.</AlertBanner>
         ) : (
-          <table border={1} cellPadding={4}>
-            <thead>
-              <tr>
-                <th>Visa</th>
-                <th>Plate</th>
-                <th>Insured</th>
-                <th />
+          <Worklist headers={['Visa', 'Plate', 'Insured', '']}>
+            {search.results.map((result) => (
+              <tr key={result.visaNo}>
+                <td className="mono">{result.visaNo}</td>
+                <td className="mono">{result.plateNo}</td>
+                <td>{result.insuredName}</td>
+                <td>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      onUse(result.visaNo)
+                    }}
+                  >
+                    Use this visa
+                  </Button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {search.results.map((result) => (
-                <tr key={result.visaNo}>
-                  <td>{result.visaNo}</td>
-                  <td>{result.plateNo}</td>
-                  <td>{result.insuredName}</td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onUse(result.visaNo)
-                      }}
-                    >
-                      Use this visa
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ))}
+          </Worklist>
         ))}
     </section>
   )
@@ -318,33 +367,24 @@ function VisaSearch({ onUse }: { onUse: (visaNo: string) => void }) {
 
 function DecidedPanel({ detail }: { detail: OfficerDeclarationDetail }) {
   return (
-    <section>
-      <h3>Decision</h3>
-      <p>
+    <section className="panel">
+      <h3 className="panel__title">Decision</h3>
+      <StatusBanner>
         This declaration was {STATE_LABELS[detail.state].toLowerCase()}
         {detail.decidedAt ? ` on ${formatDateTime(detail.decidedAt)}` : ''}.
-      </p>
+      </StatusBanner>
       {/* The officer sees every comment in every state — §5.2's visibility rule constrains the
           garage's view only, and a second officer reading this needs to know what the first said. */}
       {detail.comments.length > 0 && (
-        <ul>
+        <ul className="stack">
           {detail.comments.map((comment) => (
             <li key={`${comment.createdAt}-${comment.body}`}>
-              {comment.body} <em>({formatDateTime(comment.createdAt)})</em>
+              {comment.body} <em className="caption">({formatDateTime(comment.createdAt)})</em>
             </li>
           ))}
         </ul>
       )}
     </section>
-  )
-}
-
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <tr>
-      <th align="left">{label}</th>
-      <td>{value ?? '—'}</td>
-    </tr>
   )
 }
 

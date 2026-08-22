@@ -11,6 +11,11 @@ import {
 } from '../garage/useDeclarations'
 import { CapturePanel } from '../media/CapturePanel'
 import { useMediaConfig } from '../media/useMediaConfig'
+import { AlertBanner, StatusBanner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { DetailTable } from '../ui/DetailTable'
+import { DocumentRow, PushIndicator } from '../ui/DocumentRow'
+import { StatusChip } from '../ui/StatusChip'
 
 /**
  * G3 (design.md §5.2): one declaration, rendered according to its state.
@@ -21,23 +26,28 @@ import { useMediaConfig } from '../media/useMediaConfig'
  */
 export default function GarageDeclarationPage() {
   const { id } = useParams()
-  if (!id) return <p role="alert">No declaration selected.</p>
+  if (!id) return <AlertBanner>No declaration selected.</AlertBanner>
   return <DeclarationView declarationId={id} />
 }
 
 function DeclarationView({ declarationId }: { declarationId: string }) {
   const { data, isPending, error } = useDeclaration(declarationId)
 
-  if (isPending) return <p>Loading declaration…</p>
-  if (error) return <p role="alert">{describe(error)}</p>
+  if (isPending) return <p className="muted">Loading declaration…</p>
+  if (error) return <AlertBanner>{describe(error)}</AlertBanner>
 
   return (
-    <section>
-      <p>
-        <Link to="/garage">← My declarations</Link>
-      </p>
-      <h2>Declaration {data.plateNo}</h2>
-      <p>
+    <section className="page">
+      <Link className="back-link" to="/garage">
+        ← My declarations
+      </Link>
+      <div className="page__head">
+        <h2 className="page__title">Declaration {data.plateNo}</h2>
+        {/* The chip and the sentence both: the demo script and four tests read "Status: <label>",
+            and the chip is what makes the state scannable down a phone screen. */}
+        <StatusChip label={STATE_LABELS[data.state]} />
+      </div>
+      <p className="muted">
         Status: <strong>{STATE_LABELS[data.state]}</strong>
       </p>
 
@@ -46,7 +56,7 @@ function DeclarationView({ declarationId }: { declarationId: string }) {
       {data.state === 'draft' && (
         <DraftPanel declarationId={declarationId} detail={data} />
       )}
-      {data.state === 'submitted' && <WaitingPanel />}
+      {data.state === 'submitted' && <WaitingPanel declarationId={declarationId} />}
       {data.state === 'rejected' && <RejectedPanel />}
       {(data.state === 'approved' ||
         data.state === 'repairs_in_progress' ||
@@ -59,16 +69,16 @@ function DeclarationView({ declarationId }: { declarationId: string }) {
 
 function DeclarationFields({ detail }: { detail: DeclarationDetail }) {
   return (
-    <table border={1} cellPadding={4}>
-      <tbody>
-        <Row label="Plate" value={detail.plateNo} />
-        <Row label="Insured" value={detail.insuredName} />
-        <Row label="Note" value={detail.note} />
-        <Row label="Created" value={formatDateTime(detail.createdAt)} />
-        <Row label="Submitted" value={detail.submittedAt ? formatDateTime(detail.submittedAt) : null} />
-        <Row label="Decided" value={detail.decidedAt ? formatDateTime(detail.decidedAt) : null} />
-      </tbody>
-    </table>
+    <DetailTable
+      rows={[
+        { label: 'Plate', value: detail.plateNo, mono: true },
+        { label: 'Insured', value: detail.insuredName },
+        { label: 'Note', value: detail.note },
+        { label: 'Created', value: formatDateTime(detail.createdAt) },
+        { label: 'Submitted', value: detail.submittedAt ? formatDateTime(detail.submittedAt) : null },
+        { label: 'Decided', value: detail.decidedAt ? formatDateTime(detail.decidedAt) : null },
+      ]}
+    />
   )
 }
 
@@ -95,11 +105,11 @@ function DraftPanel({
 
   if (error) {
     return (
-      <section>
-        <h3>Photos and documents</h3>
-        <p role="alert">
+      <section className="stack">
+        <h3 className="section-title">Photos and documents</h3>
+        <AlertBanner>
           Photo quality settings could not be loaded, so nothing can be sent yet. Reload the page.
-        </p>
+        </AlertBanner>
       </section>
     )
   }
@@ -115,8 +125,8 @@ function DraftPanel({
   const canSubmit = documentCount > 0
 
   return (
-    <section>
-      <h3>Photos and documents</h3>
+    <section className="stack">
+      <h3 className="section-title">Photos and documents</h3>
 
       <CapturePanel
         path={path}
@@ -125,6 +135,7 @@ function DraftPanel({
         config={config}
         count={countFor('garage_documents')}
         onUploaded={refresh}
+        qualifier="survey document"
       />
       <CapturePanel
         path={path}
@@ -133,31 +144,85 @@ function DraftPanel({
         config={config}
         count={countFor('garage_car_photo')}
         onUploaded={refresh}
+        qualifier="car photo"
       />
 
-      <h3>Send to AXA</h3>
-      <p>
-        {canSubmit
-          ? 'AXA will review this declaration and link it to a claim.'
-          : 'Add at least one photo or document before sending this to AXA.'}
-      </p>
-      <button type="button" disabled={!canSubmit || submit.pending} onClick={submit.run}>
-        {submit.pending ? 'Sending…' : 'Submit to AXA'}
-      </button>
-      {submit.failed && <p role="alert">{submit.failed}</p>}
-      {detail.note && <p>Note: {detail.note}</p>}
+      <div className="panel">
+        <h3 className="panel__title">Send to AXA</h3>
+        <p className="muted">
+          {canSubmit
+            ? 'AXA will review this declaration and link it to a claim.'
+            : 'Add at least one photo or document before sending this to AXA.'}
+        </p>
+        <div className="actions">
+          <Button
+            variant="primary"
+            disabled={!canSubmit || submit.pending}
+            onClick={submit.run}
+          >
+            {submit.pending ? 'Sending…' : 'Submit to AXA'}
+          </Button>
+        </div>
+        {submit.failed && <AlertBanner>{submit.failed}</AlertBanner>}
+        {detail.note && <p className="muted">Note: {detail.note}</p>}
+      </div>
     </section>
   )
 }
 
-function WaitingPanel() {
+function WaitingPanel({ declarationId }: { declarationId: string }) {
   return (
-    <section>
-      <h3>Waiting for AXA</h3>
-      <p>
-        This declaration is with a claim officer. You will get a notification on this device when it
-        has been reviewed.
-      </p>
+    <section className="stack">
+      <div className="panel">
+        <h3 className="panel__title">Waiting for AXA</h3>
+        <p className="muted">
+          This declaration is with a claim officer. You will get a notification on this device when
+          it has been reviewed.
+        </p>
+        {/* No action, deliberately: there is no way to edit or withdraw a submitted declaration,
+            because an officer is already looking at it. */}
+      </div>
+      <SubmittedDocuments declarationId={declarationId} />
+    </section>
+  )
+}
+
+/**
+ * "What was sent" — the garage's own evidence, while the declaration is with an officer.
+ *
+ * It answers the question the waiting state otherwise leaves open: *did my photographs go
+ * anywhere?* And the honest answer is **"Queued, will send"** rather than "sent", because §5.2 holds
+ * every garage document at `push_status = deferred` with no outbox row at all until an officer
+ * approves and picks the visa it belongs under. `PushIndicator` renders nothing for `deferred`,
+ * which is right — before a decision there is no push to be in a state about.
+ *
+ * Names and buckets only: no preview and no blob fetch. The artboard draws a file name and a status,
+ * and previewing here would mean lifting `useDocumentBlobUrl` out of `officer/` into shared code for
+ * a screen whose job is reassurance rather than review.
+ */
+function SubmittedDocuments({ declarationId }: { declarationId: string }) {
+  const { data, isPending, error } = useDeclarationDocuments(declarationId)
+
+  if (isPending) return <p className="muted">Loading documents…</p>
+  if (error) return <AlertBanner>The documents could not be loaded.</AlertBanner>
+  if (!data || data.length === 0) return null
+
+  return (
+    <section className="panel">
+      <h3 className="panel__title">What was sent</h3>
+      {data.map((document) => (
+        <DocumentRow
+          key={document.id}
+          name={document.fileName ?? document.bucket}
+          bucket={document.bucket}
+          indicator={
+            <PushIndicator
+              pushStatus={document.pushStatus}
+              blobRetained={document.blobRetained}
+            />
+          }
+        />
+      ))}
     </section>
   )
 }
@@ -171,9 +236,17 @@ function WaitingPanel() {
  */
 function RejectedPanel() {
   return (
-    <section>
-      <h3>Not accepted</h3>
-      <p>AXA did not accept this declaration. File a new one if the repair should still go ahead.</p>
+    <section className="panel">
+      <h3 className="panel__title">Not accepted</h3>
+      <p className="muted">
+        AXA did not accept this declaration. File a new one if the repair should still go ahead.
+      </p>
+      {/* Terminal, and the screen says what to do next rather than leaving it to be discovered. */}
+      <div className="actions">
+        <Link className="btn btn--primary" to="/garage/new">
+          New declaration
+        </Link>
+      </div>
     </section>
   )
 }
@@ -189,80 +262,76 @@ function ApprovedPanel({
   const startRepairs = useDeclarationAction(declarationId, 'start-repairs')
 
   return (
-    <section>
-      <h3>Claim {detail.visaNo}</h3>
+    <section className="stack">
+      <h3 className="section-title">Claim {detail.visaNo}</h3>
 
       {detail.claimStatus === 'stale' && (
-        <p role="alert">
+        // Amber, not red (pass 3): an outage passes on its own, and the claim below is still true.
+        <AlertBanner intent="warn">
           NEXT3 is unreachable. Showing the copy last fetched
           {detail.claimFetchedAt ? ` on ${formatDateTime(detail.claimFetchedAt)}` : ''}.
-        </p>
+        </AlertBanner>
       )}
 
-      <table border={1} cellPadding={4}>
-        <tbody>
-          <Row label="Visa" value={detail.visaNo} />
-          <Row label="Policy" value={detail.claim?.policyNo} />
-          <Row label="Plate" value={detail.claim?.plateNo} />
-          <Row label="Insured" value={detail.claim?.insuredName} />
-          <Row label="Insured phone" value={detail.claim?.insuredPhone} />
-          <Row label="Vehicle" value={detail.claim?.carMakeModel} />
-          <Row label="City" value={detail.claim?.city} />
-          <Row label="Accident date" value={detail.claim?.accidentDate} />
-        </tbody>
-      </table>
+      <DetailTable
+        rows={[
+          { label: 'Visa', value: detail.visaNo, mono: true },
+          { label: 'Policy', value: detail.claim?.policyNo, mono: true },
+          { label: 'Plate', value: detail.claim?.plateNo, mono: true },
+          { label: 'Insured', value: detail.claim?.insuredName },
+          { label: 'Insured phone', value: detail.claim?.insuredPhone, mono: true, tel: true },
+          { label: 'Vehicle', value: detail.claim?.carMakeModel },
+          { label: 'City', value: detail.claim?.city },
+          { label: 'Accident date', value: detail.claim?.accidentDate },
+        ]}
+      />
 
-      <h3>AXA comments</h3>
-      {detail.comments.length === 0 ? (
-        <p>No comments.</p>
-      ) : (
-        <ul>
-          {detail.comments.map((comment) => (
-            <li key={`${comment.createdAt}-${comment.body}`}>
-              {comment.body} <em>({formatDateTime(comment.createdAt)})</em>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="panel">
+        <h3 className="panel__title">AXA comments</h3>
+        {detail.comments.length === 0 ? (
+          <p className="muted">No comments.</p>
+        ) : (
+          <ul className="stack">
+            {detail.comments.map((comment) => (
+              <li key={`${comment.createdAt}-${comment.body}`}>
+                {comment.body} <em className="caption">({formatDateTime(comment.createdAt)})</em>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {detail.state === 'approved' && (
-        <section>
-          <h3>Repairs</h3>
-          <button type="button" disabled={startRepairs.pending} onClick={startRepairs.run}>
-            {startRepairs.pending ? 'Starting…' : 'Start repairs'}
-          </button>
-          {startRepairs.failed && <p role="alert">{startRepairs.failed}</p>}
+        <section className="panel">
+          <h3 className="panel__title">Repairs</h3>
+          <div className="actions">
+            <Button variant="primary" disabled={startRepairs.pending} onClick={startRepairs.run}>
+              {startRepairs.pending ? 'Starting…' : 'Start repairs'}
+            </Button>
+          </div>
+          {startRepairs.failed && <AlertBanner>{startRepairs.failed}</AlertBanner>}
         </section>
       )}
 
       {detail.state === 'repairs_in_progress' && (
-        <section>
-          <h3>Repairs in progress</h3>
+        <section className="panel">
+          <h3 className="panel__title">Repairs in progress</h3>
           {/* Named rather than hidden: a garage that has started repairs will look for where to send
               the invoice, and "not built yet" is a better answer than a screen with nothing on it. */}
-          <p>
+          <StatusBanner>
             Sending the discharge, the invoice and the post-repair photos is not part of this release
             yet (slice 5.1). Send them to AXA the way you do today.
-          </p>
+          </StatusBanner>
         </section>
       )}
 
       {detail.state === 'repair_docs_submitted' && (
-        <section>
-          <h3>Repair documents sent</h3>
-          <p>This declaration is complete.</p>
+        <section className="panel">
+          <h3 className="panel__title">Repair documents sent</h3>
+          <p className="muted">This declaration is complete.</p>
         </section>
       )}
     </section>
-  )
-}
-
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <tr>
-      <th align="left">{label}</th>
-      <td>{value ?? '—'}</td>
-    </tr>
   )
 }
 

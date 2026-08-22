@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 20px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="padding-top: 56px; display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+    <span style="font-size: 13px; color: #5F6C79;">Motor claim management</span>
+  </div>
+
+  <div style="padding-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Sign in</span>
+    <span style="font-size: 15px; line-height: 1.5; color: #2B333B;">Enter the mobile number AXA registered for you. A six-digit code is sent to it.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+    <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Phone (E.164)</span>
+    <span style="height: 48px; padding: 0 12px; display: flex; align-items: center; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #8B96A1;">+999...</span>
+    <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Country code included, no spaces or dashes. Numeric keypad, one-time-code autofill on the next step.</span>
+  </div>
+
+  <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500;">Send code</span>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #E4E9ED;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">empty — the button before a number is typed</span>
+    <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #E4E9ED; border: 1px solid #D6DCE1; color: #8B96A1; font-size: 16px; font-weight: 500;">Send code</span>
+  </div>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      A number AXA does not know gets the same answer as one it does — the next screen either way. The app must not tell a stranger which mobile numbers are registered.
+    </div>
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      No password anywhere in this product, and nothing to create: an account exists because an admin made it and sent an invite. See S1.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

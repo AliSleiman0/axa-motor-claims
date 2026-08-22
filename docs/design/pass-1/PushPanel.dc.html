@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 948px; min-height: 940px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Component</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">PushPanel</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B;">Four states, and the copy changes by role — an expert is told about claims arriving, a garage about decisions coming back. A garage is never assigned a claim, so the expert&#39;s sentence sitting above a garage screen is wrong, not merely generic.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 432px); gap: 20px; align-items: start;">
+
+    <!-- off -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PushPanel / off</h2>
+        <span style="font-size: 12px; color: #5F6C79;">permission not asked yet — the default</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #F4F6F8; display: flex; flex-direction: column; gap: 12px;">
+        <span style="min-height: 48px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+          <span style="font-size: 16px; font-weight: 500; color: #FFFFFF;">Enable notifications</span>
+        </span>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">Get a popup on this device the moment a claim is assigned to you.</span>
+      </div>
+      <div style="margin-top: 12px; width: 390px;">
+        <span style="min-height: 48px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 6px; background: #5C87BF; border: 1px solid #5C87BF;">
+          <span style="font-size: 16px; font-weight: 500; color: #FFFFFF;">Enabling notifications…</span>
+        </span>
+      </div>
+    </section>
+
+    <!-- on -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PushPanel / on</h2>
+        <span style="font-size: 12px; color: #5F6C79;">subscribed · no button, nothing to do</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #74A98D; border-radius: 8px; padding: 16px; background: #E8F2EC; display: flex; align-items: flex-start; gap: 12px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2F6B4F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="m6.6 10.2 2.2 2.2 4.6-4.8"></path></svg>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">Notifications are on. New claims will pop up on this device.</span>
+      </div>
+      <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Per device, per person. Two people sharing one browser profile each need their own subscription — a screen that says notifications are on while the server has no row for you is worse than no panel at all.</p>
+    </section>
+
+    <!-- blocked -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PushPanel / blocked by browser</h2>
+        <span style="font-size: 12px; color: #5F6C79;">the button stays, and says so</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #E4E9ED; border-radius: 8px; padding: 16px; background: #F4F6F8; display: flex; flex-direction: column; gap: 12px;">
+        <span style="min-height: 48px; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path><path d="M3.6 3.6l12.8 12.8"></path></svg>
+          <span style="font-size: 16px; font-weight: 500; color: #0F1418;">Enable notifications</span>
+        </span>
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBF1DE; border: 1px solid #8A6116; border-left-width: 4px;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8A6116" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+          <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">Notifications are blocked for this site. Pressing the button again cannot undo that — open the padlock in the address bar, set Notifications to Allow, then reload this page.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- unsupported -->
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PushPanel / unsupported</h2>
+        <span style="font-size: 12px; color: #5F6C79;">no button at all — there is nothing to press</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #D6DCE1; border-radius: 8px; padding: 16px; background: #F4F6F8; display: flex; align-items: flex-start; gap: 12px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 9.2v4.2"></path><path d="M10 6.6h.01"></path></svg>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">This browser cannot show claim notifications. New claims will still appear in My claims.</span>
+      </div>
+      <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">It always names the way through: the work is still reachable, just not announced.</p>
+    </section>
+  </div>
+
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <h2 style="margin: 0 0 4px; font-size: 17px; font-weight: 600;">The copy is a parameter, not a constant</h2>
+    <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: #2B333B;">Same component, two sets of sentences. Passes 2 and 3 place this panel in the header area of the expert and garage shells; the claim officer, broker and admin screens do not carry it at all.</p>
+    <div style="display: grid; grid-template-columns: 84px 1fr 1fr; gap: 12px 20px; align-items: start;">
+      <span></span>
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Expert</span>
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Garage</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">invitation</span>
+      <span style="font-size: 13px; line-height: 1.5;">Get a popup on this device the moment a claim is assigned to you.</span>
+      <span style="font-size: 13px; line-height: 1.5;">Get a popup on this device the moment AXA reviews one of your declarations.</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">enabled</span>
+      <span style="font-size: 13px; line-height: 1.5;">Notifications are on. New claims will pop up on this device.</span>
+      <span style="font-size: 13px; line-height: 1.5;">Notifications are on. AXA&rsquo;s decisions will pop up on this device.</span>
+
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; color: #5F6C79;">unsupported</span>
+      <span style="font-size: 13px; line-height: 1.5;">This browser cannot show claim notifications. New claims will still appear in My claims.</span>
+      <span style="font-size: 13px; line-height: 1.5;">This browser cannot show notifications. Decisions will still appear in My declarations.</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

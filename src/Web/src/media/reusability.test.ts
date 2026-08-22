@@ -18,6 +18,15 @@ const sources = import.meta.glob('./**/*.{ts,tsx}', {
 
 const sourceFiles = Object.entries(sources).filter(([name]) => !name.includes('.test.'))
 
+/** The shared component layer, added in slice 4.4 — see the second `describe` below. */
+const uiSources = import.meta.glob('../ui/**/*.{ts,tsx}', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+const uiFiles = Object.entries(uiSources).filter(([name]) => !name.includes('.test.'))
+
 /**
  * The web-side counterpart to the NetArchTest rules in `src/Api.Tests/Architecture`.
  *
@@ -69,6 +78,62 @@ describe('the media module stays reusable', () => {
       expect(
         pattern.test(source),
         `${name} imports ${what}; the garage and public-page flows must reuse this module unchanged`,
+      ).toBe(false)
+    }
+  })
+
+  /**
+   * Slice 4.4 gave this module something new to import: `ui/`. Most of that folder is presentational
+   * and safe, but **`AppShell`, `AppHeader` and `useSignOut` are not** — they read the session, the
+   * token store and the router, which is exactly what the rules above exist to keep out. An
+   * allow-list rather than a ban, because the ban would have to be rewritten every time `ui/` grows a
+   * component, and the version that is never rewritten is the one that quietly stops covering
+   * anything (slice 3.1's lesson, in a new place).
+   */
+  const ALLOWED_UI = ['Button', 'Banner', 'StatusChip', 'DetailTable', 'DocumentRow', 'tones']
+
+  it.each(sourceFiles)('%s imports only presentational parts of ui/', (name, source) => {
+    for (const match of source.matchAll(/from\s+'(?:\.\.\/)+ui\/([A-Za-z]+)'/g)) {
+      expect(
+        ALLOWED_UI.includes(match[1]),
+        `${name} imports ui/${match[1]}; only ${ALLOWED_UI.join(', ')} are safe here — the shell ` +
+          'components read the session and the token store, which the public page has neither of',
+      ).toBe(true)
+    }
+  })
+})
+
+/**
+ * The same argument one folder over.
+ *
+ * `ui/` is the chrome every role shares, so a component that reached into `garage/` or `officer/`
+ * would make the header un-renderable for the other four — and, through the allow-list above, could
+ * couple `media/` to a role module transitively, with the guard beside it still reading green.
+ *
+ * The router is **not** forbidden here, unlike in `media/`: `DesktopNav` navigates and `useSignOut`
+ * redirects, and that is the job. The rule that matters is that no shared component knows about one
+ * role's data.
+ */
+describe('the ui layer stays role-agnostic', () => {
+  const forbidden = [
+    { pattern: /from\s+'(\.\.\/)+expert\//, what: 'the expert module' },
+    { pattern: /from\s+'(\.\.\/)+garage\//, what: 'the garage module' },
+    { pattern: /from\s+'(\.\.\/)+officer\//, what: 'the officer module' },
+    { pattern: /from\s+'(\.\.\/)+admin\//, what: 'the admin module' },
+    { pattern: /from\s+'(\.\.\/)+pages\//, what: 'a page' },
+  ]
+
+  it('has source files to check', () => {
+    // Non-vacuity, the same guard `Rule2_IsNotVacuous` gives the server rules: without it this whole
+    // block passes on an empty match the day the folder is renamed.
+    expect(uiFiles.length).toBeGreaterThan(9)
+  })
+
+  it.each(uiFiles)('%s imports no role module', (name, source) => {
+    for (const { pattern, what } of forbidden) {
+      expect(
+        pattern.test(source),
+        `${name} imports ${what}; every role shares these components`,
       ).toBe(false)
     }
   })

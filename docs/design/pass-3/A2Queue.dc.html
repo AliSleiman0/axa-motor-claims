@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 960px; background: #EEF1F4; display: flex; flex-direction: column; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 900px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 8px; top: 904px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 900</span>
+
+  <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border-bottom: 1px solid #D6DCE1; flex: none;">
+    <span style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+      <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Admin</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Experts</span>
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Garages</span>
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Claim officers</span>
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Brokers</span>
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">
+        Failed pushes
+        <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #FBEBE9; border: 1px solid #C98B84; color: #A33A31; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; font-weight: 500;">2</span>
+      </span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 16px;">
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 000 001</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+        Sign out
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Failed pushes</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B; max-width: 820px;">Everything the app has tried and failed to file in NEXT3. Each row is a document, an arrival or a decision that AXA does not have — nothing is lost, but nothing arrives until somebody acts.</span>
+      </div>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500; flex: none;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.4 8.6a6.6 6.6 0 1 0-.6 4.4"></path><path d="M16.6 3.6v5h-5"></path></svg>
+        Retry all
+      </span>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 170px 210px 90px 1fr 170px 170px 110px; gap: 14px; padding: 12px 20px; background: #F4F6F8; border-bottom: 1px solid #D6DCE1;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Operation</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Claim / visa</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79; text-align: right;">Attempts</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Last error</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Created</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Last tried</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;"></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 170px 210px 90px 1fr 170px 170px 110px; gap: 14px; padding: 14px 20px; min-height: 56px; align-items: center; border-bottom: 1px solid #E4E9ED;">
+        <span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBEBE9; border: 1px solid #C98B84; color: #A33A31; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500;">upload_document</span></span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px;">PLACEHOLDER-VISA-0003</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">8</span>
+        <span style="font-size: 13px; line-height: 1.4;">NEXT3 rejected the document type PLACEHOLDER-DOC-02.</span>
+        <span style="font-size: 13px;">21 Aug 2026, 09:12</span>
+        <span style="font-size: 13px;">22 Aug 2026, 11:48</span>
+        <span><span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 13px; font-weight: 500;">Retry</span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 170px 210px 90px 1fr 170px 170px 110px; gap: 14px; padding: 14px 20px; min-height: 56px; align-items: center; background: #F8FAFB; border-bottom: 1px solid #E4E9ED;">
+        <span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBEBE9; border: 1px solid #C98B84; color: #A33A31; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500;">update_arrival</span></span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px;">PLACEHOLDER-VISA-0007</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">1</span>
+        <span style="font-size: 13px; line-height: 1.4;">NEXT3 does not know this visa number.</span>
+        <span style="font-size: 13px;">22 Aug 2026, 10:31</span>
+        <span style="font-size: 13px;">22 Aug 2026, 10:31</span>
+        <span><span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 13px; font-weight: 500;">Retry</span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 170px 210px 90px 1fr 170px 170px 110px; gap: 14px; padding: 14px 20px; min-height: 56px; align-items: center;">
+        <span style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+          <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500;">push_approval</span>
+          <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 11px; font-weight: 500;">long pending</span>
+        </span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px;">PLACEHOLDER-VISA-0004</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">4</span>
+        <span style="font-size: 13px; line-height: 1.4;">Timed out. Next attempt in 2 h.</span>
+        <span style="font-size: 13px;">22 Aug 2026, 06:02</span>
+        <span style="font-size: 13px;">22 Aug 2026, 09:14</span>
+        <span><span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 13px; font-weight: 500;">Retry now</span></span>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+      <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+        <strong style="font-weight: 600;">Two kinds of row, one screen.</strong> Red is <em>failed</em> — given up on, and it will sit there for ever until somebody presses Retry. Amber is <em>still trying</em>: it has not failed, it is just taking a long time, and it is here so nobody has to wonder where a photograph went.
+      </div>
+      <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+        <strong style="font-weight: 600;">Attempts is the honest column.</strong> Eight means the retry schedule ran out — roughly a day and a half of trying. One means it failed immediately and permanently: a bad visa or a malformed push is never fixed by waiting, so the app does not pretend by retrying.
+      </div>
+      <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+        <strong style="font-weight: 600;">Retry is safe to press twice.</strong> Every push carries a stable reference, so re-sending the same one is meant to be a no-op at NEXT3&#39;s end. Whether it truly is depends on NEXT3 honouring that reference — an open question, and the one place duplicates could appear.
+      </div>
+    </div>
+
+    <div style="padding: 12px 16px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+      <strong style="font-weight: 600;">Not built, and one column does not exist yet.</strong> There is no endpoint that lists these rows and none that retries one. The queue itself is real and running and the index this table needs is already there — but <strong style="font-weight: 600;">Last tried</strong> has nothing behind it: the row stores when it was created, when it is next due and when it was sent, never when it was last attempted, and the next-due value is overwritten while a worker holds the row. That column is a migration, not just a screen. Until all of it is built, the only way to see a failed push is to query the database directly.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

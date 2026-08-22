@@ -1,0 +1,89 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Sign in" },
+    { "id": "page-2", "name": "Expert" },
+    { "id": "page-3", "name": "Garage" },
+    { "id": "page-4", "name": "Public customer" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "S2 Login", "page": "page-1", "x": 0, "y": 0, "w": 390, "h": 869 },
+    { "file": "S2Code.dc.html", "title": "S2 Code sent", "page": "page-1", "x": 500, "y": 0, "w": 390, "h": 869 },
+    { "file": "S2CodeRejected.dc.html", "title": "S2 Code rejected", "page": "page-1", "x": 1000, "y": 0, "w": 390, "h": 1010 },
+    { "file": "S1Invite.dc.html", "title": "S1 Invitation", "page": "page-1", "x": 1500, "y": 0, "w": 390, "h": 1134 },
+    { "file": "S1Otp.dc.html", "title": "S1 Confirm + done", "page": "page-1", "x": 2000, "y": 0, "w": 390, "h": 975 },
+    { "file": "S1OtpRejected.dc.html", "title": "S1 Code rejected", "page": "page-1", "x": 0, "y": 1274, "w": 390, "h": 926 },
+    { "file": "S1Expired.dc.html", "title": "S1 Dead invitation", "page": "page-1", "x": 500, "y": 1274, "w": 390, "h": 869 },
+    { "file": "PhoneNav.dc.html", "title": "Phone navigation", "page": "page-1", "x": 1000, "y": 1274, "w": 390, "h": 896 },
+
+    { "file": "E1List.dc.html", "title": "E1 Claim list", "page": "page-2", "x": 0, "y": 0, "w": 390, "h": 869 },
+    { "file": "E1Loading.dc.html", "title": "E1 Loading", "page": "page-2", "x": 500, "y": 0, "w": 390, "h": 869 },
+    { "file": "E1Empty.dc.html", "title": "E1 Empty", "page": "page-2", "x": 1000, "y": 0, "w": 390, "h": 869 },
+    { "file": "E1NoMatch.dc.html", "title": "E1 No match", "page": "page-2", "x": 1500, "y": 0, "w": 390, "h": 869 },
+    { "file": "E2Detail.dc.html", "title": "E2 Claim detail", "page": "page-2", "x": 2000, "y": 0, "w": 390, "h": 1155 },
+    { "file": "E2NotFound.dc.html", "title": "E2 Visa not found", "page": "page-2", "x": 0, "y": 1295, "w": 390, "h": 869 },
+    { "file": "E2Arrival.dc.html", "title": "E2 Arrival states", "page": "page-2", "x": 500, "y": 1295, "w": 390, "h": 1203 },
+    { "file": "E2Capture.dc.html", "title": "E2 Capture", "page": "page-2", "x": 1000, "y": 1295, "w": 390, "h": 2091 },
+    { "file": "E2Clarity.dc.html", "title": "E2 Clarity confirm", "page": "page-2", "x": 1500, "y": 1295, "w": 390, "h": 1555 },
+    { "file": "E2Rejected.dc.html", "title": "E2 Photo refused", "page": "page-2", "x": 2000, "y": 1295, "w": 390, "h": 869 },
+    { "file": "E2Voice.dc.html", "title": "E2 Voice note states", "page": "page-2", "x": 0, "y": 3526, "w": 390, "h": 1347 },
+    { "file": "PushStates.dc.html", "title": "Push panel placement", "page": "page-2", "x": 500, "y": 3526, "w": 390, "h": 1226 },
+
+    { "file": "G1List.dc.html", "title": "G1 Declarations", "page": "page-3", "x": 0, "y": 0, "w": 390, "h": 869 },
+    { "file": "G1Empty.dc.html", "title": "G1 Empty + loading", "page": "page-3", "x": 500, "y": 0, "w": 390, "h": 869 },
+    { "file": "G2New.dc.html", "title": "G2 New declaration", "page": "page-3", "x": 1000, "y": 0, "w": 390, "h": 954 },
+    { "file": "G3Draft.dc.html", "title": "G3 Draft", "page": "page-3", "x": 1500, "y": 0, "w": 390, "h": 1457 },
+    { "file": "G3Waiting.dc.html", "title": "G3 Waiting for AXA", "page": "page-3", "x": 2000, "y": 0, "w": 390, "h": 904 },
+    { "file": "G3NotAccepted.dc.html", "title": "G3 Not accepted", "page": "page-3", "x": 0, "y": 1597, "w": 390, "h": 878 },
+    { "file": "G3Approved.dc.html", "title": "G3 Approved", "page": "page-3", "x": 500, "y": 1597, "w": 390, "h": 1151 },
+    { "file": "G3Repairs.dc.html", "title": "G3 Repairs in progress", "page": "page-3", "x": 1000, "y": 1597, "w": 390, "h": 1273 },
+    { "file": "G4Submitted.dc.html", "title": "G4 Documents sent", "page": "page-3", "x": 1500, "y": 1597, "w": 390, "h": 869 },
+
+    { "file": "P1Intro.dc.html", "title": "P1 Details", "page": "page-4", "x": 0, "y": 0, "w": 390, "h": 1452 },
+    { "file": "P1Capture.dc.html", "title": "P1 Photographs (live)", "page": "page-4", "x": 500, "y": 0, "w": 390, "h": 1898 },
+    { "file": "P1Success.dc.html", "title": "P1 Sent", "page": "page-4", "x": 1000, "y": 0, "w": 390, "h": 928 },
+    { "file": "P1Expired.dc.html", "title": "P1 Link closed", "page": "page-4", "x": 1500, "y": 0, "w": 390, "h": 869 }
+  ],
+  "annotations": [
+    {
+      "id": "pass-2-scope",
+      "page": "page-1",
+      "x": 0,
+      "y": -260,
+      "w": 520,
+      "text": "Pass 2 of 3 — phone screens.\nEvery control here is a pass-1 component at its pass-1 values; nothing is redrawn. Pass 3 does the desktop roles.\n\nEvery screen carries a dashed fold marker at 844: that is where a 390×844 handset stops without scrolling. Some screens overshoot it by 20 px, some by 1000 — the marker says which.\n\nEvery value shown is deliberately fake."
+    },
+    {
+      "id": "sign-in-uniform",
+      "page": "page-1",
+      "x": 1500,
+      "y": -260,
+      "w": 460,
+      "text": "Sign-in and registration answer every failure identically — wrong code, expired code, five attempts used, unknown number, dead invitation.\n\nThat is a deliberate control, not a gap, so these screens say what the server can justify and no more. Where a screen claims more (the five-attempts note), it is counting its own tries."
+    },
+    {
+      "id": "expert-outage",
+      "page": "page-2",
+      "x": 0,
+      "y": -260,
+      "w": 480,
+      "text": "The outage is a first-class state on this page, never a dead end.\n\nStale (amber) means NEXT3 is down and this is the last copy held. Not found (red) means NEXT3 answered and has no such visa. Capture keeps working under both, and documents sit as Queued until the connection returns."
+    },
+    {
+      "id": "garage-rule",
+      "page": "page-3",
+      "x": 0,
+      "y": -260,
+      "w": 480,
+      "text": "Five states, five artboards, because the garage's screen is a different screen in each.\n\nTwo rules worth arguing with AXA about are drawn as they stand today: a rejected declaration shows no reason, and repairs end with no closure state."
+    },
+    {
+      "id": "public-surface",
+      "page": "page-4",
+      "x": 0,
+      "y": -260,
+      "w": 520,
+      "text": "The project's largest attack surface: a public page collecting identity documents from a member of the public.\n\nIt shows nothing before submission, has no navigation and no sign-in, and every dead link renders identically. The amber notes mark where the design needs the API to change rather than the other way round."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

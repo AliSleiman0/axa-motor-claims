@@ -1,12 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Link, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { createQueryClient } from './api/queryClient'
 import { currentRole, homePathFor } from './api/session'
 import { getTokens } from './api/tokens'
-import { PROFILE_KINDS } from './admin/kinds'
 import { GARAGE_PUSH_COPY } from './push/copy'
 import { PushPanel } from './push/PushPanel'
+import { AppShell } from './ui/AppShell'
 import LoginPage from './pages/LoginPage'
+import InvitePage from './pages/InvitePage'
 import ProfileListPage from './pages/ProfileListPage'
 import ProfileFormPage from './pages/ProfileFormPage'
 import ExpertAssignmentsPage from './pages/ExpertAssignmentsPage'
@@ -19,34 +20,31 @@ import OfficerDeclarationPage from './pages/OfficerDeclarationPage'
 
 const queryClient = createQueryClient()
 
+/**
+ * The four layouts are now one shell plus whatever that role needs on every screen.
+ *
+ * `AppShell` takes the role rather than reading it, so the difference between an expert's 48 px
+ * controls and an officer's 36 px is one string and not four copies of a layout.
+ */
 function AdminLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
   return (
-    <main>
-      <h1>AXA Motor Claims — Admin</h1>
-      <nav>
-        {PROFILE_KINDS.map((kind) => (
-          <span key={kind.slug}>
-            <Link to={`/admin/${kind.slug}`}>{kind.label}</Link>{' '}
-          </span>
-        ))}
-      </nav>
+    <AppShell role="admin">
       <Outlet />
-    </main>
+    </AppShell>
   )
 }
 
 function ExpertLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
   return (
-    <main>
-      <h1>AXA Motor Claims — Expert</h1>
+    <AppShell role="expert">
       {/* In the layout, not on a page: §8's assignment popup is the BRD's primary trigger, and an
           expert who has not enabled it should be offered it on every screen, not only the one they
-          happened to land on. AdminLayout slots its <nav> in the same place. */}
+          happened to land on. */}
       <PushPanel />
       <Outlet />
-    </main>
+    </AppShell>
   )
 }
 
@@ -58,13 +56,12 @@ function ExpertLayout() {
 function GarageLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
   return (
-    <main>
-      <h1>AXA Motor Claims — Garage</h1>
+    <AppShell role="garage">
       {/* §8's garage rows are about a decision on work this garage filed — never a claim assigned
           to them, which is what the default (expert) copy says. Found on screen in 4.2's pass. */}
       <PushPanel copy={GARAGE_PUSH_COPY} />
       <Outlet />
-    </main>
+    </AppShell>
   )
 }
 
@@ -76,10 +73,9 @@ function GarageLayout() {
 function OfficerLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
   return (
-    <main>
-      <h1>AXA Motor Claims — Claim officer</h1>
+    <AppShell role="claim_officer">
       <Outlet />
-    </main>
+    </AppShell>
   )
 }
 
@@ -89,6 +85,17 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          {/*
+            S1, and the only other unauthenticated route in the app. Two spellings of one screen: the
+            link in the invitation SMS carries the token in the path, and the bare route is the paste
+            path for a message whose URL was stripped or read on another device.
+
+            `/invite/:token` is a contract with `InviteService.InviteMessage` in the same way
+            `/garage/:id` is one with §8's push URLs — renaming it silently breaks every invitation
+            already sent, which is up to seven days' worth.
+          */}
+          <Route path="/invite" element={<InvitePage />} />
+          <Route path="/invite/:token" element={<InvitePage />} />
           {/* Role decides the landing screen; the server decides what each screen may read (§9). */}
           <Route path="/" element={<Navigate to={homePathFor(currentRole())} replace />} />
           <Route element={<ExpertLayout />}>

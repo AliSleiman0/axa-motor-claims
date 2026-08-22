@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 900px; background: #EEF1F4; display: flex; flex-direction: column; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 900px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 8px; top: 904px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 900</span>
+
+  <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border-bottom: 1px solid #D6DCE1; flex: none;">
+    <span style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+      <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Broker</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Requests</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 16px;">
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 003 004</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+        Sign out
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; color: #2E6BB8; text-decoration: underline;">← Requests</span>
+      <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Send customer link</span>
+      <span style="font-size: 14px; line-height: 1.5; color: #2B333B; max-width: 760px;">Option 2 — the customer fills in their own details and photographs their own car, then the file comes back to you to review and send.</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 480px 1fr 1fr; gap: 24px; align-items: start;">
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 16px; font-size: 17px; font-weight: 600;">Before the link exists</h2>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Customer mobile</span>
+            <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; border: 1px solid #5F6C79; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">+999 000 007 001</span>
+            <span style="font-size: 12px; color: #5F6C79;">Optional, and stored only so you know whose link this is. The page itself never shows it.</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Insurance type (optional)</span>
+            <span style="height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #8B96A1;">
+              Let the customer choose
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="m5.6 8 4.4 4.4L14.4 8"></path></svg>
+            </span>
+          </div>
+          <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500;">Create link</span>
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBEBE9; border: 1px solid #A33A31; border-left-width: 4px;">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#A33A31" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 6.2v4.4"></path><path d="M10 13.4h.01"></path></svg>
+            <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">That is not a valid mobile number. Use the international form, starting with the country code.</span>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #2E6BB8; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 6px; font-size: 17px; font-weight: 600;">The link, once</h2>
+        <p style="margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: #5F6C79;">The state immediately after Create link, and the only time this value is ever on screen.</p>
+
+        <div style="padding: 14px; border: 1px solid #D6DCE1; border-radius: 8px; background: #F4F6F8; display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.6; word-break: break-all; color: #0F1418;">https://PLACEHOLDER-app.example/p/kQ8sV2mJ4pR7wT1xY6zB3nC5dF9gH0jL</span>
+          <div style="display: flex; gap: 10px;">
+            <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 14px; font-weight: 500;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="9.4" height="9.4" rx="2"></rect><path d="M4.6 12.4H3.6V3.6h8.8v1"></path></svg>
+              Copy link
+            </span>
+            <span style="height: 36px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #F4F6F8; border: 1px solid #E4E9ED; color: #8B96A1; font-size: 14px; font-weight: 500;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#8B96A1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 5.4h13.2v9.2H3.4z"></path><path d="m3.4 6 6.6 5 6.6-5"></path></svg>
+              Send by SMS
+            </span>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #FBF1DE; border: 1px solid #8A6116; border-left-width: 4px;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#8A6116" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+          <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">Copy this now — it cannot be shown again. If you lose it, create a new link; the old one keeps working until it expires.</span>
+        </div>
+
+        <div style="margin-top: 12px; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #F4F6F8; border: 1px solid #D6DCE1; border-left: 4px solid #5F6C79;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><circle cx="10" cy="10" r="7.6"></circle><path d="M10 9.2v4.2"></path><path d="M10 6.6h.01"></path></svg>
+          <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">Send by SMS is off — delivery channel is set to <strong style="font-weight: 600;">copy</strong>. Turning it on is a config change once AXA names an SMS provider.</span>
+        </div>
+
+        <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Valid for seven days, and dead the moment the customer sends it. Only a hash of it is stored, so nobody — including AXA — can recover the link from the database.</p>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 6px; font-size: 17px; font-weight: 600;">Afterwards</h2>
+        <p style="margin: 0 0 14px; font-size: 12px; line-height: 1.5; color: #5F6C79;">Returning to the request later. The link is not here, and cannot be.</p>
+
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">State</span><span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 12px; font-weight: 500;">Link issued</span></span></div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Sent to</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">+999 000 007 001</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Created</span><span style="font-size: 14px;">22 Aug 2026, 11:12</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; padding: 9px 0;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Expires</span><span style="font-size: 14px;">29 Aug 2026, 11:12</span></div>
+        </div>
+
+        <span style="margin-top: 16px; height: 36px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #FFFFFF; border: 1px solid #5F6C79; font-size: 14px; font-weight: 500;">Create a new link</span>
+        <p style="margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">A new link is a new request and a new row. Reissuing does not revive a link the customer has already used.</p>
+      </section>
+    </div>
+
+    <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      The only broker screen with an endpoint behind it — with two caveats. The API returns the path <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">/public/{token}</span>, which is where the customer&#39;s browser talks to; <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">/p/{token}</span> shown above is the friendlier web address in front of it, and that route does not exist yet. And the insurance-type preset is not in the request the endpoint accepts — it takes the mobile number and nothing else, so that field is a proposal. The host name is a placeholder either way: whoever deploys decides the address it hangs off.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

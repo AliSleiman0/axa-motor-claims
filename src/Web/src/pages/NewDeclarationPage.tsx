@@ -3,6 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { createDeclaration, garageKeys } from '../garage/api'
+import { AlertBanner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { TextArea, TextField } from '../ui/fields'
 
 /**
  * G2 (design.md §5.2): a new declaration in Draft.
@@ -55,53 +58,55 @@ export default function NewDeclarationPage() {
   }
 
   return (
-    <section>
-      <p>
-        <Link to="/garage">← My declarations</Link>
-      </p>
-      <h2>New declaration</h2>
+    <section className="page">
+      <Link className="back-link" to="/garage">
+        ← My declarations
+      </Link>
+      <h2 className="page__title">New declaration</h2>
 
-      <form onSubmit={onSubmit}>
-        <p>
-          <label htmlFor="plate-no">Plate number</label>{' '}
-          <input
-            id="plate-no"
-            value={plateNo}
-            maxLength={20}
-            required
-            onChange={(event) => {
-              setPlateNo(event.target.value)
-            }}
-          />
-        </p>
-        <p>
-          <label htmlFor="insured-name">Insured name (optional)</label>{' '}
-          <input
-            id="insured-name"
-            value={insuredName}
-            maxLength={200}
-            onChange={(event) => {
-              setInsuredName(event.target.value)
-            }}
-          />
-        </p>
-        <p>
-          <label htmlFor="declaration-note">Note (optional)</label>{' '}
-          <textarea
-            id="declaration-note"
-            value={note}
-            maxLength={1000}
-            onChange={(event) => {
-              setNote(event.target.value)
-            }}
-          />
-        </p>
-        <button type="submit" disabled={mutation.isPending || plateNo.trim().length === 0}>
-          {mutation.isPending ? 'Creating…' : 'Create declaration'}
-        </button>
+      <form className="panel" onSubmit={onSubmit}>
+        <TextField
+          id="plate-no"
+          label="Plate number"
+          value={plateNo}
+          maxLength={20}
+          required
+          // The plate is the key an officer searches NEXT3 with, so it reads as a reference number.
+          className="field__control--mono"
+          onChange={(event) => {
+            setPlateNo(event.target.value)
+          }}
+        />
+        <TextField
+          id="insured-name"
+          label="Insured name (optional)"
+          value={insuredName}
+          maxLength={200}
+          onChange={(event) => {
+            setInsuredName(event.target.value)
+          }}
+        />
+        <TextArea
+          id="declaration-note"
+          label="Note (optional)"
+          value={note}
+          maxLength={1000}
+          onChange={(event) => {
+            setNote(event.target.value)
+          }}
+        />
+        <div className="actions">
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={mutation.isPending || plateNo.trim().length === 0}
+          >
+            {mutation.isPending ? 'Creating…' : 'Create declaration'}
+          </Button>
+        </div>
       </form>
 
-      {failed && <p role="alert">{failed}</p>}
+      {failed && <AlertBanner>{failed}</AlertBanner>}
     </section>
   )
 }

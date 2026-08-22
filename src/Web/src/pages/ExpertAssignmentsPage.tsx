@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { formatDateTime } from '../api/datetime'
 import type { AssignmentListItem } from '../expert/api'
 import { SEARCH_MAX_LENGTH, useAssignmentSearch } from '../expert/useAssignmentSearch'
 import { useAssignments } from '../expert/useAssignments'
+import { AlertBanner, StatusBanner } from '../ui/Banner'
+import { SearchField } from '../ui/fields'
+import { WorklistCard } from '../ui/Worklist'
 
 /**
  * E1 (design.md §5.1): "lists assignments newest-first with media counts; that is the whole
@@ -22,8 +24,8 @@ export default function ExpertAssignmentsPage({ debounceMs }: { debounceMs?: num
   const { data, isPending, error } = useAssignments(query)
 
   return (
-    <section>
-      <h2>My claims</h2>
+    <section className="page">
+      <h2 className="page__title">My claims</h2>
 
       {/*
         The search box is rendered above every branch below on purpose. Put it inside them and the
@@ -40,19 +42,17 @@ export default function ExpertAssignmentsPage({ debounceMs }: { debounceMs?: num
 
 function SearchBox({ term, setTerm }: { term: string; setTerm: (next: string) => void }) {
   return (
-    <p>
-      <label htmlFor="claim-search">Search visa or plate</label>{' '}
-      <input
-        id="claim-search"
-        type="search"
-        value={term}
-        // The server refuses a longer term outright; this only stops the screen producing one.
-        maxLength={SEARCH_MAX_LENGTH}
-        onChange={(event) => {
-          setTerm(event.target.value)
-        }}
-      />
-    </p>
+    <SearchField
+      id="claim-search"
+      label="Search visa or plate"
+      value={term}
+      // The server refuses a longer term outright; this only stops the screen producing one.
+      maxLength={SEARCH_MAX_LENGTH}
+      className="field__control--mono"
+      onChange={(event) => {
+        setTerm(event.target.value)
+      }}
+    />
   )
 }
 
@@ -64,10 +64,10 @@ function SearchBox({ term, setTerm }: { term: string; setTerm: (next: string) =>
  */
 function ColdCacheHint() {
   return (
-    <p>
+    <StatusBanner>
       Searching visa and plate numbers. A claim whose details have not loaded from NEXT3 yet has no
       plate to match — search that one by visa number.
-    </p>
+    </StatusBanner>
   )
 }
 
@@ -85,12 +85,12 @@ function Results({
   /** The live query string, carried into each claim link so E2 can return the expert to it. */
   search: string
 }) {
-  if (isPending) return <p>Loading claims…</p>
+  if (isPending) return <p className="muted">Loading claims…</p>
   if (error) {
     return (
-      <p role="alert">
+      <AlertBanner>
         Could not load claims{error instanceof ApiError ? ` (${error.status})` : ''}.
-      </p>
+      </AlertBanner>
     )
   }
 
@@ -98,49 +98,53 @@ function Results({
     // Two different facts that used to share one sentence. "No claims assigned yet" is simply
     // untrue when the expert has claims and has just mistyped a plate.
     return query ? (
-      <p>No claim of yours matches “{query}”.</p>
+      <div className="stack">
+        <p className="muted">No claim of yours matches “{query}”.</p>
+        {/*
+          §5.1's search is local to this expert's own assignments — a NEXT3-wide search would return
+          claims they were never assigned, onto a screen carrying a capture panel. An expert who does
+          not know that reads an empty result as "AXA has lost the claim" rather than "not mine".
+        */}
+        <p className="muted">
+          Search only reaches the claims assigned to you. Clear the box to see all of them.
+        </p>
+      </div>
     ) : (
-      <p>No claims assigned yet.</p>
+      <p className="muted">No claims assigned yet.</p>
     )
   }
 
   return (
-    <table border={1} cellPadding={4}>
-      <thead>
-        <tr>
-          <th>Visa</th>
-          <th>Plate</th>
-          <th>Insured</th>
-          <th>Vehicle</th>
-          <th>Accident</th>
-          <th>Received</th>
-          <th>Media</th>
-          <th>Arrived</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((item) => (
-          <tr key={item.id}>
-            <td>
-              {/*
-                The search rides along into E2, which hands it back on its "My claims" link. Found
-                in the browser: without it an expert who searches, opens a claim and comes back has
-                to retype the plate — on a phone, at a crash site, which is the situation the whole
-                feature exists for. The URL was already the source of truth; this just keeps it.
-              */}
-              <Link to={`/expert/${item.id}${search}`}>{item.visaNo}</Link>
-            </td>
-            {/* Null claim fields are a cold cache, not missing data — say so rather than blank. */}
-            <td>{item.plateNo ?? '—'}</td>
-            <td>{item.insuredName ?? '—'}</td>
-            <td>{item.carMakeModel ?? '—'}</td>
-            <td>{item.accidentDate ?? '—'}</td>
-            <td>{formatDateTime(item.receivedAt)}</td>
-            <td>{item.mediaCount}</td>
-            <td>{item.arrivedAt ? formatDateTime(item.arrivedAt) : '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="worklist-cards">
+      {data.map((item) => (
+        <WorklistCard
+          key={item.id}
+          /*
+            The search rides along into E2, which hands it back on its "My claims" link. Found in
+            the browser: without it an expert who searches, opens a claim and comes back has to
+            retype the plate — on a phone, at a crash site, which is the situation the whole feature
+            exists for. The URL was already the source of truth; this just keeps it.
+          */
+          to={`/expert/${item.id}${search}`}
+          reference={item.visaNo}
+          /* The count is its own element: "3 media" as one string would make the number
+             unaddressable, and it is the column §5.1 says E1 exists to show. */
+          status={
+            <span className="caption">
+              Media <strong>{item.mediaCount}</strong>
+            </span>
+          }
+          meta={[
+            // Null claim fields are a cold cache, not missing data — say so rather than blank.
+            { label: 'Plate', value: item.plateNo ?? '—' },
+            { label: 'Insured', value: item.insuredName ?? '—' },
+            { label: 'Vehicle', value: item.carMakeModel ?? '—' },
+            { label: 'Accident', value: item.accidentDate ?? '—' },
+            { label: 'Received', value: formatDateTime(item.receivedAt) },
+            { label: 'Arrived', value: item.arrivedAt ? formatDateTime(item.arrivedAt) : '—' },
+          ]}
+        />
+      ))}
+    </div>
   )
 }

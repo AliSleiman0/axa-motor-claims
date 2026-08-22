@@ -297,6 +297,11 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:ASPNETCORE_URLS = $ApiBase
 $env:Blob__Mode = 'azure'
 $env:Push__Mode = 'webpush'
+# The invitation link in the onboarding SMS (S1). Set here for the same reason as the two above:
+# --no-launch-profile means launchSettings.json is not read, so its Auth__AppBaseUrl never applies.
+# Without this the demo's invitations point at https://PLACEHOLDER-app.example, which is correct for
+# a placeholder and useless for anyone who taps one.
+$env:Auth__AppBaseUrl = $WebBase
 try {
     # `dotnet run`, not the built exe: it puts the content root at src/Api, which is what makes beat
     # 3's live edit of appsettings.Placeholders.json reload. Run the exe out of bin and you would be
@@ -306,7 +311,8 @@ try {
         -WorkingDirectory $RepoRoot -RedirectStandardOutput $ApiLog -RedirectStandardError $ApiErrLog
     Add-RecordedProcess $api.Id
 } finally {
-    Remove-Item Env:ASPNETCORE_ENVIRONMENT, Env:ASPNETCORE_URLS, Env:Blob__Mode, Env:Push__Mode -ErrorAction SilentlyContinue
+    Remove-Item Env:ASPNETCORE_ENVIRONMENT, Env:ASPNETCORE_URLS, Env:Blob__Mode, Env:Push__Mode,
+        Env:Auth__AppBaseUrl -ErrorAction SilentlyContinue
 }
 Wait-Http "$ApiBase/health" 90 'API'
 
@@ -330,7 +336,9 @@ foreach ($user in $DemoUsers) {
     $baseline = @(Get-SmsMessages $phone).Count
     Invoke-Api POST "/api/admin/$($user.Slug)/" $user.Body -Token $adminToken -Accept @(200, 201) | Out-Null
     $inviteSms = Wait-NewSms $phone $baseline
-    if ($inviteSms -notmatch 'token is (\S+)') { throw "Could not read an invite token out of '$inviteSms'." }
+    # The same character class as Api.Tests' CapturingSmsSender, and for the same reason: the SMS now
+    # carries a link after the token, so a greedy \S+ would swallow the full stop into the token.
+    if ($inviteSms -notmatch 'invite token is ([A-Za-z0-9_-]+)') { throw "Could not read an invite token out of '$inviteSms'." }
     $inviteToken = $Matches[1]
 
     $baseline = @(Get-SmsMessages $phone).Count

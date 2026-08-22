@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 960px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Components</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">AppHeader · DesktopNav · PhoneNav</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 940px;">The wordmark is plain type at 17&nbsp;px, weight 600 — a placeholder, not a logo, and the one place AXA&#39;s mark would eventually sit. The role is named in the header because five different people use the same URL and the first thing support asks is &ldquo;what does your screen say at the top&rdquo;.</div>
+  </div>
+
+  <!-- desktop headers -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">AppHeader + DesktopNav — 1440&nbsp;px</h2>
+      <span style="font-size: 12px; color: #5F6C79;">64&nbsp;px tall · sticky · office roles</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Claim officer</span>
+        <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 8px; box-shadow: 0 1px 2px rgba(15,20,24,0.06);">
+          <span style="display: flex; align-items: baseline; gap: 12px;">
+            <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+            <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Claim officer</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Inbox</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 003 003</span>
+            <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+              Sign out
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Admin</span>
+        <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 8px; box-shadow: 0 1px 2px rgba(15,20,24,0.06);">
+          <span style="display: flex; align-items: baseline; gap: 12px;">
+            <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+            <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Admin</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Experts</span>
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Garages</span>
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Claim officers</span>
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; color: #2B333B; font-size: 14px;">Brokers</span>
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; color: #2B333B; font-size: 14px;">
+              Failed pushes
+              <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #FBEBE9; border: 1px solid #C98B84; color: #A33A31; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; font-weight: 500;">2</span>
+            </span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 000 001</span>
+            <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+              Sign out
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Broker</span>
+        <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 8px; box-shadow: 0 1px 2px rgba(15,20,24,0.06);">
+          <span style="display: flex; align-items: baseline; gap: 12px;">
+            <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+            <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Broker</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+            <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Requests</span>
+          </span>
+          <span style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 003 004</span>
+            <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+              Sign out
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <p style="margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">One tab is not a navigation bar — the officer and broker headers keep the single tab anyway, so the shell is identical the day a second screen lands. Sign out does not exist in the build at all today; it is added here because handing a shared workshop laptop to the next person is the normal case, not the edge one.</p>
+  </section>
+
+  <!-- phone -->
+  <div style="display: grid; grid-template-columns: 432px 432px 1fr; gap: 22px; align-items: start;">
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">AppHeader + PhoneNav — Expert</h2>
+        <span style="font-size: 12px; color: #5F6C79;">390 px · header 56 · nav 64 + safe area</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #D6DCE1; border-radius: 10px; overflow: hidden; background: #FFFFFF;">
+        <div style="height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #E4E9ED;">
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+            <span style="font-size: 11px; color: #5F6C79;">Expert</span>
+          </span>
+          <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #E4E9ED;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+          </span>
+        </div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #F4F6F8; min-height: 150px;">
+          <span style="font-size: 22px; font-weight: 600;">My claims</span>
+          <span style="height: 10px; width: 70%; border-radius: 3px; background: #E4E9ED;"></span>
+          <span style="height: 10px; width: 55%; border-radius: 3px; background: #E4E9ED;"></span>
+          <span style="height: 10px; width: 62%; border-radius: 3px; background: #E4E9ED;"></span>
+        </div>
+        <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border-top: 1px solid #D6DCE1; background: #FFFFFF;">
+          <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 4.6h13.2v10.8H3.4z"></path><path d="M3.4 8h13.2"></path><path d="M7 11.6h6"></path></svg>
+            <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Claims</span>
+          </span>
+          <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+            <span style="font-size: 12px; color: #5F6C79;">Notifications</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">AppHeader + PhoneNav — Garage</h2>
+        <span style="font-size: 12px; color: #5F6C79;">same shell, its own two destinations</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #D6DCE1; border-radius: 10px; overflow: hidden; background: #FFFFFF;">
+        <div style="height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #E4E9ED;">
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+            <span style="font-size: 11px; color: #5F6C79;">Garage</span>
+          </span>
+          <span style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #E4E9ED;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+          </span>
+        </div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #F4F6F8; min-height: 150px;">
+          <span style="font-size: 22px; font-weight: 600;">My declarations</span>
+          <span style="height: 10px; width: 66%; border-radius: 3px; background: #E4E9ED;"></span>
+          <span style="height: 10px; width: 58%; border-radius: 3px; background: #E4E9ED;"></span>
+          <span style="height: 10px; width: 72%; border-radius: 3px; background: #E4E9ED;"></span>
+        </div>
+        <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border-top: 1px solid #D6DCE1; background: #FFFFFF;">
+          <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+            <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Declarations</span>
+          </span>
+          <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+            <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+            <span style="font-size: 12px; color: #5F6C79;">Notifications</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <h2 style="margin: 0 0 12px; font-size: 17px; font-weight: 600;">Rules the shells follow</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.5; color: #2B333B;">
+        <div>Two destinations, never three. There is no third screen a field user needs while standing at a car, and a two-item bar keeps both targets far from the thumb&#39;s edge.</div>
+        <div>The bar sits above the home indicator: 64&nbsp;px of bar plus the device safe area, drawn here as the extra 20&nbsp;px.</div>
+        <div>No fake status bar and no painted keyboard anywhere in this design — the real ones render on top.</div>
+        <div>Back is an in-page link, not a nav item: <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">← My claims</span> at the top of a detail screen, carrying any active search back with it.</div>
+        <div><strong style="font-weight: 600;">Net-new:</strong> both the phone bar and Sign out are new surface. The build today has navigation only on the admin screens.</div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

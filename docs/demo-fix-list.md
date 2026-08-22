@@ -44,6 +44,15 @@ geolocation**; **a real `MediaRecorder` voice note** (384,764 bytes, `audio/webm
 
 ## Deliberately not changed
 
+- **A running demo blocks `dotnet build` and `dotnet test`.** `demo-reset.ps1` runs the API through
+  `dotnet run`, which locks `Api.exe` in the build output; the repo's Stop hook runs `dotnet test`
+  after every turn, so it fails with `MSB3027 ... locked by "Api"` — a build error that reads like a
+  broken test run. Hit at the end of this slice. **Not engineered around:** the alternatives are
+  building the demo to a separate output directory or running the built exe with an explicit
+  `--contentRoot`, and the second would break beat 3, whose whole point is that editing
+  `appsettings.Placeholders.json` reloads live — which only works because `dotnet run` puts the
+  content root at `src/Api`. `-Stop` is the answer and `demo-week4.md` now says so under
+  *When you are done*.
 - **G1's media count includes the officer's approval image** (3 where the garage uploaded 2). It is
   the declaration's media and the count is right; recorded in `scope-decisions.md`, and beat 4 now
   tells the presenter to say so rather than look puzzled. This closes the decision 4.2 left open.

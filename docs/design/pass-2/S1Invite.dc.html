@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 940px; background: #FFFFFF; padding: 24px; display: flex; flex-direction: column; gap: 18px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="padding-top: 48px; display: flex; flex-direction: column; gap: 6px;">
+    <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+    <span style="font-size: 13px; color: #5F6C79;">Motor claim management</span>
+  </div>
+
+  <div style="padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+    <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">You have been invited</span>
+    <span style="font-size: 15px; line-height: 1.5; color: #2B333B;">An AXA administrator has set up a profile for you. Confirm below and AXA texts a six-digit code to the mobile number on that profile.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid #D6DCE1; border-radius: 8px; background: #F4F6F8;">
+    <span style="font-size: 13px; font-weight: 500; color: #5F6C79;">This invitation</span>
+    <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.5; color: #2B333B; word-break: break-all;">PLACEHOLDER-INVITE-TOKEN-0000000000</span>
+    <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Valid for seven days from the day it was sent, and usable once.</span>
+  </div>
+
+  <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; border: 1px solid #2E6BB8; color: #FFFFFF; font-size: 16px; font-weight: 500;">Send my code</span>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #E4E9ED;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">opened without a link</span>
+    <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">Paste the invitation from the text message.</span>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; font-weight: 500; color: #2B333B;">Invitation</span>
+      <span style="height: 72px; padding: 10px 12px; display: block; border: 1px solid #D6DCE1; border-radius: 6px; background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; color: #8B96A1;">&nbsp;</span>
+      <span style="font-size: 12px; line-height: 1.45; color: #5F6C79;">Long, and case-sensitive — paste it rather than typing it.</span>
+    </div>
+    <span style="min-height: 48px; padding: 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #E4E9ED; border: 1px solid #D6DCE1; color: #8B96A1; font-size: 16px; font-weight: 500;">Send my code</span>
+  </div>
+
+  <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+    <div style="padding: 10px 12px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+      <strong style="font-weight: 600;">Contract note.</strong> Today the invitation SMS carries the raw token as text — <em>&ldquo;Your registration invite token is …&rdquo;</em> — with no link to tap, which is why the paste path above exists at all. If AXA wants the tidy version, the SMS needs to carry a URL; that is a one-line change to the message and a route on the web app.
+    </div>
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      The screen cannot show which number the code goes to: the invitation is the only thing the browser holds, and the API deliberately returns nothing about the person behind it. Showing a masked number would need a new endpoint and a decision about what it reveals.
+    </div>
+    <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      Nothing else is collected here — no name, no password, no photograph. The profile already exists; this only proves the phone is yours.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

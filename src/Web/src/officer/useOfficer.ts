@@ -7,6 +7,7 @@ import { uploadDocument, describeUploadError } from '../media/upload'
 import {
   approveDeclaration,
   getMe,
+  meKey,
   getOfficerDeclaration,
   listInbox,
   listOfficerDocuments,
@@ -102,10 +103,23 @@ export interface UseDecisionOptions {
   now?: () => Date
 }
 
+/**
+ * Which of approve's three steps is running (pass 3's O2States: "Rendering decision… Uploading…
+ * Approving…"). Null while idle, and null throughout a rejection — a rejection is one call.
+ */
+export type DecisionStep = 'rendering' | 'uploading' | 'approving'
+
 export interface UseDecisionResult {
   approve: (visaNo: string, comment: string) => void
   reject: (comment: string) => void
   pending: boolean
+  /**
+   * Named so the officer knows which step they are on — and it is worth naming precisely because the
+   * steps are not equivalent: a failure at *rendering* or *uploading* leaves the declaration
+   * untouched, while the third one is the irreversible act. Additive state beside `pending`; the
+   * ordering, the single latch and the server's `409 approval_image_required` are unchanged.
+   */
+  step: DecisionStep | null
   failed: string | null
 }
 
@@ -130,6 +144,7 @@ export function useDecision(
 ): UseDecisionResult {
   const queryClient = useQueryClient()
   const [failed, setFailed] = useState<string | null>(null)
+  const [step, setStep] = useState<DecisionStep | null>(null)
   // 1.5's lesson: two clicks in the same tick both read `isPending` as false, and the second would
   // send a second decision.
   const inFlight = useRef(false)
@@ -140,6 +155,8 @@ export function useDecision(
         return rejectDeclaration(declarationId, decision.comment)
       }
 
+      setStep('rendering')
+
       const detail = await queryClient.ensureQueryData({
         queryKey: officerKeys.detail(declarationId),
         queryFn: ({ signal }) => getOfficerDeclaration(declarationId, signal),
@@ -148,7 +165,9 @@ export function useDecision(
       // From `/auth/me`, not from a claim in the token: the JWT carries `sub` and `role` and no
       // name, and inventing one for an artifact that lands in AXA's claim folder is not on.
       const me = await queryClient.ensureQueryData({
-        queryKey: ['auth', 'me'],
+        // `meKey`, not a second literal: `AppHeader` fetches the same endpoint, and two keys for one
+        // endpoint could disagree about who is signed in — on the artifact that reaches AXA.
+        queryKey: meKey,
         queryFn: ({ signal }) => getMe(signal),
       })
 
@@ -164,6 +183,7 @@ export function useDecision(
         render,
       )
 
+      setStep('uploading')
       await uploadDocument({
         path: officerDocumentsPath(declarationId),
         bucket: 'approval_image',
@@ -171,6 +191,7 @@ export function useDecision(
         file,
       })
 
+      setStep('approving')
       return approveDeclaration(declarationId, decision.visaNo, decision.comment)
     },
     onSuccess: async () => {
@@ -196,6 +217,9 @@ export function useDecision(
       {
         onSettled: () => {
           inFlight.current = false
+          // Cleared on failure as well as success: the button must not go on claiming a step that
+          // stopped, and `failed` is what says what happened.
+          setStep(null)
         },
         onError: (error) => {
           setFailed(describeDecision(error, kind))
@@ -212,6 +236,7 @@ export function useDecision(
       start('reject', '', comment)
     },
     pending: mutation.isPending,
+    step,
     failed,
   }
 }

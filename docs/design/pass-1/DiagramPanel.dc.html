@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+    .panel { cursor: pointer; }
+    .panel:hover { stroke: #2E6BB8; stroke-width: 2.4; }
+  </style>
+</helmet>
+
+<div style="width: 800px; min-height: 980px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Component · live</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">DiagramPanel</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B;">Tap the panels — this one really works. Fifteen regions, marks kept in tap order, and the caption is the readout. The same component is the side selector on the public customer&#39;s page, which is why the panel names and the marking behaviour are shared rather than duplicated.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 368px 1fr; gap: 24px; align-items: start;">
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px;">
+        <span style="font-size: 15px; font-weight: 600;">Damage diagram</span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: #EDF0F3; border: 1px solid #D6DCE1; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 500; color: #2B333B;">1</span>
+      </div>
+
+      <svg width="326" height="672" viewBox="0 0 320 660" role="group" aria-label="Car body diagram — tap a panel to mark damage" style="display: block; background: #FFFFFF; touch-action: manipulation;">
+        <!-- wheels, decorative -->
+        <rect x="18" y="120" width="20" height="72" rx="8" fill="#2B333B"></rect>
+        <rect x="282" y="120" width="20" height="72" rx="8" fill="#2B333B"></rect>
+        <rect x="18" y="452" width="20" height="72" rx="8" fill="#2B333B"></rect>
+        <rect x="282" y="452" width="20" height="72" rx="8" fill="#2B333B"></rect>
+
+        <!-- body outline -->
+        <rect x="38" y="28" width="244" height="604" rx="34" fill="#FFFFFF" stroke="#2B333B" stroke-width="2"></rect>
+
+        <!-- front bumper -->
+        <rect class="panel" x="55" y="30" width="210" height="46" rx="16" fill="{{fills.front_bumper}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Front bumper" tabindex="0" onClick="{{toggle.front_bumper}}"></rect>
+        <text x="160" y="59" text-anchor="middle" font-size="11" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Front bumper</text>
+
+        <!-- front wings -->
+        <rect class="panel" x="42" y="76" width="44" height="114" rx="6" fill="{{fills.front_left_wing}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Front left wing" tabindex="0" onClick="{{toggle.front_left_wing}}"></rect>
+        <text x="64" y="133" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 64 133)" pointer-events="none">Front left wing</text>
+
+        <rect class="panel" x="234" y="76" width="44" height="114" rx="6" fill="{{fills.front_right_wing}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Front right wing" tabindex="0" onClick="{{toggle.front_right_wing}}"></rect>
+        <text x="256" y="133" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 256 133)" pointer-events="none">Front right wing</text>
+
+        <!-- bonnet -->
+        <rect class="panel" x="90" y="76" width="140" height="114" rx="6" fill="{{fills.bonnet}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Bonnet" tabindex="0" onClick="{{toggle.bonnet}}"></rect>
+        <text x="160" y="137" text-anchor="middle" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Bonnet</text>
+
+        <!-- windscreen -->
+        <rect class="panel" x="90" y="194" width="140" height="54" rx="6" fill="{{fills.windscreen}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Windscreen" tabindex="0" onClick="{{toggle.windscreen}}"></rect>
+        <text x="160" y="226" text-anchor="middle" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Windscreen</text>
+
+        <!-- front doors -->
+        <rect class="panel" x="42" y="194" width="44" height="134" rx="6" fill="{{fills.front_left_door}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Front left door" tabindex="0" onClick="{{toggle.front_left_door}}"></rect>
+        <text x="64" y="261" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 64 261)" pointer-events="none">Front left door</text>
+
+        <rect class="panel" x="234" y="194" width="44" height="134" rx="6" fill="{{fills.front_right_door}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Front right door" tabindex="0" onClick="{{toggle.front_right_door}}"></rect>
+        <text x="256" y="261" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 256 261)" pointer-events="none">Front right door</text>
+
+        <!-- roof -->
+        <rect class="panel" x="90" y="252" width="140" height="156" rx="6" fill="{{fills.roof}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Roof" tabindex="0" onClick="{{toggle.roof}}"></rect>
+        <text x="160" y="335" text-anchor="middle" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Roof</text>
+
+        <!-- rear doors -->
+        <rect class="panel" x="42" y="332" width="44" height="134" rx="6" fill="{{fills.rear_left_door}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear left door" tabindex="0" onClick="{{toggle.rear_left_door}}"></rect>
+        <text x="64" y="399" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 64 399)" pointer-events="none">Rear left door</text>
+
+        <rect class="panel" x="234" y="332" width="44" height="134" rx="6" fill="{{fills.rear_right_door}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear right door" tabindex="0" onClick="{{toggle.rear_right_door}}"></rect>
+        <text x="256" y="399" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 256 399)" pointer-events="none">Rear right door</text>
+
+        <!-- rear window -->
+        <rect class="panel" x="90" y="412" width="140" height="54" rx="6" fill="{{fills.rear_window}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear window" tabindex="0" onClick="{{toggle.rear_window}}"></rect>
+        <text x="160" y="444" text-anchor="middle" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Rear window</text>
+
+        <!-- rear wings -->
+        <rect class="panel" x="42" y="470" width="44" height="114" rx="6" fill="{{fills.rear_left_wing}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear left wing" tabindex="0" onClick="{{toggle.rear_left_wing}}"></rect>
+        <text x="64" y="527" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 64 527)" pointer-events="none">Rear left wing</text>
+
+        <rect class="panel" x="234" y="470" width="44" height="114" rx="6" fill="{{fills.rear_right_wing}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear right wing" tabindex="0" onClick="{{toggle.rear_right_wing}}"></rect>
+        <text x="256" y="527" text-anchor="middle" font-size="10" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" transform="rotate(-90 256 527)" pointer-events="none">Rear right wing</text>
+
+        <!-- boot -->
+        <rect class="panel" x="90" y="470" width="140" height="114" rx="6" fill="{{fills.boot}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Boot" tabindex="0" onClick="{{toggle.boot}}"></rect>
+        <text x="160" y="531" text-anchor="middle" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Boot</text>
+
+        <!-- rear bumper -->
+        <rect class="panel" x="55" y="584" width="210" height="46" rx="16" fill="{{fills.rear_bumper}}" stroke="#2B333B" stroke-width="1.4" role="checkbox" aria-label="Rear bumper" tabindex="0" onClick="{{toggle.rear_bumper}}"></rect>
+        <text x="160" y="612" text-anchor="middle" font-size="11" font-family="IBM Plex Sans, sans-serif" fill="#2B333B" pointer-events="none">Rear bumper</text>
+      </svg>
+    </section>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 12px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">Caption &amp; actions</h2>
+        <p style="margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: {{captionColor}}; min-height: 48px;">{{caption}}</p>
+        <div style="display: flex; gap: 10px;">
+          <span style="flex: 0 0 auto; height: 48px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: {{clearStyle.bg}}; color: {{clearStyle.fg}}; border: 1px solid {{clearStyle.border}}; font-size: 16px; font-weight: 500; cursor: pointer;" onClick="{{onClear}}">Clear</span>
+          <span style="flex: 1; height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: #2E6BB8; color: #FFFFFF; border: 1px solid #2E6BB8; font-size: 16px; font-weight: 500;">Use this diagram</span>
+        </div>
+        <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Clear is disabled until something is marked. <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">Use this diagram</span> flattens the drawing to a 1600×1200 PNG and hands it to <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">ClarityConfirm</span> — as an image, with no sharpness line, because a drawing has no focus to measure.</p>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 12px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">Marked vs unmarked</h2>
+        <div style="display: flex; gap: 18px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="width: 40px; height: 28px; border-radius: 4px; background: #EDF0F3; border: 1.4px solid #2B333B;"></span>
+            <span style="font-size: 13px; color: #2B333B;">unmarked</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="width: 40px; height: 28px; border-radius: 4px; background: #EFA9A1; border: 1.4px solid #2B333B;"></span>
+            <span style="font-size: 13px; color: #2B333B;">marked</span>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The mark is a fill light enough to keep the panel name readable — the build&#39;s flat <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">#cc0000</span> hides it. Panel names are drawn <em>into</em> the diagram, so the PNG that reaches AXA says which panel was hit without the caption travelling with it.</p>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 20px;">
+        <h2 style="margin: 0 0 12px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">The fifteen panels</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 12px; line-height: 1.6; color: #2B333B;">
+          <span>Front bumper</span><span>Roof</span>
+          <span>Front left wing</span><span>Rear left door</span>
+          <span>Bonnet</span><span>Rear right door</span>
+          <span>Front right wing</span><span>Rear window</span>
+          <span>Front left door</span><span>Rear left wing</span>
+          <span>Windscreen</span><span>Boot</span>
+          <span>Front right door</span><span>Rear right wing</span>
+          <span></span><span>Rear bumper</span>
+        </div>
+        <p style="margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Names are the build&#39;s, verbatim, sentence case. Left and right are the car&#39;s, as drawn: driver&#39;s side on the left of the diagram, nose at the top.</p>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props)
+    this.state = { marks: [] }
+  }
+
+  regions() {
+    return [
+      { id: 'front_bumper', label: 'Front bumper' },
+      { id: 'front_left_wing', label: 'Front left wing' },
+      { id: 'bonnet', label: 'Bonnet' },
+      { id: 'front_right_wing', label: 'Front right wing' },
+      { id: 'front_left_door', label: 'Front left door' },
+      { id: 'windscreen', label: 'Windscreen' },
+      { id: 'front_right_door', label: 'Front right door' },
+      { id: 'roof', label: 'Roof' },
+      { id: 'rear_left_door', label: 'Rear left door' },
+      { id: 'rear_right_door', label: 'Rear right door' },
+      { id: 'rear_window', label: 'Rear window' },
+      { id: 'rear_left_wing', label: 'Rear left wing' },
+      { id: 'boot', label: 'Boot' },
+      { id: 'rear_right_wing', label: 'Rear right wing' },
+      { id: 'rear_bumper', label: 'Rear bumper' },
+    ]
+  }
+
+  renderVals() {
+    const marks = (this.state && this.state.marks) || []
+    const regions = this.regions()
+    const fills = {}
+    const toggle = {}
+    for (const region of regions) {
+      const id = region.id
+      fills[id] = marks.indexOf(id) === -1 ? '#EDF0F3' : '#EFA9A1'
+      // Marks are kept in tap order, not region order — the caption reads back the way
+      // the expert walked round the car.
+      toggle[id] = () => this.setState((prev) => {
+        const current = (prev && prev.marks) || []
+        return { marks: current.indexOf(id) === -1 ? current.concat([id]) : current.filter((m) => m !== id) }
+      })
+    }
+    const labels = marks
+      .map((id) => (regions.filter((r) => r.id === id)[0] || {}).label)
+      .filter(Boolean)
+    const any = labels.length > 0
+    return {
+      fills,
+      toggle,
+      caption: any ? 'Marked: ' + labels.join(', ') : 'Tap the damaged panels.',
+      captionColor: any ? '#0F1418' : '#5F6C79',
+      onClear: () => this.setState({ marks: [] }),
+      clearStyle: any
+        ? { bg: '#FFFFFF', fg: '#0F1418', border: '#5F6C79' }
+        : { bg: '#F4F6F8', fg: '#8B96A1', border: '#E4E9ED' },
+    }
+  }
+}
+</script>
+</body>
+</html>

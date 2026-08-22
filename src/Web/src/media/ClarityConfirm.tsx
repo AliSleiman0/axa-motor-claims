@@ -1,3 +1,4 @@
+import { Button } from '../ui/Button'
 import type { ClarityVerdict } from './clarity'
 
 interface ClarityConfirmProps {
@@ -36,35 +37,37 @@ export function ClarityConfirm({
   const isAudio = file.type.startsWith('audio/')
 
   return (
-    <div>
+    <div className="clarity">
       {isImage ? (
         <img className="capture-preview" src={previewUrl} alt="The photo about to be sent to AXA" />
       ) : isAudio ? (
-        <div>
-          <p>
+        <div className="stack">
+          <p className="clarity__file">
             Listen before sending: <strong>{file.name}</strong>
           </p>
           {/* No caption track: §1 excludes voice transcription from scope entirely. */}
           <audio controls src={previewUrl} />
         </div>
       ) : (
-        <p>
+        <p className="clarity__file">
           Ready to send: <strong>{file.name}</strong>
         </p>
       )}
 
       {verdict ? (
-        <p>
+        <p className="caption">
           {verdict.width}×{verdict.height}, sharpness {Math.round(verdict.variance)}
         </p>
       ) : null}
 
-      <button type="button" onClick={onRetake} disabled={pending}>
-        Retake
-      </button>{' '}
-      <button type="button" onClick={onConfirm} disabled={pending}>
-        {pending ? 'Sending…' : 'Confirm'}
-      </button>
+      <div className="actions">
+        <Button variant="secondary" onClick={onRetake} disabled={pending}>
+          Retake
+        </Button>
+        <Button variant="primary" onClick={onConfirm} disabled={pending}>
+          {pending ? 'Sending…' : 'Confirm'}
+        </Button>
+      </div>
     </div>
   )
 }

@@ -30,6 +30,9 @@ public sealed partial class CapturingSmsSender : ISmsSender
         return SixDigits().Match(message).Value;
     }
 
+    /// <summary>The message itself, for a test that is about the wording rather than a code in it.</summary>
+    public string LastMessageFor(string phone) => _sent.Where(m => m.Phone == phone).Last().Message;
+
     public string LastInviteTokenFor(string phone)
     {
         var message = _sent.Where(m => m.Phone == phone && m.Message.Contains("invite token")).Last().Message;

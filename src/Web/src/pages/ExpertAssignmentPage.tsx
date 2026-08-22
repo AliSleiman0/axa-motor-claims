@@ -13,11 +13,14 @@ import { CapturePanel } from '../media/CapturePanel'
 import { VoicePanel } from '../media/VoicePanel'
 import { DiagramPanel } from '../media/diagram/DiagramPanel'
 import { useMediaConfig } from '../media/useMediaConfig'
+import { AlertBanner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { DetailTable } from '../ui/DetailTable'
 
 /** E2 (design.md §5.1): claim detail plus the Arrived button. */
 export default function ExpertAssignmentPage() {
   const { id } = useParams()
-  if (!id) return <p role="alert">No claim selected.</p>
+  if (!id) return <AlertBanner>No claim selected.</AlertBanner>
   return <AssignmentDetailView assignmentId={id} />
 }
 
@@ -27,26 +30,27 @@ function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
   // list rather than to the expert's whole history (slice 3.2, found in the browser pass).
   const { search } = useLocation()
 
-  if (isPending) return <p>Loading claim…</p>
-  if (error) return <p role="alert">{describe(error)}</p>
+  if (isPending) return <p className="muted">Loading claim…</p>
+  if (error) return <AlertBanner>{describe(error)}</AlertBanner>
 
   return (
-    <section>
-      <p>
-        <Link to={`/expert${search}`}>← My claims</Link>
-      </p>
-      <h2>Claim {data.visaNo}</h2>
+    <section className="page">
+      <Link className="back-link" to={`/expert${search}`}>
+        ← My claims
+      </Link>
+      <h2 className="page__title">Claim {data.visaNo}</h2>
 
       {data.claimStatus === 'stale' && (
         // §4: "if NEXT3 is down, serve stale with a staleness banner". The age is the age of the
         // data, not of the request — showing it is the difference between honest and reassuring.
-        <p role="alert">
+        // Amber rather than red (pass 3): an outage passes on its own and names no action.
+        <AlertBanner intent="warn">
           NEXT3 is unreachable. Showing the copy last fetched
           {data.claimFetchedAt ? ` on ${formatDateTime(data.claimFetchedAt)}` : ''}.
-        </p>
+        </AlertBanner>
       )}
       {data.claimStatus === 'not_found' && (
-        <p role="alert">NEXT3 does not have a claim under this visa number.</p>
+        <AlertBanner>NEXT3 does not have a claim under this visa number.</AlertBanner>
       )}
 
       <ClaimFields detail={data} />
@@ -69,11 +73,11 @@ function AssignmentDetailView({ assignmentId }: { assignmentId: string }) {
  * report no screen of its own — the smaller interpretation is a panel here, not a route.
  */
 const EXPERT_BUCKETS = [
-  { bucket: 'insured_documents', label: 'Insured documents' },
-  { bucket: 'insured_car_photo', label: 'Insured car photos' },
-  { bucket: 'tp_documents', label: 'Third-party documents' },
-  { bucket: 'tp_car_photo', label: 'Third-party car photos' },
-  { bucket: 'expert_report', label: 'Expert report' },
+  { bucket: 'insured_documents', label: 'Insured documents', qualifier: 'insured document' },
+  { bucket: 'insured_car_photo', label: 'Insured car photos', qualifier: 'insured car' },
+  { bucket: 'tp_documents', label: 'Third-party documents', qualifier: 'third-party document' },
+  { bucket: 'tp_car_photo', label: 'Third-party car photos', qualifier: 'third-party car' },
+  { bucket: 'expert_report', label: 'Expert report', qualifier: 'expert report' },
 ]
 
 /** §5.1's other two expert artifacts (slice 3.1) — neither is a file the expert picks. */
@@ -89,11 +93,11 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
 
   if (error) {
     return (
-      <section>
-        <h3>Photos and documents</h3>
-        <p role="alert">
+      <section className="stack">
+        <h3 className="section-title">Photos and documents</h3>
+        <AlertBanner>
           Photo quality settings could not be loaded, so nothing can be sent yet. Reload the page.
-        </p>
+        </AlertBanner>
       </section>
     )
   }
@@ -102,8 +106,8 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
     documents?.filter((document) => document.bucket === bucket).length
 
   return (
-    <section>
-      <h3>Photos and documents</h3>
+    <section className="stack">
+      <h3 className="section-title">Photos and documents</h3>
       {EXPERT_BUCKETS.map((entry) => (
         <CapturePanel
           key={entry.bucket}
@@ -113,6 +117,7 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
           config={config}
           count={countFor(entry.bucket)}
           onUploaded={refresh}
+          qualifier={entry.qualifier}
         />
       ))}
 
@@ -140,28 +145,20 @@ function CaptureSection({ assignmentId }: { assignmentId: string }) {
 function ClaimFields({ detail }: { detail: AssignmentDetail }) {
   const claim = detail.claim
   return (
-    <table border={1} cellPadding={4}>
-      <tbody>
-        <Row label="Visa" value={detail.visaNo} />
-        <Row label="Policy" value={claim?.policyNo} />
-        <Row label="Plate" value={claim?.plateNo} />
-        <Row label="Insured" value={claim?.insuredName} />
-        <Row label="Insured phone" value={claim?.insuredPhone} />
-        <Row label="Vehicle" value={claim?.carMakeModel} />
-        <Row label="City" value={claim?.city} />
-        <Row label="Accident date" value={claim?.accidentDate} />
-        <Row label="Assigned" value={formatDateTime(detail.receivedAt)} />
-      </tbody>
-    </table>
-  )
-}
-
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <tr>
-      <th align="left">{label}</th>
-      <td>{value ?? '—'}</td>
-    </tr>
+    <DetailTable
+      rows={[
+        { label: 'Visa', value: detail.visaNo, mono: true },
+        { label: 'Policy', value: claim?.policyNo, mono: true },
+        { label: 'Plate', value: claim?.plateNo, mono: true },
+        { label: 'Insured', value: claim?.insuredName },
+        // The one value on this screen that is a link — an expert at the scene rings the insured.
+        { label: 'Insured phone', value: claim?.insuredPhone, mono: true, tel: true },
+        { label: 'Vehicle', value: claim?.carMakeModel },
+        { label: 'City', value: claim?.city },
+        { label: 'Accident date', value: claim?.accidentDate },
+        { label: 'Assigned', value: formatDateTime(detail.receivedAt) },
+      ]}
+    />
   )
 }
 
@@ -175,21 +172,34 @@ function ArrivedPanel({
   const arrival = useArrived(assignmentId, arrivedAt)
 
   return (
-    <section>
-      <h3>Arrival</h3>
-      <button
-        type="button"
-        // §5.1: "Button disabled after first press."
-        disabled={arrival.arrived || arrival.pending}
-        onClick={arrival.press}
-      >
-        {arrival.pending ? 'Sending…' : 'Arrived'}
-      </button>{' '}
-      {arrival.arrived && arrival.arrivedAt && (
-        <span>Arrived at {formatDateTime(arrival.arrivedAt)}</span>
+    <section className="panel">
+      <h3 className="panel__title">Arrival</h3>
+      <div className="actions">
+        <Button
+          variant="primary"
+          // §5.1: "Button disabled after first press."
+          disabled={arrival.arrived || arrival.pending}
+          onClick={arrival.press}
+        >
+          {arrival.pending ? 'Sending…' : 'Arrived'}
+        </Button>
+        {arrival.arrived && arrival.arrivedAt && (
+          <span className="muted">Arrived at {formatDateTime(arrival.arrivedAt)}</span>
+        )}
+      </div>
+      {/*
+        Said before the press, not after. This is the only control on E2 that cannot be undone —
+        `WHERE arrived_at IS NULL` makes the guard a property of the database (slice 2.4) — and it
+        sends the expert's coordinates, which is worth knowing in advance rather than discovering.
+      */}
+      {!arrival.arrived && (
+        <p className="muted">
+          Records the date, the time and where you are, and sends all three to AXA. It can only be
+          pressed once.
+        </p>
       )}
-      {arrival.blockedBy && <p role="alert">{GEOLOCATION_EXPLANATIONS[arrival.blockedBy]}</p>}
-      {arrival.failed && <p role="alert">{arrival.failed}</p>}
+      {arrival.blockedBy && <AlertBanner>{GEOLOCATION_EXPLANATIONS[arrival.blockedBy]}</AlertBanner>}
+      {arrival.failed && <AlertBanner>{arrival.failed}</AlertBanner>}
     </section>
   )
 }

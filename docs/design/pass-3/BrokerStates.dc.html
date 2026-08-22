@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 760px; background: #EEF1F4; padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">B2 · B4 · outcomes</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">After the send, and before it</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 940px;">Three short states that share one rule: name the recipient. A broker who cannot see where the file went has no way to answer the customer who rings a week later.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start;">
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; font-weight: 500;">B2 · Option 1 submitted</h2>
+      <p style="margin: 0 0 18px; font-size: 12px; color: #5F6C79;">the broker filled it in themselves</p>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding: 16px 8px 20px;">
+        <span style="width: 60px; height: 60px; border-radius: 999px; background: #E8F2EC; border: 1px solid #74A98D; display: inline-flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#2F6B4F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m4.4 10.4 3.6 3.6 7.6-8"></path></svg>
+        </span>
+        <span style="font-size: 19px; font-weight: 600;">Sent to AXA</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">PLACEHOLDER Insured Three&#39;s request has gone to the MOTOR ALL RISK desk.</span>
+      </div>
+
+      <div style="padding: 12px 14px; border: 1px solid #D6DCE1; border-radius: 6px; background: #F4F6F8; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 500; color: #5F6C79;">Recipient</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all;">PLACEHOLDER-recipient-1@example.invalid</span>
+      </div>
+
+      <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The address is shown, not hidden behind &ldquo;sent successfully&rdquo;. If the routing table is wrong, this is the screen where somebody notices.</p>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; font-weight: 500;">B4 · nothing to review</h2>
+      <p style="margin: 0 0 18px; font-size: 12px; color: #5F6C79;">the customer has the link and has not finished</p>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 4px; background: #E7EFF9; border: 1px solid #7FA6D3; color: #245793; font-size: 12px; font-weight: 500;">Customer in progress</span>
+        <span style="font-size: 13px; color: #5F6C79;">opened 22 Aug 2026, 12:20</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding: 12px 8px 20px;">
+        <span style="width: 60px; height: 60px; border-radius: 999px; background: #F4F6F8; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.4"></circle><path d="M10 6v4.2l2.8 1.6"></path></svg>
+        </span>
+        <span style="font-size: 17px; font-weight: 600;">Nothing to review yet</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #2B333B;">The customer has opened the link. You will get a notification the moment they send it.</span>
+      </div>
+
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Deliberately not shown: what they have typed so far. The submission is one act — half a form is not information, it is a person mid-sentence.</p>
+      <p style="margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The link expires seven days after it was created, and the row moves to <em>Expired</em> on its own.</p>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; font-weight: 500;">B4 · sent</h2>
+      <p style="margin: 0 0 18px; font-size: 12px; color: #5F6C79;">terminal</p>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <span style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 4px; background: #2B333B; border: 1px solid #2B333B; color: #FFFFFF; font-size: 12px; font-weight: 500;">Sent</span>
+        <span style="font-size: 13px; color: #5F6C79;">22 Aug 2026, 14:26</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; color: #5F6C79;">Details</span><span style="font-size: 14px;">6 of 6</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; color: #5F6C79;">Documents</span><span style="font-size: 14px;">2</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; color: #5F6C79;">Photographs</span><span style="font-size: 14px;">5 of 5</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0;"><span style="font-size: 13px; color: #5F6C79;">Recipient</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; word-break: break-all; text-align: right;">PLACEHOLDER-recipient-1@example.invalid</span></div>
+      </div>
+
+      <p style="margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">No resend. If the desk needs it again, the broker forwards the email they already have — this app is not a mail server and should not pretend to be one.</p>
+    </section>
+  </div>
+
+  <div style="padding: 12px 16px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+    <strong style="font-weight: 600;">Not built.</strong> None of these three states can be reached today — nothing writes an Option 1 request and nothing sends the broker&#39;s email. The seven states, the routing table and the three placeholder recipients are real; the screens are the specification.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

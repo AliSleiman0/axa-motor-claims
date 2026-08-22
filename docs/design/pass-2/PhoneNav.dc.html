@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #F4F6F8; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 720px; background: #F4F6F8; padding: 16px; display: flex; flex-direction: column; gap: 16px; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 844px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 6px; top: 848px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 844</span>
+
+
+  <div style="display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 2px solid #0F1418;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #5F6C79;">PhoneNav</span>
+    <span style="font-size: 20px; font-weight: 600;">Two destinations, per role</span>
+    <span style="font-size: 13px; line-height: 1.45; color: #2B333B;">Net-new: the build has navigation only on the admin screens. Nothing a field user needs while standing at a car is a third tab.</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Expert</span>
+    <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border: 1px solid #D6DCE1; border-radius: 8px; background: #FFFFFF;">
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 4.6h13.2v10.8H3.4z"></path><path d="M3.4 8h13.2"></path><path d="M7 11.6h6"></path></svg>
+        <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Claims</span>
+      </span>
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+        <span style="font-size: 12px; color: #5F6C79;">Notifications</span>
+      </span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Garage</span>
+    <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border: 1px solid #D6DCE1; border-radius: 8px; background: #FFFFFF;">
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+        <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Declarations</span>
+      </span>
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+        <span style="font-size: 12px; color: #5F6C79;">Notifications</span>
+      </span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">unread</span>
+    <div style="height: 84px; padding: 10px 0 20px; display: flex; align-items: flex-start; border: 1px solid #D6DCE1; border-radius: 8px; background: #FFFFFF;">
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px;">
+        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 4.6h13.2v10.8H3.4z"></path><path d="M3.4 8h13.2"></path><path d="M7 11.6h6"></path></svg>
+        <span style="font-size: 12px; color: #5F6C79;">Claims</span>
+      </span>
+      <span style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px; position: relative;">
+        <span style="position: relative; display: inline-flex;">
+          <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#2E6BB8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.6a4 4 0 0 1 8 0c0 3.4 1.4 4.6 1.4 4.6H4.6S6 12 6 8.6Z"></path><path d="M8.6 15.8a1.8 1.8 0 0 0 2.8 0"></path></svg>
+          <span style="position: absolute; top: -3px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #A33A31; color: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; font-weight: 500;">2</span>
+        </span>
+        <span style="font-size: 12px; font-weight: 600; color: #2E6BB8;">Notifications</span>
+      </span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.5; color: #2B333B;">
+    <div>64&nbsp;px of bar plus the device safe area — 84&nbsp;px in total, drawn here with the 20&nbsp;px inset.</div>
+    <div>Each half is a 195&nbsp;px hit area, far wider than the 44&nbsp;px floor, so a gloved thumb cannot miss.</div>
+    <div>The active tab carries the accent on both the icon and the label; colour is never the only signal — weight changes too.</div>
+    <div>Back is an in-page link, not a tab: <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">← My claims</span> at the top of a detail screen, carrying any active search back with it.</div>
+    <div>No painted status bar and no drawn keyboard anywhere in this design — the real ones render on top.</div>
+  </div>
+
+  <div style="padding: 10px 12px; border: 1px dashed #D6DCE1; border-radius: 6px; font-size: 12px; line-height: 1.45; color: #5F6C79;">
+    <strong style="font-weight: 600;">Open question for the build:</strong> a Notifications screen does not exist. The tab is drawn because a popup a field user missed has to be recoverable somewhere; what it lists is a pass-3 or scope conversation, not something to invent here.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

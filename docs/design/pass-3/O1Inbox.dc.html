@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 900px; background: #EEF1F4; display: flex; flex-direction: column; position: relative;">
+  <div style="position: absolute; left: 0; right: 0; top: 900px; border-top: 1px dashed #A33A31; z-index: 4;"></div>
+  <span style="position: absolute; right: 8px; top: 904px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #A33A31; z-index: 4;">fold · 900</span>
+
+  <div style="height: 64px; padding: 0 24px; display: flex; align-items: center; gap: 28px; background: #FFFFFF; border-bottom: 1px solid #D6DCE1; flex: none;">
+    <span style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">AXA Motor Claims</span>
+      <span style="font-size: 13px; color: #5F6C79; padding-left: 12px; border-left: 1px solid #D6DCE1;">Claim officer</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 4px; flex: 1;">
+      <span style="height: 40px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 6px; background: #E7EFF9; color: #245793; font-size: 14px; font-weight: 600;">Inbox</span>
+    </span>
+    <span style="display: flex; align-items: center; gap: 16px;">
+      <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 13px; color: #5F6C79;">+999 000 003 003</span>
+      <span style="height: 36px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #D6DCE1; font-size: 14px; font-weight: 500;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2B333B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17H4.6V3H8"></path><path d="M12.4 13.4 15.8 10l-3.4-3.4"></path><path d="M15.8 10H8"></path></svg>
+        Sign out
+      </span>
+    </span>
+  </div>
+
+  <div style="flex: 1; padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px;">
+      <span style="font-size: 28px; font-weight: 600; line-height: 1.2;">Declarations to review</span>
+      <span style="font-size: 13px; color: #5F6C79;">3 waiting · longest first</span>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 130px 1fr 1fr 200px 180px 90px 160px; gap: 16px; padding: 12px 20px; background: #F4F6F8; border-bottom: 1px solid #D6DCE1;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Plate</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Insured</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Garage</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Contact</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Submitted</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79; text-align: right;">Media</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Status</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 130px 1fr 1fr 200px 180px 90px 160px; gap: 16px; padding: 16px 20px; min-height: 56px; align-items: center; border-bottom: 1px solid #E4E9ED;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLC-TEST-05</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+        <span style="font-size: 14px;">PLACEHOLDER Garage One</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">+999 000 003 002</span>
+        <span style="font-size: 14px;">22 Aug 2026, 08:22</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">3</span>
+        <span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 12px; font-weight: 500;">Waiting for AXA</span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 130px 1fr 1fr 200px 180px 90px 160px; gap: 16px; padding: 16px 20px; min-height: 56px; align-items: center; background: #F8FAFB; border-bottom: 1px solid #E4E9ED;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLC-TEST-07</span>
+        <span style="font-size: 14px;">PLACEHOLDER Insured Seven</span>
+        <span style="font-size: 14px;">PLACEHOLDER Garage Two</span>
+        <span style="font-size: 14px;">garage-two@example.invalid</span>
+        <span style="font-size: 14px;">22 Aug 2026, 09:05</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">4</span>
+        <span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 12px; font-weight: 500;">Waiting for AXA</span></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 130px 1fr 1fr 200px 180px 90px 160px; gap: 16px; padding: 16px 20px; min-height: 56px; align-items: center;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLC-TEST-08</span>
+        <span style="font-size: 14px;">PLACEHOLDER Insured Eight</span>
+        <span style="font-size: 14px;">PLACEHOLDER Garage One</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">+999 000 003 002</span>
+        <span style="font-size: 14px;">22 Aug 2026, 11:40</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">2</span>
+        <span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #FBF1DE; border: 1px solid #C9A55E; color: #8A6116; font-size: 12px; font-weight: 500;">Waiting for AXA</span></span>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div style="padding: 12px 16px; border: 1px dashed #8A6116; border-radius: 6px; background: #FBF1DE; font-size: 12px; line-height: 1.5; color: #2B333B;">
+        <strong style="font-weight: 600;">Drawn oldest-first, against the brief.</strong> The brief asks for newest first; the build sorts the other way and says why in a comment — an officer works a queue, so the declaration that has waited longest is the one to see first. Drawn as built, flagged here rather than silently switched. It is one <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">OrderBy</span> either way, and the column header is where it should be said out loud.
+      </div>
+      <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+        Contact falls back from mobile to email to an em dash — one column, because the officer wants a way to reach the garage, not a directory. The whole row is the hit area; the plate carries the link colour because it is the thing an officer recognises a car by.
+      </div>
+    </div>
+
+    <div style="padding: 12px 16px; border: 1px dashed #D6DCE1; border-radius: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.5; color: #5F6C79;">
+      Only submitted declarations appear by default. The endpoint accepts any state, so a filter across the six is a small addition — deliberately not drawn, because nobody has asked for one and an inbox that shows finished work stops being an inbox.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

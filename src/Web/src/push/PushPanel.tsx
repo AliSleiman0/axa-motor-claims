@@ -1,3 +1,4 @@
+import { Button } from '../ui/Button'
 import { EXPERT_PUSH_COPY, type PushCopy } from './copy'
 import { usePushSubscription, type UsePushSubscriptionOptions } from './usePushSubscription'
 
@@ -20,27 +21,35 @@ export function PushPanel({ copy = EXPERT_PUSH_COPY, ...options }: PushPanelProp
     // No button at all rather than one that cannot work: offering an action that is guaranteed to
     // fail is worse than saying plainly that this browser will not do it.
     return (
-      <section>
-        <p role="status">{copy.unsupported}</p>
+      <section className="push-panel">
+        <p className="push-panel__copy" role="status">
+          {copy.unsupported}
+        </p>
       </section>
     )
   }
 
   if (enabled) {
     return (
-      <section>
-        <p role="status">{copy.enabled}</p>
+      <section className="push-panel">
+        <p className="push-panel__copy" role="status">
+          {copy.enabled}
+        </p>
       </section>
     )
   }
 
   return (
-    <section>
-      <button type="button" onClick={enable} disabled={pending}>
+    <section className="push-panel">
+      <Button variant="primary" onClick={enable} disabled={pending}>
         {pending ? 'Enabling notifications…' : 'Enable notifications'}
-      </button>
-      <p>{copy.invitation}</p>
-      {failed && <p role="alert">{failed}</p>}
+      </Button>
+      <p className="push-panel__copy">{copy.invitation}</p>
+      {failed && (
+        <p className="banner banner--alert" role="alert">
+          {failed}
+        </p>
+      )}
     </section>
   )
 }

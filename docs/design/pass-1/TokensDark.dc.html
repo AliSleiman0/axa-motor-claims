@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      color: #E9EEF2;
+      background: #0F1418;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: #6AA3E8; text-decoration: underline; }
+    a:hover { color: #8FBDF0; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 680px; padding: 40px; background: #0F1418; display: flex; flex-direction: column; gap: 26px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; padding-bottom: 18px; border-bottom: 1px solid #2C363E;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #93A0AB;">Pass 1 · Foundations</div>
+      <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">Dark-mode-safe tokens</div>
+      <div style="font-size: 14px; line-height: 1.45; color: #B9C3CB; max-width: 780px;">Same token names, different values. Light mode is what ships; this sheet exists so no component is built on a colour that has no dark counterpart — including the focus ring, which is the one that usually disappears.</div>
+    </div>
+    <div style="font-size: 12px; line-height: 1.5; color: #93A0AB; text-align: right; max-width: 260px;">Accent lightens on dark (#2E6BB8 → #6AA3E8) to hold text contrast against #171E24.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #0F1418; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">bg</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#0F1418</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #171E24; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">surface</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#171E24</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #2C363E; border: 1px solid #3A464F;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">line</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#2C363E</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #93A0AB; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">muted</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#93A0AB</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #E9EEF2; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">ink</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#E9EEF2</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #6AA3E8; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">accent</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#6AA3E8</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #7FCBA4; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">ok</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#7FCBA4</div></div>
+    <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 46px; border-radius: 4px; background: #E88A80; border: 1px solid #2C363E;"></div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px;">danger</div><div style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 10px; color: #93A0AB;">#E88A80</div></div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+    <section style="background: #171E24; border: 1px solid #2C363E; border-radius: 10px; padding: 22px;">
+      <h2 style="margin: 0 0 14px; font-size: 17px; font-weight: 600;">Components on dark</h2>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <span style="height: 48px; padding: 0 20px; display: inline-flex; align-items: center; border-radius: 6px; background: #6AA3E8; color: #0F1418; font-size: 16px; font-weight: 600;">Submit to AXA</span>
+          <span style="height: 48px; padding: 0 20px; display: inline-flex; align-items: center; border-radius: 6px; background: transparent; border: 1px solid #6C7A85; color: #E9EEF2; font-size: 16px; font-weight: 500;">Retake</span>
+          <span style="height: 48px; padding: 0 20px; display: inline-flex; align-items: center; border-radius: 6px; background: transparent; border: 1px solid #E88A80; color: #E88A80; font-size: 16px; font-weight: 500;">Reject</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="padding: 4px 10px; border-radius: 4px; background: #232C33; border: 1px solid #3A464F; color: #C4CDD5; font-size: 13px; font-weight: 500;">Draft</span>
+          <span style="padding: 4px 10px; border-radius: 4px; background: #33291A; border: 1px solid #7A6231; color: #E5BE76; font-size: 13px; font-weight: 500;">Waiting for AXA</span>
+          <span style="padding: 4px 10px; border-radius: 4px; background: #16291F; border: 1px solid #3E6B52; color: #7FCBA4; font-size: 13px; font-weight: 500;">Approved</span>
+          <span style="padding: 4px 10px; border-radius: 4px; background: #2E1B19; border: 1px solid #6E3A34; color: #E88A80; font-size: 13px; font-weight: 500;">Not accepted</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 6px; background: #33291A; border: 1px solid #7A6231;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#E5BE76" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M10 2.8 18.2 17H1.8L10 2.8Z"></path><path d="M10 8v4"></path><path d="M10 14.6h.01"></path></svg>
+          <span style="font-size: 14px; line-height: 1.45; color: #E9EEF2;">NEXT3 is unreachable. Showing the copy last fetched on 20 Aug 2026, 09:30.</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: #171E24; border: 1px solid #2C363E; border-radius: 10px; padding: 22px;">
+      <h2 style="margin: 0 0 14px; font-size: 17px; font-weight: 600;">Focus ring &amp; text contrast</h2>
+      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
+        <span style="height: 48px; padding: 0 20px; display: inline-flex; align-items: center; border-radius: 6px; background: #171E24; border: 1px solid #6C7A85; color: #E9EEF2; font-size: 16px; font-weight: 500; outline: 2px solid #6AA3E8; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(106,163,232,0.28);">Confirm</span>
+        <span style="font-size: 12px; line-height: 1.5; color: #93A0AB; max-width: 250px;">Ring uses the same offset and halo as light mode; only the hue lightens.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #93A0AB; width: 110px;">ink on surface</span><span style="font-size: 15px; color: #E9EEF2;">PLACEHOLDER Insured One</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #7FCBA4;">14.4:1</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #93A0AB; width: 110px;">muted on surface</span><span style="font-size: 15px; color: #93A0AB;">Received 20 Aug 2026, 09:30</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #7FCBA4;">6.3:1</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px;"><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #93A0AB; width: 110px;">accent on surface</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 15px; font-weight: 500; color: #6AA3E8;">PLACEHOLDER-VISA-0001</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 11px; color: #7FCBA4;">6.4:1</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div style="padding: 14px 18px; border-radius: 6px; background: #171E24; border: 1px solid #2C363E; font-size: 13px; line-height: 1.5; color: #B9C3CB;">
+    Contrast figures are computed against <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;">#171E24</span> and are here so a later theme change has a number to beat, not because dark mode is in scope for the 8-week build. Nothing in the component set depends on a colour that only exists in one theme.
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

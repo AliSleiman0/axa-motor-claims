@@ -1,0 +1,69 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Foundations" },
+    { "id": "page-2", "name": "Components" },
+    { "id": "page-3", "name": "States gallery" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Tokens", "page": "page-1", "x": 0, "y": 0, "w": 1440, "h": 1280 },
+    { "file": "TokensDark.dc.html", "title": "Tokens — dark", "page": "page-1", "x": 1560, "y": 0, "w": 1440, "h": 720 },
+
+    { "file": "Buttons.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1080, "h": 1160 },
+    { "file": "Inputs.dc.html", "page": "page-2", "x": 1180, "y": 0, "w": 1080, "h": 1330 },
+    { "file": "ChipsAndBanners.dc.html", "page": "page-2", "x": 2360, "y": 0, "w": 1200, "h": 1360 },
+
+    { "file": "DataDisplay.dc.html", "page": "page-2", "x": 0, "y": 1500, "w": 1440, "h": 1520 },
+    { "file": "CapturePanel.dc.html", "page": "page-2", "x": 1560, "y": 1500, "w": 952, "h": 1290 },
+    { "file": "ClarityConfirm.dc.html", "page": "page-2", "x": 2612, "y": 1500, "w": 952, "h": 1370 },
+
+    { "file": "VoicePanel.dc.html", "page": "page-2", "x": 0, "y": 3160, "w": 1400, "h": 680 },
+    { "file": "DiagramPanel.dc.html", "title": "DiagramPanel (live)", "page": "page-2", "x": 1500, "y": 3160, "w": 800, "h": 1120 },
+    { "file": "PushPanel.dc.html", "page": "page-2", "x": 2400, "y": 3160, "w": 948, "h": 1180 },
+    { "file": "Navigation.dc.html", "page": "page-2", "x": 3448, "y": 3160, "w": 1440, "h": 1090 },
+
+    { "file": "StatesGallery.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1800, "h": 1770 }
+  ],
+  "annotations": [
+    {
+      "id": "brief-pass-1",
+      "page": "page-1",
+      "x": 0,
+      "y": -200,
+      "w": 460,
+      "text": "Pass 1 of 3 — foundations only.\nNo product screens here: pass 2 draws the phone screens and pass 3 the desktop ones, both built entirely from what is on this canvas.\n\nEvery value shown is deliberately fake, in the formats the build already uses."
+    },
+    {
+      "id": "brand-swap",
+      "page": "page-1",
+      "x": 1560,
+      "y": -200,
+      "w": 420,
+      "text": "Brand-swappable: the accent ramp and the wordmark, nothing else.\n\nThe accent is a tweak on the Tokens artboard — change it there to see the ramp, the primary button and the focus ring move together."
+    },
+    {
+      "id": "names-contract",
+      "page": "page-2",
+      "x": 0,
+      "y": -240,
+      "w": 520,
+      "text": "Component names are the contract.\nCapturePanel, ClarityConfirm, VoicePanel, DiagramPanel and PushPanel are the build's own names, kept deliberately. Passes 2 and 3 reference every name on this page verbatim rather than inventing a parallel vocabulary.\n\nA screen that needs a state not on this page is a gap to bring back here, not a one-off to draw in place."
+    },
+    {
+      "id": "net-new-surface",
+      "page": "page-2",
+      "x": 3448,
+      "y": 2920,
+      "w": 460,
+      "text": "Three things on this page are new surface, not a restyling of something that exists:\n\n· Sign out — there is no such control anywhere in the build today.\n· PhoneNav — navigation exists only on the admin screens.\n· PushIndicator — the API already returns the value; nothing renders it."
+    },
+    {
+      "id": "gallery-note",
+      "page": "page-3",
+      "x": 0,
+      "y": -180,
+      "w": 480,
+      "text": "One sheet to check a screen against. If a variant is on a screen in pass 2 or 3 and not on this sheet, one of the two is wrong."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

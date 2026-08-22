@@ -8,7 +8,8 @@
       "applicationUrl": "http://localhost:5180",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Blob__Mode": "azure"
+        "Blob__Mode": "azure",
+        "Auth__AppBaseUrl": "http://localhost:5173"
       }
     },
     "https": {
@@ -18,7 +19,8 @@
       "applicationUrl": "https://localhost:7013;http://localhost:5180",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Blob__Mode": "azure"
+        "Blob__Mode": "azure",
+        "Auth__AppBaseUrl": "http://localhost:5173"
       }
     }
   }

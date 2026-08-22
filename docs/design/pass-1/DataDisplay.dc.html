@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #0F1418; background: #EEF1F4; -webkit-font-smoothing: antialiased; }
+    a { color: #2E6BB8; text-decoration: underline; }
+    a:hover { color: #245793; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 1140px; padding: 32px; background: #EEF1F4; display: flex; flex-direction: column; gap: 22px;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; border-bottom: 2px solid #0F1418;">
+    <div style="font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #5F6C79;">Components</div>
+    <div style="font-size: 28px; font-weight: 600; line-height: 1.2;">DetailTable · WorklistRow · WorklistCard · DocumentRow</div>
+    <div style="font-size: 14px; line-height: 1.45; color: #2B333B; max-width: 900px;">Every value on this artboard is deliberately fake. A missing value is an em dash — never a blank cell, never &ldquo;N/A&rdquo;, because on a cold NEXT3 cache the difference between &ldquo;we do not have it yet&rdquo; and &ldquo;nobody filled it in&rdquo; is the difference between waiting and phoning someone.</div>
+  </div>
+
+  <!-- DetailTable -->
+  <div style="display: grid; grid-template-columns: 1fr 432px; gap: 22px; align-items: start;">
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">DetailTable — desktop</h2>
+        <span style="font-size: 12px; color: #5F6C79;">two columns · labels 13&nbsp;px · references mono</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px;">
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Visa</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">PLACEHOLDER-VISA-0001</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Insured</span><span style="font-size: 14px;">PLACEHOLDER Insured One</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Policy</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">PLACEHOLDER-POL-0001</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Insured phone</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">+999 000 001 001</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Plate</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">PLC-TEST-01</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">City</span><span style="font-size: 14px; color: #5F6C79;">—</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Vehicle</span><span style="font-size: 14px;">PLACEHOLDER Make One</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Accident date</span><span style="font-size: 14px;">18 Aug 2026</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Assigned</span><span style="font-size: 14px;">20 Aug 2026, 09:30</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; padding: 10px 0;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Arrived</span><span style="font-size: 14px; color: #5F6C79;">—</span></div>
+      </div>
+      <p style="margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">Dates render in the reader&#39;s local time. The build formats them with the browser default, so the exact string is locale-dependent — the design fixes the shape (day, short month, year, then 24-hour time), not the punctuation.</p>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">DetailTable — phone</h2>
+        <span style="font-size: 12px; color: #5F6C79;">390&nbsp;px · label above value, one per row</span>
+      </div>
+      <div style="width: 390px; border: 1px solid #D6DCE1; border-radius: 8px; padding: 4px 14px; background: #FFFFFF;">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Visa</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; font-weight: 500;">PLACEHOLDER-VISA-0001</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Plate</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px;">PLC-TEST-01</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Insured</span><span style="font-size: 16px;">PLACEHOLDER Insured One</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E4E9ED;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">Insured phone</span><span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; color: #2E6BB8; display: inline-flex; align-items: center; min-height: 44px;">+999 000 001 001</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0;"><span style="font-size: 13px; font-weight: 500; color: #5F6C79;">City</span><span style="font-size: 16px; color: #5F6C79;">—</span></div>
+      </div>
+      <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The insured&#39;s phone is the one value on this table an expert taps — it dials. Nothing else is a link.</p>
+    </section>
+  </div>
+
+  <!-- WorklistRow -->
+  <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">WorklistRow — desktop</h2>
+      <span style="font-size: 12px; color: #5F6C79;">newest first · row min-height 56&nbsp;px · the whole row is the hit area</span>
+    </div>
+
+    <div style="border: 1px solid #E4E9ED; border-radius: 8px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 210px 130px 1fr 1fr 130px 170px 78px 170px; gap: 16px; padding: 10px 16px; background: #F4F6F8; border-bottom: 1px solid #D6DCE1;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Visa</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Plate</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Insured</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Vehicle</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Accident</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Received</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79; text-align: right;">Media</span>
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5F6C79;">Arrived</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 210px 130px 1fr 1fr 130px 170px 78px 170px; gap: 16px; padding: 14px 16px; background: #FFFFFF; border-bottom: 1px solid #E4E9ED; align-items: center;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLACEHOLDER-VISA-0003</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">PLC-TEST-03</span>
+        <span style="font-size: 14px;">PLACEHOLDER Insured Three</span>
+        <span style="font-size: 14px;">PLACEHOLDER Make Three</span>
+        <span style="font-size: 14px;">18 Aug 2026</span>
+        <span style="font-size: 14px;">20 Aug 2026, 09:30</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">4</span>
+        <span style="font-size: 14px;">20 Aug 2026, 09:42</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 210px 130px 1fr 1fr 130px 170px 78px 170px; gap: 16px; padding: 14px 16px; background: #F8FAFB; border-bottom: 1px solid #E4E9ED; align-items: center;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLACEHOLDER-VISA-0002</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px;">PLC-TEST-02</span>
+        <span style="font-size: 14px;">PLACEHOLDER Insured Two</span>
+        <span style="font-size: 14px;">PLACEHOLDER Make Two</span>
+        <span style="font-size: 14px;">17 Aug 2026</span>
+        <span style="font-size: 14px;">19 Aug 2026, 16:05</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">0</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 210px 130px 1fr 1fr 130px 170px 78px 170px; gap: 16px; padding: 14px 16px; background: #FFFFFF; align-items: center;">
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500; color: #2E6BB8;">PLACEHOLDER-VISA-0005</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+        <span style="font-size: 14px;">19 Aug 2026, 08:12</span>
+        <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;">0</span>
+        <span style="font-size: 14px; color: #5F6C79;">—</span>
+      </div>
+    </div>
+    <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">The third row is a cold cache: NEXT3 has not answered for this visa yet, so it has no plate to search on. That is a real state of this screen, not an error — the visa is still the way in.</p>
+  </section>
+
+  <!-- WorklistCard + DocumentRow -->
+  <div style="display: grid; grid-template-columns: 432px 1fr; gap: 22px; align-items: start;">
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0 0 4px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">WorklistCard — phone</h2>
+        <span style="font-size: 12px; color: #5F6C79;">390&nbsp;px · the row a thumb taps</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="border: 1px solid #D6DCE1; border-radius: 8px; padding: 14px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 2px rgba(15,20,24,0.06);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 15px; font-weight: 500; color: #2E6BB8;">PLACEHOLDER-VISA-0003</span>
+            <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; background: #E8F2EC; border: 1px solid #74A98D; color: #2F6B4F; font-size: 12px; font-weight: 500;">Arrived</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 16px; font-weight: 500;">PLC-TEST-03</span>
+            <span style="font-size: 15px; color: #2B333B;">PLACEHOLDER Insured Three</span>
+          </div>
+          <div style="font-size: 13px; color: #5F6C79;">PLACEHOLDER Make Three · accident 18 Aug 2026</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid #E4E9ED;">
+            <span style="font-size: 13px; color: #5F6C79;">Received 20 Aug 2026, 09:30</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #2B333B;">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+              4
+            </span>
+          </div>
+        </div>
+
+        <div style="border: 1px solid #D6DCE1; border-radius: 8px; padding: 14px; background: #FFFFFF; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 2px rgba(15,20,24,0.06);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 15px; font-weight: 500; color: #2E6BB8;">PLACEHOLDER-VISA-0005</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <span style="font-size: 16px; color: #5F6C79;">—</span>
+            <span style="font-size: 15px; color: #5F6C79;">—</span>
+          </div>
+          <div style="font-size: 13px; color: #5F6C79;">Details have not loaded from NEXT3 yet.</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid #E4E9ED;">
+            <span style="font-size: 13px; color: #5F6C79;">Received 19 Aug 2026, 08:12</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5F6C79;">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+              0
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #D6DCE1; border-radius: 10px; padding: 24px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">DocumentRow</h2>
+        <span style="font-size: 12px; color: #5F6C79;">file name first · bucket second · PushIndicator last</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid #E4E9ED; border-radius: 8px; background: #FFFFFF;">
+          <span style="width: 64px; height: 48px; flex: none; border-radius: 4px; background: #E4E9ED; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#8B96A1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 6.4h3l1.2-1.8h6.4l1.2 1.8h3v9H2.6z"></path><circle cx="10" cy="10.6" r="2.9"></circle></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+            <span style="font-size: 15px; font-weight: 500;">insured-car-front.jpg</span>
+            <span style="font-size: 13px; color: #5F6C79;">Insured car photos · captured · 1.4 MB</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #2F6B4F;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#2F6B4F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m4.4 10.4 3.6 3.6 7.6-8"></path></svg>
+            Sent to AXA
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid #E4E9ED; border-radius: 8px; background: #FFFFFF;">
+          <span style="width: 64px; height: 48px; flex: none; border-radius: 4px; background: #F4F6F8; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.6h6l4 4v10.8H5z"></path><path d="M11 2.6v4h4"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+            <span style="font-size: 15px; font-weight: 500; color: #2E6BB8; text-decoration: underline;">garage-invoice.pdf</span>
+            <span style="font-size: 13px; color: #5F6C79;">Survey documents · uploaded · 240 KB</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #5F6C79;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.4"></circle><path d="M10 6v4.2l2.8 1.6"></path></svg>
+            Queued, will send
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid #E4E9ED; border-radius: 8px; background: #FFFFFF;">
+          <span style="width: 64px; height: 48px; flex: none; border-radius: 4px; background: #F4F6F8; border: 1px solid #D6DCE1; display: inline-flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7.4" y="2.6" width="5.2" height="9" rx="2.6"></rect><path d="M4.6 9.4a5.4 5.4 0 0 0 10.8 0"></path><path d="M10 14.8v2.6"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 3px; flex: 1;">
+            <span style="font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 500;">voice-note-4f2a91c3.webm</span>
+            <span style="font-size: 13px; color: #5F6C79;">Voice note · recorded · 376 KB</span>
+          </span>
+          <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #5F6C79; max-width: 210px; text-align: right;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#5F6C79" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M3.4 5.4h13.2v3H3.4z"></path><path d="M4.6 8.4v6.2h10.8V8.4"></path><path d="M8.2 11.4h3.6"></path></svg>
+            Sent to AXA; the local copy has been removed
+          </span>
+        </div>
+      </div>
+      <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #5F6C79;">A photograph gets a real thumbnail (drawn here as a placeholder block); a PDF or an audio file gets a named link and nothing else. Rendering a PDF into an image element is how the build once showed an expert a broken-image icon on the one screen whose job is that a person looked at the file.</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

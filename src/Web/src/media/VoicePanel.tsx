@@ -1,3 +1,4 @@
+import { Button } from '../ui/Button'
 import { ClarityConfirm } from './ClarityConfirm'
 import type { MediaConfig } from './config'
 import type { StartRecording } from './recorder'
@@ -46,18 +47,22 @@ export function VoicePanel({
   const busy = capture.stage === 'uploading'
 
   return (
-    <section>
-      <h4>
+    <section className="panel">
+      <h4 className="panel__title">
+        {/* One text node, not a span for the count: the count is part of the heading, and a test
+            asserting the shipped string "Insured car photos (3)" reads direct text children only. */}
         {label}
         {typeof count === 'number' ? ` (${count})` : ''}
       </h4>
 
       {!capture.configLoaded ? (
-        <p>Loading recording settings…</p>
+        <p className="muted">Loading recording settings…</p>
       ) : !capture.ready ? (
         // Not "loading" — 2.5's trap. The settings arrived and this bucket was not among them,
         // which points at a missing §7.1 registry entry and its migration, not at the network.
-        <p role="alert">This section is not configured for uploads yet, so nothing can be sent to it.</p>
+        <p className="banner banner--alert" role="alert">
+          This section is not configured for uploads yet, so nothing can be sent to it.
+        </p>
       ) : capture.candidate && (capture.stage === 'confirm' || capture.stage === 'uploading') ? (
         <ClarityConfirm
           previewUrl={capture.candidate.previewUrl}
@@ -68,22 +73,32 @@ export function VoicePanel({
           onRetake={capture.retake}
         />
       ) : voice.recording ? (
-        <div>
-          <p role="status">Recording…</p>
-          <button type="button" onClick={voice.stop}>
+        <div className="actions">
+          <p className="muted" role="status">
+            Recording…
+          </p>
+          <Button variant="primary" onClick={voice.stop}>
             Stop
-          </button>
+          </Button>
         </div>
       ) : (
-        <div>
-          <button type="button" onClick={voice.start} disabled={voice.finishing}>
+        <div className="actions">
+          <Button variant="primary" onClick={voice.start} disabled={voice.finishing}>
             {voice.finishing ? 'Finishing…' : 'Record a voice note'}
-          </button>
+          </Button>
         </div>
       )}
 
-      {voice.problem ? <p role="alert">{voice.problem}</p> : null}
-      {capture.problem ? <p role="alert">{capture.problem}</p> : null}
+      {voice.problem ? (
+        <p className="banner banner--alert" role="alert">
+          {voice.problem}
+        </p>
+      ) : null}
+      {capture.problem ? (
+        <p className="banner banner--alert" role="alert">
+          {capture.problem}
+        </p>
+      ) : null}
     </section>
   )
 }
