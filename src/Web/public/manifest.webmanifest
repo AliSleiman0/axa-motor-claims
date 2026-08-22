@@ -1,0 +1,15 @@
+{
+  "name": "AXA Motor Claims",
+  "short_name": "Motor Claims",
+  "description": "Motor claim capture for AXA experts, garages, claim officers and brokers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef1f4",
+  "theme_color": "#2e6bb8",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

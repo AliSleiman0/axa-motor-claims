@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AXA Motor Claims</string>
+    <string name="title_activity_main">AXA Motor Claims</string>
+    <string name="package_name">PLACEHOLDER.axa.motorclaims</string>
+    <string name="custom_url_scheme">PLACEHOLDER.axa.motorclaims</string>
+</resources>

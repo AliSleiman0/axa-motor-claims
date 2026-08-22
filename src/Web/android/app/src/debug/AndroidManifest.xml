@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Slice 6.3a (device spike) - DEBUG BUILD ONLY, merged into no release APK.
+
+  capacitor.config.json points server.url at http://localhost:5173, which the Samsung reaches through
+  `adb reverse tcp:5173 tcp:5173`. Chromium treats http://localhost as a potentially trustworthy
+  origin, so the WebView still gets the secure context that getUserMedia, geolocation and service
+  workers require - no certificate and no CA on the handset. What it does NOT get past is Android's
+  own policy: targetSdk 28+ blocks cleartext outright, with no localhost carve-out, so without the
+  line below the shell loads a blank page and every check below A1 is untestable.
+
+  It lives in src/debug so the release manifest keeps cleartext disabled. Slice 6.3 serves the built
+  bundle from https://localhost through Capacitor's own scheme and needs none of this.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>

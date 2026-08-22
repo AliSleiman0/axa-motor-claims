@@ -6,7 +6,18 @@ import tseslint from 'typescript-eslint'
 import { globalIgnores } from 'eslint/config'
 
 export default tseslint.config([
-  globalIgnores(['dist']),
+  /*
+   * `android` joins `dist` here in slice 6.3a. Everything under it is either Java/Gradle or a *copy*
+   * — Capacitor's own `native-bridge.js`, and `dist` itself, which Gradle mirrors into
+   * `app/src/main/assets` and again into `app/build/intermediates`. Linting a copy reported the same
+   * file three times and failed the build on a rule its own inline disable comments name.
+   *
+   * This is not a guard quietly narrowing: authored web code cannot appear under `android/` by
+   * construction, because `capacitor.config.json` sets `webDir: "dist"` and the native project only
+   * ever receives what the Vite build emits. `src/` — where `reusability.test.ts` and every other
+   * guard operate — is untouched.
+   */
+  globalIgnores(['dist', 'android']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

@@ -3,8 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!--
+      Slice 6.3a. iOS web push works ONLY from a Home-Screen install, and only a standalone display
+      mode makes that install an app rather than a bookmark — so the manifest is load-bearing for the
+      one §7A question flagged "the single most important", not decoration. `apple-touch-icon` is
+      here as well as in the manifest because iOS reads the link tag first and will not rasterise the
+      SVG favicon; without a PNG the home-screen icon is a screenshot of the page.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Motor Claims" />
+    <meta name="theme-color" content="#2e6bb8" />
+
+    <title>AXA Motor Claims</title>
   </head>
   <body>
     <div id="root"></div>
