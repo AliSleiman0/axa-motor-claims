@@ -55,6 +55,7 @@ export interface AssignmentDocument {
   origin: 'captured' | 'uploaded'
   clarityResult: string
   contentType: string
+  fileName: string | null
   sizeBytes: number
   pushStatus: string
   blobRetained: boolean

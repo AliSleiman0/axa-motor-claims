@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Api.Infrastructure;
+using Api.Integrations.Blob;
 using Api.Integrations.Next3;
 using Api.Modules.Media;
 using Api.Modules.Users;
@@ -280,6 +281,18 @@ public static class OfficerEndpoints
             var exists = await db.Declarations.AsNoTracking().AnyAsync(d => d.Id == id, ct);
             return exists
                 ? Results.Ok(await GarageDeclarationEndpoints.DocumentsFor(db, id, ct))
+                : Results.NotFound();
+        });
+
+        // O2's whole point: an officer approving a claim has to be able to *look* at what the garage
+        // sent. Unscoped, like every other read here — §5.2 lets any officer pick up any declaration
+        // — but still matched to the declaration in the path, so a document id alone opens nothing.
+        group.MapGet("/declarations/{id:guid}/documents/{docId:guid}/content", async (
+            Guid id, Guid docId, AppDbContext db, IBlobStore blobs, CancellationToken ct) =>
+        {
+            var exists = await db.Declarations.AsNoTracking().AnyAsync(d => d.Id == id, ct);
+            return exists
+                ? await DeclarationDocumentContent.Serve(db, blobs, id, docId, ct)
                 : Results.NotFound();
         });
     }

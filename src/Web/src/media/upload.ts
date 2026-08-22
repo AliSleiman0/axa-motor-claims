@@ -22,6 +22,8 @@ export interface UploadedDocument {
   origin: MediaOrigin
   clarityResult: string
   contentType: string
+  /** The stored file name (slice 4.1). Null for a row written before that column existed. */
+  fileName: string | null
   sizeBytes: number
   pushStatus: string
   blobRetained: boolean
@@ -76,6 +78,12 @@ const UPLOAD_EXPLANATIONS: Record<string, string> = {
   unreadable_image: 'This photo could not be read. Take it again.',
   file_empty: 'That file is empty. Take the photo again.',
   file_missing: 'No photo was attached. Take the photo again.',
+  // Slice 4.1's two refusals. Without these a garage that tried to attach the officer's approval
+  // image, or to add a document after AXA had already decided, would read a bare "(400)"/"(409)".
+  bucket_not_allowed_for_caller:
+    'That kind of file cannot be added here. Use the sections on this screen.',
+  declaration_already_decided:
+    'AXA has already decided this declaration, so nothing more can be attached to it.',
 }
 
 /** Pulls the `{ "error": "code" }` body the media endpoint returns on a refusal. */

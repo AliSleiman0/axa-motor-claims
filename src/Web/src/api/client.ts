@@ -45,8 +45,15 @@ function withBearer(init: RequestInit): RequestInit {
   }
 }
 
-/** JSON fetch with bearer; one refresh-and-retry on 401, then redirect to login. */
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * One authorized request, with the single refresh-and-retry on 401.
+ *
+ * Extracted in slice 4.2 so `apiBlob` shares it rather than fetching in parallel. The comment on
+ * `withBearer` above already names the hazard for the multipart case, and it is the same one here: a
+ * second fetch path would quietly lose the retry, and the failure would look like a random logout —
+ * here, an officer logged out by clicking a photograph.
+ */
+async function send(path: string, init: RequestInit): Promise<Response> {
   let response = await fetch(path, withBearer(init))
   if (response.status === 401) {
     if (await tryRefresh()) {
@@ -55,7 +62,28 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       window.location.assign('/login')
     }
   }
+  return response
+}
+
+/** JSON fetch with bearer; one refresh-and-retry on 401, then redirect to login. */
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await send(path, init)
   const body = await response.text()
   if (!response.ok) throw new ApiError(response.status, body)
   return (body ? JSON.parse(body) : undefined) as T
+}
+
+/**
+ * The same request, returning raw bytes (slice 4.2).
+ *
+ * It exists because **a browser cannot authenticate an `<img src>`**. The session is a bearer token
+ * in localStorage, added as a header by `withBearer`; an `<img>` or a plain `<a href>` pointing at
+ * `/api/…/content` sends no header at all, comes back 401, and takes the 401 branch above — so
+ * looking at a document would sign the officer out. O2 therefore fetches the bytes here and renders
+ * `URL.createObjectURL(blob)`: the *fetch* is what points at the content endpoint.
+ */
+export async function apiBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const response = await send(path, init)
+  if (!response.ok) throw new ApiError(response.status, await response.text())
+  return response.blob()
 }

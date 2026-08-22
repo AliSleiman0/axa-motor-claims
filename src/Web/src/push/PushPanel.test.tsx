@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { GARAGE_PUSH_COPY } from './copy'
 import { PushPanel } from './PushPanel'
 import { PushError, type BrowserSubscription } from './subscription'
 
@@ -89,5 +90,22 @@ describe('the Enable notifications panel', () => {
 
     release(SUBSCRIPTION)
     await waitFor(() => expect(screen.getByRole('status')).toBeDefined())
+  })
+
+  it('says what this role’s notifications are actually about', () => {
+    // Found in slice 4.2's browser pass, on screen above every garage screen: the panel was written
+    // for the expert and promised "the moment a claim is assigned to you". A garage is never assigned
+    // a claim — §8's garage rows are decisions on work the garage filed. The panel is otherwise
+    // genuinely role-agnostic, so the words were the only thing that had to become a parameter.
+    render(<PushPanel copy={GARAGE_PUSH_COPY} subscribe={vi.fn()} readPermission={() => 'default'} />)
+
+    expect(screen.getByText(/AXA reviews one of your declarations/)).toBeDefined()
+    expect(screen.queryByText(/assigned to you/)).toBeNull()
+  })
+
+  it('keeps the expert wording by default, so nothing that existed changed', () => {
+    render(<PushPanel subscribe={vi.fn()} readPermission={() => 'default'} />)
+
+    expect(screen.getByText(/a claim is assigned to you/)).toBeDefined()
   })
 })

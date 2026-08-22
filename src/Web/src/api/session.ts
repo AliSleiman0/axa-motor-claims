@@ -28,7 +28,21 @@ export function currentRole(): string | null {
   }
 }
 
-/** Where a signed-in user lands. Roles with no screen of their own yet fall back to admin. */
+/**
+ * Where a signed-in user lands. Roles with no screen of their own yet fall back to admin.
+ *
+ * The keys are the server's role strings verbatim (`UserRoles`, check-constrained on `app_user.role`)
+ * — snake case, so `claim_officer` and not `claimOfficer`. A typo here is a garage silently landing
+ * on the admin screens and meeting a wall of 403s, which is what §5.2's two roles did until slice 4.2.
+ *
+ * `broker` still falls through: slice 5.2 builds B1.
+ */
+const HOME_PATHS: Record<string, string> = {
+  expert: '/expert',
+  garage: '/garage',
+  claim_officer: '/officer',
+}
+
 export function homePathFor(role: string | null): string {
-  return role === 'expert' ? '/expert' : '/admin/experts'
+  return (role && HOME_PATHS[role]) ?? '/admin/experts'
 }

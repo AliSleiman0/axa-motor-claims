@@ -36,6 +36,11 @@ describe('the media module stays reusable', () => {
   // slice 3.1 alongside the glob above, and verified by planting an import inside the subfolder.
   const forbidden = [
     { pattern: /from\s+'(\.\.\/)+expert\//, what: 'the expert module' },
+    // Added in slice 4.2 with the modules themselves. The argument is the expert one verbatim: the
+    // Option 2 public page (5.3/6.1) cannot import a garage hook or an officer query key, so neither
+    // may this module — and the cheapest moment to say so is the moment those folders start existing.
+    { pattern: /from\s+'(\.\.\/)+garage\//, what: 'the garage module' },
+    { pattern: /from\s+'(\.\.\/)+officer\//, what: 'the officer module' },
     { pattern: /from\s+'(\.\.\/)+pages\//, what: 'a page' },
     { pattern: /from\s+'(\.\.\/)+admin\//, what: 'the admin module' },
     { pattern: /from\s+'(\.\.\/)+api\/session'/, what: 'the session helpers' },
@@ -45,15 +50,18 @@ describe('the media module stays reusable', () => {
 
   it('has source files to check', () => {
     // Without this the suite below passes vacuously on an empty match — the same trap
-    // `Rule2_IsNotVacuous` guards against on the server side. Raised in slice 3.1: the count is the
-    // only thing that would notice the glob silently ceasing to match a folder.
-    expect(sourceFiles.length).toBeGreaterThan(14)
+    // `Rule2_IsNotVacuous` guards against on the server side. Raised in slice 3.1, and again in 4.2
+    // when `png.ts` and `approval/` arrived: the count is the only thing that would notice the glob
+    // silently ceasing to match a folder.
+    expect(sourceFiles.length).toBeGreaterThan(17)
   })
 
   it('reaches into the subfolders', () => {
     // The count above cannot tell "13 files at the top level" from "9 plus 4 nested", and the whole
-    // point of widening the glob was the nested ones.
+    // point of widening the glob was the nested ones. Both subfolders are named, because a guard
+    // that covers one of them is exactly the half-covering rule this file exists to prevent.
     expect(sourceFiles.some(([name]) => name.includes('/diagram/'))).toBe(true)
+    expect(sourceFiles.some(([name]) => name.includes('/approval/'))).toBe(true)
   })
 
   it.each(sourceFiles)('%s imports nothing caller-specific', (name, source) => {

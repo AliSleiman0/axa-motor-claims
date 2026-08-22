@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Api.Infrastructure;
+using Api.Integrations.Blob;
 using Api.Modules.Claims;
 using Api.Modules.Media;
 using Api.Modules.Users;
@@ -289,6 +290,27 @@ public static class GarageDeclarationEndpoints
             }
 
             return Results.Ok(await DocumentsFor(db, id, ct));
+        });
+
+        // G3's previews (slice 4.2). Scoped to the caller's own declaration first, then to that
+        // declaration's own documents — see `DeclarationDocumentContent` for why both halves matter.
+        group.MapGet("/{id:guid}/documents/{docId:guid}/content", async (
+            Guid id, Guid docId, ClaimsPrincipal principal, AppDbContext db, IBlobStore blobs,
+            CancellationToken ct) =>
+        {
+            var garageUserId = principal.GetUserId();
+            if (garageUserId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var declaration = await Find(db, id, garageUserId.Value, ct);
+            if (declaration is null)
+            {
+                return Results.NotFound();
+            }
+
+            return await DeclarationDocumentContent.Serve(db, blobs, id, docId, ct);
         });
     }
 
