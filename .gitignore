@@ -35,3 +35,6 @@ TestResults/
 # Claude Code local overrides
 .claude/settings.local.json
 .claude/worktrees/
+
+# Slice 4.3 demo prep: API/Vite logs, generated demo media, Azurite data.
+demo-artifacts/
