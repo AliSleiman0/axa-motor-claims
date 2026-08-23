@@ -79,3 +79,9 @@ Each of these was caught by review, not by the author, and at least twice (slice
 
 - 2 months, $5,000, solo. Every unplanned week is unpaid. When a request is ambiguous, prefer the smaller interpretation and record it in `docs/scope-decisions.md`.
 - Anything not listed as in-scope in `docs/scope-decisions.md` is a change request, not a task.
+
+## Device testing (from slice 6.3a, 2026-08-23)
+
+- Toolchain and exact versions (JDK 21.0.12, Android SDK CLI tools, AGP 8.13.0, Gradle 8.14.3, Capacitor 8.5.0, `minSdk 24` / `targetSdk 36`), the `adb reverse` / Vite-on-`::1` trap, and the mkcert + iPhone-profile steps for HTTPS over the LAN are recorded in **`docs/device-spike-2026-08-22.md`** (setup table at the top). No Android Studio is installed, by decision.
+- Platform decision (`docs/research-capacitor.md` §11): **Android = Capacitor app; iOS = installed PWA**; the iOS native build is a separate deliverable gated on #29/#30.
+- `Push:Vapid:Subject` must be a real, routable `mailto:` in any environment that reaches Apple — Apple answers 403 to a placeholder; FCM does not, so the failure is iOS-only and silent.

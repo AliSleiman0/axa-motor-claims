@@ -205,3 +205,14 @@ Each interpretation must appear in the scope letter, or it will be reinterpreted
 - Deliverable = **deployed and demoed**, not "AXA has completed internal rollout" — their rollout is not on the developer's clock.
 - All third-party costs (SMS gateway, hosting, domain) on **AXA accounts, AXA card**.
 - Deployment target: **client-provided environment, containerized.** If AXA chooses on-prem, the additional integration work is a variation, not absorbed.
+
+## Device checkpoint findings — recorded 2026-08-23 (slice 6.3a; details in `docs/device-spike-2026-08-22.md` and `docs/research-capacitor.md`)
+
+| Finding | Decision |
+|---|---|
+| Android's WebView ignores `capture="environment"` and opens the gallery; Safari honours it. | **Platforms split:** Android ships as the Capacitor app with `@capacitor/camera` enforcing capture-only (slice 6.3); **iOS ships as the installed PWA** (Add-to-Home-Screen + web push, both proven on a real iPhone). The iOS Capacitor build and store/MDM packaging are a **separate deliverable gated on #29/#30**; if AXA mandates MDM on iOS, it becomes mandatory with #30 on the critical path. design.md §1/§11's "Capacitor wrapper" is read as Android-first from here. |
+| `MediaRecorder` emits `audio/webm` on **both** platforms (slice 3.1 anticipated `audio/mp4` on Safari). | No code change — `recorder.ts` derives the format from `Media.AudioContentTypes` + `isTypeSupported`, which is why it was right on a device nobody had run. The prose assumption is retired; the placeholder list stays as is. |
+| Every iOS capture is named `image.jpg`; four photos under one visa share a name. `document.file_name` (4.1) cannot help — the name is all Safari gives. | **Not a defect; a client question (#46):** does NEXT3 distinguish documents by name? `doc_type` (#12) and `clientRef` (#32) already distinguish them, which is why it is believed survivable. |
+| Apple refuses a VAPID subject of `mailto:…@example.invalid` (403); FCM accepts it. | `Push:Vapid:Subject` is the **one Appendix A value that may not remain a placeholder** in any environment that reaches Apple. `PushOptionsValidator` must reject an unroutable subject (6.3); a real AXA mailbox is a §10 deployment-checklist item. |
+| Android WebView reports location-off as `TIMEOUT`, so the expert is told to wait for a signal that will never help. | Detect the system location setting and prompt natively (6.3, ≈0.5 d). Until then the copy is wrong on Android only; recorded rather than patched in the spike. |
+| An installed iOS PWA has its own storage context — Add-to-Home-Screen costs a fresh OTP sign-in. | Accepted; goes into the rollout/training notes. Three taps plus a sign-in is the cost §4 predicted, and it is the part of the original objection the spike could not dismiss. |
