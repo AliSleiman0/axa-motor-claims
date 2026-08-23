@@ -76,3 +76,13 @@ No notification → check the site permission and that Enable notifications was 
 `.\scripts\demo-reset.ps1 -Stop` — otherwise the running API locks `Api.exe` and the next `dotnet build` fails with a misleading MSB3027.
 
 Not shown, say so if asked: the failed-push admin screen (week 6), repair uploads (week 5), both broker options (weeks 5–6), the mobile wrapper, and any real NEXT3.
+
+## Running the demo alongside week-5 coding (added 2026-08-24)
+
+The demo runs from a **frozen worktree** so `main` can keep moving:
+
+- Worktree: `C:\dev\axa-demo` on branch `demo-week4` (created at the rehearsed commit). Run `demo-reset.ps1`, the rig and the beats **from there** — it has its own `bin\` (no `Api.exe` lock against builds on `main`) and its own `demo-artifacts\`.
+- User-secrets (the VAPID pair) carry over automatically — they are keyed by the project's `UserSecretsId`, not the folder.
+- The one shared resource is **ports 5180/5173 and the `AxaMotorClaims` database**: while the demo rig is up, sessions on `main` may build and run `dotnet test` / `npm test` freely (tests use throwaway databases), but must not start the API/Vite or run a manual browser pass.
+- Never merge week-5 work into `demo-week4`. If the demo date slips past a rehearsed change you *want* shown, re-freeze deliberately: move the branch, then **re-run one full dry run** — rehearsal is where beats break.
+- After the demo: `git worktree remove ..\axa-demo` and `git branch -d demo-week4`.
