@@ -1,0 +1,35 @@
+# po-handoff.md — for the next PO session
+
+**Written 2026-08-24.** You are the product owner / orchestrator for this project, not the builder. The developer (Ali) runs build sessions in separate Claude Code windows using prompts you write; you plan, verify, propagate, and guard the gates. **You never execute slices yourself** — your deliverables are cards, reviews, doc corrections, and honest status.
+
+## The division of labour (learned, not decreed)
+
+- **You write; they run.** Every build slice is a card in `docs/build-playbook.md` (Goal · Refs · Prompt · DoD · Test focus · Notes). The developer pastes the standing preamble + the card's prompt into a fresh session. Cards point at design.md §§ and *never* restate spec content (the drift rule — one source of truth).
+- **You verify; you never trust ticks.** After the developer says "week N done": run both suites yourself (`dotnet test` at root; `npx vitest run` in `src/Web` — use `dangerouslyDisableSandbox` for LocalDB), check `git log`/`status`, read the slice Notes, and grep that every identifier a new card names actually exists in `src/`. Build sessions have: misfiled Notes into the wrong card (6.3a → 1.1's slot), skipped all cross-doc propagation, ignored branch-only rules, and shipped cards whose claims were wrong (a licence, a sort order, an audio format). Every one was caught by checking, none by asking.
+- **You propagate.** A slice's findings must land in: the playbook (tick + Notes in the right slot), `design.md` (corrected "as realized in slice N", never silently diverged — 9× so far), `docs/scope-decisions.md` (smaller interpretations, dated), `docs/open-questions.md` (new numbered questions — currently #1–#47, all TBC), `HANDOFF.md` (status + banner + repo map), `CLAUDE.md` (only durable, every-session rules — keep it under 200 lines). If the build session didn't propagate, you do it and note that in the card's Notes.
+- **Client-facing acts are the developer's alone** — sending documents, invoking payments, running demos. You draft, gate, and nag; you never send.
+
+## Where the project stands (verify before believing — this ages)
+
+- **Build:** weeks 1–4 complete + 4.4 (design system implemented) + 6.3a (device spike), all on `main` through commit `8797f69`. ~501 xUnit + 279 web tests green. 11 migrations. Velocity ≈ one plan-week per calendar day; the calendar is slack, the client is the constraint.
+- **Week 5 cards (5.1 repair flow, 5.2 Broker Option 1 + B3, 5.3 public form + B4) are expanded and ready** — next unticked slice is 5.1. Weeks 6–8 cards: 6.1/6.2 still outline (*expand when reached* — run the fidelity-rule session with 2–3 Explore agents first, as done for weeks 3/4/5); 6.3 re-scoped after the spike (Android native, iOS = installed PWA, iOS native build gated on #29/#30).
+- **The demo ran 2026-08-24** from the frozen worktree `C:\dev\axa-demo` (branch `demo-week4`, kept deliberately for repeat demos — re-freeze + one dry run before any repeat). Rig is stopped.
+- **OPEN — chase these first:** (1) whether the scope letter + `docs/status-2026-08-22.md` + `docs/next3-openapi.yaml` were sent to AXA **before** the demo — the gate; if not, record a gate breach and make sending them the top priority; (2) the demo outcome — reactions, change requests (route through scope-decisions, never straight to the backlog), any sandbox date (#1), and the **30% milestone** — two playbook checklist boxes await these answers. (3) All 47 client questions remain TBC; every NEXT3 interaction still runs on the fake. The day-for-day clock argument is on record.
+
+## The recurring risks you are the guard for
+
+1. **Client silence.** The build outran the client relationship by ~4 weeks. Nothing sent = no agreed scope = every demo forms AXA's expectations unmanaged. Push the developer to send; fold new questions (#46 file names, #47 currency, #28 device mix) into the same email.
+2. **Build sessions repeat bug classes.** CLAUDE.md's "Recurring bug classes" section exists because of this — keep it current when a third instance of anything appears.
+3. **Gates get skipped under momentum.** Branch-only rules, db-reviewer passes, the demo-precedes-letter gate. Record deviations honestly in Notes; don't retro-tidy.
+4. **7.2's buffer is filling:** per-profile push subscription bug, rejected-declaration blob retention, `pushsubscriptionchange`, E1 unbounded, narrow-iPhone layout check, A2 long-pending rows decision. Keep the list in view when 7.2's card gets expanded.
+
+## Your toolbox (how this PO worked)
+
+- **Weekly card expansion:** 2 parallel Explore agents (backend, web) with exhaustive fact-briefs + gather the docs side yourself; then write cards against *actual identifiers*, with decisions stated in the week header so sessions don't re-litigate. Verify with greps (card field counts, identifier existence, spec-leak grep for `nvarchar|PLACEHOLDER-DOC|MOTOR ALL RISK`).
+- **Design:** the three `/design` canvases are the screen specs (`docs/design/`, briefs + reviews in `docs/design-prompts/`, `pass-1-summary.md` is the token/component contract). To review a canvas: WebFetch the artifact URL, then extract `content.files` from the `appifact-doc` script block in the saved HTML with node.
+- **Demo:** `docs/demo-steps.md` (presenter version) + `docs/demo-week4.md` (rehearsed script with the "say" column). Scripts require **pwsh 7** (`pwsh -File …`). One browser/profile per role — one token and one push subscription per profile.
+- **Memory:** machine state lives in the auto-memory `laptop-setup.md` (toolchain installs incl. Android SDK CLI, LocalDB, mkcert); project state lives in this repo's docs, never in memory.
+
+## Reading order for a cold start
+
+`HANDOFF.md` (banner first) → this file → `docs/build-playbook.md` (ticks + the last two slices' Notes) → `docs/design.md` §11–§12 → `docs/scope-decisions.md` (tail) → `docs/open-questions.md`. Then verify the build state yourself before acting on any of it.

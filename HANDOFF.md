@@ -502,6 +502,8 @@ docs/
   device-spike-2026-08-22.md  The 13 hand-test observations behind it (+ screenshots in device-spike-2026-08-22/);
                             the toolchain versions and the mkcert/iPhone-profile steps live in its setup table
   design/                   The three Claude Design canvases exported (pass-1 foundations, pass-2 phone, pass-3 desktop)
+  po-handoff.md             The PO/orchestrator role handoff (written 2026-08-24): division of labour, verification
+                            rituals, propagation checklist, open gates. A PO session reads it right after this banner.
 AxaMotorClaims.sln          Week-1 solution (slices 1.1–1.3)
 src/
   Api/                      .NET 10 minimal API. Modules/Users (auth, profiles, admin CRUD),
