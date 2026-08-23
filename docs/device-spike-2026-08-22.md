@@ -59,7 +59,7 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 | B1 | Safari's capture input | All four §7.1 buckets exercised, plus an upload into `expert_report` | Safari offers a sheet: record exactly what it lists. "Photo Library" appearing is §7.1 unenforceable in Safari | **"take a photo never asks for gallery, just take a photo option"** — a capture-only bucket offers **one** control and it goes straight to the camera; `insured_documents` shows **two**, *Take a photo* and *Choose a file*. **No Photo Library route from a capture-only bucket.** Server side: six documents, all `sent` on attempt 1 — `insured_car_photo` 3,307,493 b and `tp_car_photo` 3,306,658 b both `origin = captured` and `passed`; `insured_documents` 3,917,618 b and `tp_documents` 3,018,445 b likewise; `expert_report` took **`IMG_1145.png`, `origin = uploaded`, 242,541 b** from the library | `b1-capture.png` | **PASS** | §7A Q4 · §7.1 |
 | B2 | `MediaRecorder` | E3 voice note → record → play back → upload | Supported at all; the type produced (`audio/mp4` expected); server acceptance | **`audio/webm`, 335,436 bytes, `voice-note-89a057f1.webm`, `clarity_result = not_applicable`, outbox `sent` on attempt 1** — not the `audio/mp4` the design anticipated (see below). **Playback was audible — confirmed by ear, which closes the gap slice 3.1 left open** | `b2-voice.png` | **PASS** | §7A Q5 · 3.1's deferred playback check |
 | B3 | Arrived geolocation | E2 → Arrived | Prompt, accuracy, time to fix, denied path | **Fix was immediate — no perceptible wait.** `update_arrival` for `PLACEHOLDER-VISA-0001` reached `sent` on attempt 1. *The denied path was not exercised on iOS; it is covered by the jsdom tests from 2.4 but not on a handset* | `b3-arrived.png` | **PASS** | §7A Q6 |
-| B4 | **Add to Home Screen → real iOS web push** | Installed to the Home Screen, signed in again, enabled notifications; `demo-assign.ps1` twice — once before and once after the VAPID subject fix | The install looks like an app; the permission prompt appears **only** in the installed app; a real notification arrives and opens E2 | **One `push_subscription` row from `web.push.apple.com`** (`p256dh` 87 chars = 65 bytes, `auth` 22 = 16, both exactly as the endpoint requires). First send: **`403 Forbidden`, `0 of 1 accepted, 0 revoked`**. After changing only `Push:Vapid:Subject`: **`1 of 1 subscriptions accepted`** — see the finding below. *Whether the notification appeared on the handset is not yet reported* | `b4-ios-push.png` | **PARTIAL — Apple accepted the push; on-screen arrival unconfirmed** | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
+| B4 | **Add to Home Screen → real iOS web push** | Installed to the Home Screen, signed in again, enabled notifications, then three assignments | The install looks like an app; the permission prompt appears **only** in the installed app; a real notification arrives and opens E2 | **A real iOS web push was received on the handset — twice, confirmed by eye.** One `push_subscription` from `web.push.apple.com` (`p256dh` 87 chars = 65 bytes, `auth` 22 = 16, exactly as the endpoint requires). `DEMO-LIVE-01` **403, `0 of 1 accepted`, `notified_at` null**; after changing only `Push:Vapid:Subject`, `DEMO-LIVE-02` and `DEMO-LIVE-03` both **`1 of 1 accepted`** with `notified_at` set. The third was fired by the developer independently. **Slice 2.1's contract held on a real device: the refused assignment survived with `notified_at` null.** *The Safari-tab negative was not reported, and the notification was not tapped through to E2* | `b4-ios-push.png` | **PASS** | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
 | B5 | Diagram export | E3 → diagram → mark → confirm → upload | Parity with A4 | **`damage-diagram-53afb65d.png`, 91,591 bytes, `image/png`, `clarity_result = passed`, outbox `sent` on attempt 1** — a canvas export rasterised correctly on iOS and cleared §7.2's server-side floor | `b5-diagram.png` | **PASS (server-verified)** | §5.1 |
 | B6 | Layout and targets | Every screen used during B1–B5, portrait | Parity with A5 | **Nothing clipped, nothing awkward to hit with a thumb.** Note this is an iPhone 17 Pro Max — a *wide* phone, so it is the easy case; 4.4's 390 px header overflow would not necessarily reproduce here. The narrow-glass test belongs to the Samsung | `b6-layout.png` | **PASS (wide device only)** | 4.4 |
 
@@ -105,6 +105,34 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
   user-installed root — but it is the kind of thing that reads as a broken certificate at 9am.
+
+## B4 is the headline, and it weakens the case for Capacitor on iOS
+
+HANDOFF §4 rejected a bare PWA on one specific argument, quoted in full because everything now turns
+on it:
+
+> *"On **iOS**: Add-to-Home-Screen is a manual Safari-only three-tap flow that non-technical field
+> users will not reliably complete, **and iOS web push only works after that install**. The BRD's
+> entire expert flow is triggered by 'a popup message will show on the expert mobile' — so an iPhone
+> user who never installs simply never gets claims. That's a functional failure of the primary
+> requirement."*
+
+**The technical half of that is now answered: the install works, and web push arrives.** A real
+notification reached a real iPhone from this application server, twice.
+
+**The human half is not answered and a spike cannot answer it.** Whether field users complete the
+install is a rollout and training question, and one datum from this session is worth recording on the
+sceptical side: **the installed PWA has its own storage context, so the Home-Screen app did not
+inherit the Safari session and required a fresh phone-OTP sign-in.** The flow is not three taps; it is
+three taps plus an SMS round trip. That is a real adoption cost, and it argues for onboarding people
+*into the installed app* from the start rather than letting them use Safari and migrate later.
+
+**Taken with B1, both of the reasons Capacitor was bought for iOS are now weaker than when §4 was
+written** — Safari honours capture-only, and Safari delivers push. What Capacitor still buys on iOS is
+store/MDM presence (§8), silent/background push, and insulation from Safari changing its mind. Whether
+that is worth the Apple Developer account (#30), the Codemagic pipeline and the signing work is the
+go/no-go, and it is written in `research-capacitor.md` §11 — **after** the Android half, because
+Chromium's WebView is a different implementation and A1 and A7 are still unrun.
 
 ## The placeholder that works on Chrome and silently breaks iOS
 
