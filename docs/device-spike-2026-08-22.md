@@ -43,13 +43,13 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 
 | # | Check | What was done | What to look for | Observed | Screenshot | Verdict | Feeds |
 |---|---|---|---|---|---|---|---|
-| A1 | Capture-only buckets open the camera with **no** gallery route | E2 → each of the 5 "Take a photo" inputs; then G2's Car photos | A camera, not a picker. Any "Gallery"/"Files" affordance is a failure. Note whether `capture="environment"` is honoured or `@capacitor/camera` is required | _pending_ | `a1-capture-only.png` | _pending_ | §7A Q4 · design.md §7.1's provisional clause |
-| A2 | **Arrived** — geolocation | E2 → Arrived, granted; then revoke and repeat | Permission prompt, accuracy, seconds to fix; and that a denied fix **blocks** rather than sending a partial arrival | _pending_ | `a2-arrived.png` | _pending_ | §7A Q6 · §5.1 |
+| A1 | Capture-only buckets open the camera with **no** gallery route | E2 -> **Insured car photos** -> *Take a photo*, with the button position confirmed from a prior screenshot | A camera, not a picker. Any "Gallery"/"Files" affordance is a failure | **FAILS. It opens the gallery.** `topResumedActivity = com.google.android.photopicker/PhotopickerGetContentActivity` - an `ACTION_GET_CONTENT` picker over the whole photo library. **No `ACTION_IMAGE_CAPTURE` intent is fired at all**, so the WebView ignores `capture="environment"` outright. Verified twice. The app's own §7.1 rule *is* right - the bucket renders one control, `Insured documents` renders two - but that control does the wrong thing | `a1-capture-only.png`, `a1-buckets-2.png`, `a1-before-tap.png` | **FAIL - `@capacitor/camera` is required on Android** | §7A Q4 · design.md §7.1's provisional clause |
+| A2 | **Arrived** - geolocation | E2 -> Arrived on a handset whose location services are **off** (`location_mode = 0`) | Permission flow, accuracy, seconds to fix; and that a denied fix **blocks** rather than sending a partial arrival | **The unhappy path, on real hardware, correct.** Button went *Sending...* then: *"Arrival was not sent. Finding a location took too long. Press Arrived again once the device has a signal."* **No `update_arrival` row was written and the button re-enabled** rather than being burned by the failed attempt - design.md §5.1's "arrival without location is not sent" holding outside jsdom for the first time. *The success path was not exercised on Android: location was off, and turning it on is a change to the developer's own handset* | `a2-arrived.png` | **PASS (failure path); success path not run** | §7A Q6 · §5.1 · 2.4 |
 | A3 | `MediaRecorder` | E3 voice note → record → playback → upload | Which `audio/*` the WebView emits, whether playback works, whether the server accepts it against `Media:AudioContentTypes` | _pending_ | `a3-voice.png` | _pending_ | §7A Q5 · 3.1's unproven playback |
 | A4 | Damage diagram PNG export | E3 → diagram → mark → confirm → upload | Marks land where tapped; the export uploads and reaches `sent` | _pending_ | `a4-diagram.png` | _pending_ | §5.1 · #11 |
-| A5 | Layout on real glass | Every expert and garage screen, portrait | Nothing clipped at the right edge; 48 px targets reachable with a thumb | _pending_ | `a5-layout.png` | _pending_ | 4.4 found the header overflow in a *browser* |
+| A5 | Layout on real glass | E1, E2 and every bucket panel, portrait, 1080x2316 | Nothing clipped at the right edge; 48 px targets reachable with a thumb | **A defect, and it was mine.** The header rendered *under* the system status bar, with **Sign out** colliding with the battery and wifi icons. Cause: the `viewport-fit=cover` this slice added to `index.html`. Removing it fixed it completely - Capacitor insets the WebView correctly by default, and `viewport-fit=cover` opts out into edge-to-edge with no `env(safe-area-inset-*)` handling in the layout. **Removed.** Everything else is clean: no horizontal overflow, targets comfortably thumb-sized | `a5-layout.png` (broken), `a5-no-viewportfit.png` (fixed) | **PASS after fix** | 4.4 found its header overflow in a *browser* |
 | A6 | Clarity gate on a real photo | E2 → capture a real 12–48 MP shot | Seconds from shutter to confirm screen; the reported sharpness; the byte size against `Media:MaxFileMb` = 15 | _pending_ | `a6-clarity.png` | _pending_ | §7A Q9 · §7.2 · 2.5's fixed analysis scale |
-| A7 | Web push does **not** fire in the WebView | Expert screen → the push panel | Whether the panel offers "Enable notifications" or the unsupported notice; and whether a real assignment produces nothing | _pending_ | `a7-push.png` | _pending_ | **The reason 6.3 exists** |
+| A7 | Web push does **not** fire in the WebView | Visible on every screen from the login page onward | Whether the panel offers "Enable notifications" or the unsupported notice | **Confirmed, and it needed no assignment to prove.** The WebView exposes no `PushManager`, so `PushUnsupportedNotice` renders in place of the enable button: *"This browser cannot show claim notifications. New claims will still appear in My claims."* The graceful-degradation path slice 3.4 built is doing exactly its job | `a0-shell-boot.png` | **CONFIRMED - no web push in the WebView** | **The reason 6.3 exists** |
 
 ## iOS — Safari, then the installed PWA
 
@@ -105,6 +105,43 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
   user-installed root — but it is the kind of thing that reads as a broken certificate at 9am.
+
+## The two platforms answer §7.1 in opposite directions, and that decides slice 6.3
+
+design.md §7.1 hedges capture-only enforcement in the browser as *"a hint, not a guarantee"*, and
+makes native enforcement **provisional pending this document**. The two handsets disagree, and the
+disagreement is the whole answer:
+
+| | capture-only bucket, "Take a photo" | verdict |
+|---|---|---|
+| **iOS Safari / PWA** | goes straight to the camera; no Photo Library route offered | the hint **is** honoured |
+| **Android WebView (Capacitor)** | opens `PhotopickerGetContentActivity` - the full gallery. No `ACTION_IMAGE_CAPTURE` is fired at all | the hint is **ignored** |
+
+**So `@capacitor/camera` is required on Android and is not required on iOS**, which is close to the
+reverse of what HANDOFF §4 assumed when it bought Capacitor primarily for the iPhone.
+
+**How bad is the Android hole?** A garage or expert can attach any existing image - a screenshot, an
+old photograph, a picture of a picture - to a bucket the BRD requires to be taken at the scene. The
+server cannot tell: §7.1 already says `origin` is *"a claim the client makes"*, and the row would be
+written `origin = captured` because the web layer believes it captured it. **This is exactly the fraud
+surface the capture-only rule exists to close**, and on Android it is currently open in the browser,
+in the PWA, and in the Capacitor shell alike.
+
+**It is not a regression and nothing here is wrong.** The app renders §7.1 correctly - one control on
+a capture-only bucket, two on an upload-allowed one, confirmed in `a1-buckets-2.png` across all five
+buckets. The platform simply does not honour the attribute. Closing it needs the plugin, which is a
+component change and therefore **6.3's work, not this spike's**.
+
+## `adb reverse` speaks IPv4 and Vite listens on IPv6, which looks exactly like a broken app
+
+The shell's first load was `net::ERR_EMPTY_RESPONSE`. Vite's default `host: 'localhost'` binds
+**`::1` only** on Node/Windows, `adb reverse` forwards the handset's localhost to the host's **IPv4**
+`127.0.0.1`, and nothing was listening there - so the socket opened and closed with no bytes. The
+server was healthy the whole time and answered `200` from the dev machine.
+
+Fixed by starting that server with `--host 127.0.0.1`. Worth writing down because the symptom is a
+blank app with a Chromium error page, which reads as "the Capacitor shell is broken" rather than "a
+loopback family mismatch", and because `demo-reset.ps1` starts that server the default way.
 
 ## B4 is the headline, and it weakens the case for Capacitor on iOS
 
