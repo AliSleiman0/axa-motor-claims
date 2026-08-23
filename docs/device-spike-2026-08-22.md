@@ -59,7 +59,7 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 | B1 | Safari's capture input | All four §7.1 buckets exercised, plus an upload into `expert_report` | Safari offers a sheet: record exactly what it lists. "Photo Library" appearing is §7.1 unenforceable in Safari | **"take a photo never asks for gallery, just take a photo option"** — a capture-only bucket offers **one** control and it goes straight to the camera; `insured_documents` shows **two**, *Take a photo* and *Choose a file*. **No Photo Library route from a capture-only bucket.** Server side: six documents, all `sent` on attempt 1 — `insured_car_photo` 3,307,493 b and `tp_car_photo` 3,306,658 b both `origin = captured` and `passed`; `insured_documents` 3,917,618 b and `tp_documents` 3,018,445 b likewise; `expert_report` took **`IMG_1145.png`, `origin = uploaded`, 242,541 b** from the library | `b1-capture.png` | **PASS** | §7A Q4 · §7.1 |
 | B2 | `MediaRecorder` | E3 voice note → record → play back → upload | Supported at all; the type produced (`audio/mp4` expected); server acceptance | **`audio/webm`, 335,436 bytes, `voice-note-89a057f1.webm`, `clarity_result = not_applicable`, outbox `sent` on attempt 1** — not the `audio/mp4` the design anticipated (see below). **Playback was audible — confirmed by ear, which closes the gap slice 3.1 left open** | `b2-voice.png` | **PASS** | §7A Q5 · 3.1's deferred playback check |
 | B3 | Arrived geolocation | E2 → Arrived | Prompt, accuracy, time to fix, denied path | **Fix was immediate — no perceptible wait.** `update_arrival` for `PLACEHOLDER-VISA-0001` reached `sent` on attempt 1. *The denied path was not exercised on iOS; it is covered by the jsdom tests from 2.4 but not on a handset* | `b3-arrived.png` | **PASS** | §7A Q6 |
-| B4 | **Add to Home Screen → real iOS web push** | Share → Add to Home Screen; open the installed app; Enable notifications; `demo-assign.ps1` | The install looks like an app (icon, no Safari chrome); the permission prompt appears **only** in the installed app; a real notification arrives and opens E2. **Also record the negative: the same button in the Safari tab.** | **NOT DONE — `push_subscription` is empty (zero rows, zero insert statements in the API log), and no `POST /api/push/subscriptions` was ever received.** Whatever else happened, no browser completed a subscription, so no iOS push can have been delivered | `b4-ios-push.png` | **NOT RUN** | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
+| B4 | **Add to Home Screen → real iOS web push** | Installed to the Home Screen, signed in again, enabled notifications; `demo-assign.ps1` twice — once before and once after the VAPID subject fix | The install looks like an app; the permission prompt appears **only** in the installed app; a real notification arrives and opens E2 | **One `push_subscription` row from `web.push.apple.com`** (`p256dh` 87 chars = 65 bytes, `auth` 22 = 16, both exactly as the endpoint requires). First send: **`403 Forbidden`, `0 of 1 accepted, 0 revoked`**. After changing only `Push:Vapid:Subject`: **`1 of 1 subscriptions accepted`** — see the finding below. *Whether the notification appeared on the handset is not yet reported* | `b4-ios-push.png` | **PARTIAL — Apple accepted the push; on-screen arrival unconfirmed** | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
 | B5 | Diagram export | E3 → diagram → mark → confirm → upload | Parity with A4 | **`damage-diagram-53afb65d.png`, 91,591 bytes, `image/png`, `clarity_result = passed`, outbox `sent` on attempt 1** — a canvas export rasterised correctly on iOS and cleared §7.2's server-side floor | `b5-diagram.png` | **PASS (server-verified)** | §5.1 |
 | B6 | Layout and targets | Every screen used during B1–B5, portrait | Parity with A5 | **Nothing clipped, nothing awkward to hit with a thumb.** Note this is an iPhone 17 Pro Max — a *wide* phone, so it is the easy case; 4.4's 390 px header overflow would not necessarily reproduce here. The narrow-glass test belongs to the Samsung | `b6-layout.png` | **PASS (wide device only)** | 4.4 |
 
@@ -105,6 +105,41 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
   user-installed root — but it is the kind of thing that reads as a broken certificate at 9am.
+
+## The placeholder that works on Chrome and silently breaks iOS
+
+**`Push:Vapid:Subject` was `mailto:dev@example.invalid`. Apple answered `403 Forbidden` and delivered
+nothing. Changing only that value to a valid `https:` URL — same key pair, same subscription, same
+code — produced `1 of 1 subscriptions accepted` on the next send.**
+
+Apple validates the VAPID JWT's `sub` claim and requires a *routable* contact: a real mailto domain or
+a valid URL. `.invalid` is an RFC 2606 reserved TLD that can never receive mail, so the token is
+refused as `BadJwtToken`. **FCM does not check this** — slice 3.4 proved the whole push chain against
+real Chrome with this exact subject and saw nothing wrong.
+
+**This is a direct collision between two rules this project follows, and it is worth stating plainly.**
+CLAUDE.md's placeholder discipline says client-specific values live in Appendix A as *obviously fake*
+placeholders, and Appendix A duly carries
+`"Subject": "mailto:PLACEHOLDER-push-contact@example.invalid"`. That value is obviously fake exactly as
+intended — and it is also, on iOS only, a silent production outage. The failure mode is the worst
+shape available: Android and desktop work, iPhones receive nothing, and the only symptom is a `failed`
+row in the `notification` log that nobody reads until an expert says they never got a claim.
+
+**What follows from it:**
+
+1. `Push:Vapid:Subject` cannot be an obviously-fake value the way the others can. It has to be
+   syntactically valid *and* routable — an AXA contact address, or the deployed application's own
+   `https://` origin. The placeholder should say so where it sits, because the next person to fill it
+   in will otherwise reach for another `example.invalid`.
+2. **`PushOptionsValidator` already checks the VAPID public key to the character** (slice 3.4) and does
+   not check the subject at all. Validating it — reject `.invalid`/`.example`/`.test`/`localhost`,
+   require `mailto:` or `https:` — turns a silent iOS-only outage into a refusal to boot. That is a
+   code change and therefore **out of scope for this spike**; it is written up here as a **6.3 ticket**.
+3. It belongs in the runbook and in the handover: rotating VAPID keys already invalidates every
+   subscription (§4), and now the subject has a correctness requirement of its own.
+
+**None of this would have been found without a real iPhone.** Chrome was green on it, twice, in two
+separate slices.
 
 ## §7.1's biggest hedge just got a better answer than the design expected
 
