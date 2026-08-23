@@ -56,12 +56,12 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 | # | Check | What was done | What to look for | Observed | Screenshot | Verdict | Feeds |
 |---|---|---|---|---|---|---|---|
 | B0 | The mkcert leaf is trusted | Installed `rootCA.crt` as a profile, enabled full trust in Certificate Trust Settings, opened `https://192.168.10.90:5174` | Whether Safari accepts a leaf valid to **23 Nov 2028** (~27 months) — Apple's 398-day ceiling exempts user-installed roots, but that is the claim under test | **"iphone worked"** — padlock, no certificate warning | `b0-cert.png` | **PASS** | blocks every other B row |
-| B1 | Safari's capture input | E2 → each capture-only input | Safari offers a sheet: record exactly what it lists. "Photo Library" appearing is §7.1 unenforceable in Safari | _pending_ | `b1-capture.png` | _pending_ | §7A Q4 · §7.1 |
-| B2 | `MediaRecorder` | E3 voice note | Supported at all; the type produced (`audio/mp4` expected); server acceptance | _pending_ | `b2-voice.png` | _pending_ | §7A Q5 |
-| B3 | Arrived geolocation | E2 → Arrived | Prompt, accuracy, time to fix, denied path | _pending_ | `b3-arrived.png` | _pending_ | §7A Q6 |
-| B4 | **Add to Home Screen → real iOS web push** | Share → Add to Home Screen; open the installed app; Enable notifications; `demo-assign.ps1` | The install looks like an app (icon, no Safari chrome); the permission prompt appears **only** in the installed app; a real notification arrives and opens E2. **Also record the negative: the same button in the Safari tab.** | _pending_ | `b4-ios-push.png` | _pending_ | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
-| B5 | Diagram export | E3 → diagram | Parity with A4 | _pending_ | `b5-diagram.png` | _pending_ | §5.1 |
-| B6 | Layout and targets | Every screen, portrait | Parity with A5 | _pending_ | `b6-layout.png` | _pending_ | 4.4 |
+| B1 | Safari's capture input | All four §7.1 buckets exercised, plus an upload into `expert_report` | Safari offers a sheet: record exactly what it lists. "Photo Library" appearing is §7.1 unenforceable in Safari | **"take a photo never asks for gallery, just take a photo option"** — a capture-only bucket offers **one** control and it goes straight to the camera; `insured_documents` shows **two**, *Take a photo* and *Choose a file*. **No Photo Library route from a capture-only bucket.** Server side: six documents, all `sent` on attempt 1 — `insured_car_photo` 3,307,493 b and `tp_car_photo` 3,306,658 b both `origin = captured` and `passed`; `insured_documents` 3,917,618 b and `tp_documents` 3,018,445 b likewise; `expert_report` took **`IMG_1145.png`, `origin = uploaded`, 242,541 b** from the library | `b1-capture.png` | **PASS** | §7A Q4 · §7.1 |
+| B2 | `MediaRecorder` | E3 voice note → record → play back → upload | Supported at all; the type produced (`audio/mp4` expected); server acceptance | **`audio/webm`, 335,436 bytes, `voice-note-89a057f1.webm`, `clarity_result = not_applicable`, outbox `sent` on attempt 1** — not the `audio/mp4` the design anticipated (see below). **Playback was audible — confirmed by ear, which closes the gap slice 3.1 left open** | `b2-voice.png` | **PASS** | §7A Q5 · 3.1's deferred playback check |
+| B3 | Arrived geolocation | E2 → Arrived | Prompt, accuracy, time to fix, denied path | **Fix was immediate — no perceptible wait.** `update_arrival` for `PLACEHOLDER-VISA-0001` reached `sent` on attempt 1. *The denied path was not exercised on iOS; it is covered by the jsdom tests from 2.4 but not on a handset* | `b3-arrived.png` | **PASS** | §7A Q6 |
+| B4 | **Add to Home Screen → real iOS web push** | Share → Add to Home Screen; open the installed app; Enable notifications; `demo-assign.ps1` | The install looks like an app (icon, no Safari chrome); the permission prompt appears **only** in the installed app; a real notification arrives and opens E2. **Also record the negative: the same button in the Safari tab.** | **NOT DONE — `push_subscription` is empty (zero rows, zero insert statements in the API log), and no `POST /api/push/subscriptions` was ever received.** Whatever else happened, no browser completed a subscription, so no iOS push can have been delivered | `b4-ios-push.png` | **NOT RUN** | §7A Q2 — *"the single most important question"* · HANDOFF §4's whole argument |
+| B5 | Diagram export | E3 → diagram → mark → confirm → upload | Parity with A4 | **`damage-diagram-53afb65d.png`, 91,591 bytes, `image/png`, `clarity_result = passed`, outbox `sent` on attempt 1** — a canvas export rasterised correctly on iOS and cleared §7.2's server-side floor | `b5-diagram.png` | **PASS (server-verified)** | §5.1 |
+| B6 | Layout and targets | Every screen used during B1–B5, portrait | Parity with A5 | **Nothing clipped, nothing awkward to hit with a thumb.** Note this is an iPhone 17 Pro Max — a *wide* phone, so it is the easy case; 4.4's 390 px header overflow would not necessarily reproduce here. The narrow-glass test belongs to the Samsung | `b6-layout.png` | **PASS (wide device only)** | 4.4 |
 
 ---
 
@@ -105,6 +105,68 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
   user-installed root — but it is the kind of thing that reads as a broken certificate at 9am.
+
+## §7.1's biggest hedge just got a better answer than the design expected
+
+design.md §7.1 says, of capture-only enforcement: *"In the browser, `capture="environment"` on the
+input is a hint, not a guarantee."* That hedge is a load-bearing part of HANDOFF §4's case for
+Capacitor — one reason to wrap the app at all was to reach a native camera that can suppress gallery
+access.
+
+**On this iPhone the hint was honoured.** A capture-only bucket presents a single control, tapping it
+goes straight to the camera, and **no Photo Library route is offered at any point**. The contrast is
+visible in the same screen: `insured_documents` shows *two* controls, *Take a photo* and *Choose a
+file*, and only the second reaches the library.
+
+Two cautions before this is leaned on. It is **one handset on one iOS version**, and Safari's
+behaviour here is not a specification guarantee — a future release could reintroduce the picker
+without warning, which is precisely why `origin` is recorded on every row and why the server-side
+rule is not going anywhere. And **the Android WebView is untested** — that is check A1, still pending
+the Samsung, and Chromium's WebView is a different implementation making its own choice.
+
+But taken with B4's outcome, this is the observation most likely to move the go/no-go, because it
+removes one of the two things Capacitor was bought for on iOS.
+
+## Every iOS camera capture is called `image.jpg`, and that lands on this project's core problem
+
+Four separate captures — insured documents, insured car photo, TP documents, TP car photo — arrived
+with the **identical** `file_name` of `image.jpg`. That is Safari's behaviour, not a bug here: the
+browser names every `<input type="file" capture>` result the same way, and the library upload by
+contrast carried its real name, `IMG_1145.png`.
+
+**Why it matters more here than it would elsewhere.** design.md §4 added `document.file_name` in slice
+4.1 precisely so a garage's `invoice.pdf` would not reach NEXT3's *Survey* folder as `019ab….pdf` —
+"on precisely the linking step this project exists to get right". On iOS that column does its job and
+still leaves four files called `image.jpg` under one visa. Nothing here is wrong, and nothing on our
+side can fix it: the name is all the browser gives.
+
+So it becomes a question for AXA rather than a defect: **does NEXT3 distinguish documents by name?**
+If it does, iOS uploads collide. The `doc_type` code (#12) and the `clientRef` (#32) both already
+distinguish them, which is the reason to believe this is survivable — but it is now a known,
+device-confirmed property of the iOS path and belongs in the next client email beside #12, not
+discovered during UAT.
+
+## The iOS voice-note finding, stated carefully
+
+design.md §7.2 and slice 3.1 both anticipate **`audio/mp4`** from Safari — `MediaRecorder` "emits
+`audio/webm;codecs=opus` on Chrome and `audio/mp4` on Safari" is written into the design. **This
+iPhone produced `audio/webm`.**
+
+That is not a client bug: `recorder.ts` picks its format from `Media:AudioContentTypes` using
+`MediaRecorder.isTypeSupported`, and `audio/webm` is first in that list — so Safari answering *yes* to
+WebM is what selected it. And it is not a mislabel either, because the **server sniffs the container
+and refuses bytes that are not what they were declared to be**; a 335 KB file stored as `audio/webm`
+means the bytes really are WebM.
+
+**Consequence: the design document's parenthetical about Safari is now out of date**, and the code was
+right to derive the format from a capability check rather than from a platform assumption — 3.1's
+"accept loosely, store canonically" earning its keep on a device nobody had run it on. design.md §7.2
+should be corrected rather than quietly diverged from, which is the eighth time this project has hit
+that pattern.
+
+**Still unproven: that the recording is audible.** Slice 3.1 could not verify playback because that
+Chrome profile decoded no audio at all, and it was explicitly deferred to the device checkpoint. The
+bytes being a valid container is not the same fact as a person hearing the note.
 
 ## Gates
 
