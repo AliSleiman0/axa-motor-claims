@@ -44,11 +44,11 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
 | # | Check | What was done | What to look for | Observed | Screenshot | Verdict | Feeds |
 |---|---|---|---|---|---|---|---|
 | A1 | Capture-only buckets open the camera with **no** gallery route | E2 -> **Insured car photos** -> *Take a photo*, with the button position confirmed from a prior screenshot | A camera, not a picker. Any "Gallery"/"Files" affordance is a failure | **FAILS. It opens the gallery.** `topResumedActivity = com.google.android.photopicker/PhotopickerGetContentActivity` - an `ACTION_GET_CONTENT` picker over the whole photo library. **No `ACTION_IMAGE_CAPTURE` intent is fired at all**, so the WebView ignores `capture="environment"` outright. Verified twice. The app's own §7.1 rule *is* right - the bucket renders one control, `Insured documents` renders two - but that control does the wrong thing | `a1-capture-only.png`, `a1-buckets-2.png`, `a1-before-tap.png` | **FAIL - `@capacitor/camera` is required on Android** | §7A Q4 · design.md §7.1's provisional clause |
-| A2 | **Arrived** - geolocation | E2 -> Arrived on a handset whose location services are **off** (`location_mode = 0`) | Permission flow, accuracy, seconds to fix; and that a denied fix **blocks** rather than sending a partial arrival | **The unhappy path, on real hardware, correct.** Button went *Sending...* then: *"Arrival was not sent. Finding a location took too long. Press Arrived again once the device has a signal."* **No `update_arrival` row was written and the button re-enabled** rather than being burned by the failed attempt - design.md §5.1's "arrival without location is not sent" holding outside jsdom for the first time. *The success path was not exercised on Android: location was off, and turning it on is a change to the developer's own handset* | `a2-arrived.png` | **PASS (failure path); success path not run** | §7A Q6 · §5.1 · 2.4 |
-| A3 | `MediaRecorder` | E3 voice note → record → playback → upload | Which `audio/*` the WebView emits, whether playback works, whether the server accepts it against `Media:AudioContentTypes` | _pending_ | `a3-voice.png` | _pending_ | §7A Q5 · 3.1's unproven playback |
-| A4 | Damage diagram PNG export | E3 → diagram → mark → confirm → upload | Marks land where tapped; the export uploads and reaches `sent` | _pending_ | `a4-diagram.png` | _pending_ | §5.1 · #11 |
+| A2 | **Arrived** - geolocation | Pressed twice: once with the phone's location services **off**, once after the developer turned them on | Permission flow, accuracy, seconds to fix; and that a denied fix **blocks** rather than sending a partial arrival | **Both paths correct.** Off: *"Arrival was not sent. Finding a location took too long..."*, **no `update_arrival` row written, button re-enabled** - §5.1 holding outside jsdom for the first time. On: `update_arrival` for `PLACEHOLDER-VISA-0002` **sent on attempt 1**. But the message named the wrong cause - see the note below | `a2-arrived.png` | **PASS (both paths)** | §7A Q6 · §5.1 · 2.4 |
+| A3 | `MediaRecorder` | E3 -> Record a voice note -> Stop -> Confirm | Which `audio/*` the WebView emits, whether playback works, whether the server accepts it | **`audio/webm`**, `voice-note-dbff98fc.webm`, 39,119 bytes, `clarity_result = not_applicable`, outbox **`sent` on attempt 1**. `getUserMedia` worked in the WebView once `RECORD_AUDIO` was in the manifest; the panel showed *Recording...* then rendered `<audio controls>` at **0:46** for §7.2 item 4's playback-confirm. **Same container as iOS** - so design.md's "`audio/mp4` on Safari" is wrong about both platforms | `a3-voice.png` | **PASS** | §7A Q5 |
+| A4 | Damage diagram PNG export | E3 -> tapped Front bumper and Bonnet -> Use this diagram -> Confirm | Marks land where tapped; the export uploads and reaches `sent` | **Marks landed exactly where tapped**, *"Marked: Front bumper, Bonnet"*, rendered in 4.4's pale fill with the darker border. Export rasterised on the device and reached E4 **with no sharpness line** (correct - a diagram is `photographic: false`). `damage-diagram-5ba9e65b.png`, 93,926 bytes, `passed`, **`sent` on attempt 1**, and the panel count went to **(1)** | `a4-diagram.png` | **PASS** | §5.1 · #11 |
 | A5 | Layout on real glass | E1, E2 and every bucket panel, portrait, 1080x2316 | Nothing clipped at the right edge; 48 px targets reachable with a thumb | **A defect, and it was mine.** The header rendered *under* the system status bar, with **Sign out** colliding with the battery and wifi icons. Cause: the `viewport-fit=cover` this slice added to `index.html`. Removing it fixed it completely - Capacitor insets the WebView correctly by default, and `viewport-fit=cover` opts out into edge-to-edge with no `env(safe-area-inset-*)` handling in the layout. **Removed.** Everything else is clean: no horizontal overflow, targets comfortably thumb-sized | `a5-layout.png` (broken), `a5-no-viewportfit.png` (fixed) | **PASS after fix** | 4.4 found its header overflow in a *browser* |
-| A6 | Clarity gate on a real photo | E2 → capture a real 12–48 MP shot | Seconds from shutter to confirm screen; the reported sharpness; the byte size against `Media:MaxFileMb` = 15 | _pending_ | `a6-clarity.png` | _pending_ | §7A Q9 · §7.2 · 2.5's fixed analysis scale |
+| A6 | Clarity gate on a real photo | **Not run on Android** | Seconds from shutter to confirm screen; the reported sharpness; the byte size against `Media:MaxFileMb` = 15 | **NOT RUN, deliberately.** A1 means a capture-only bucket opens the *gallery*, so exercising this on Android would have meant browsing the developer's personal photo library. Measured on iOS instead, where four captures of **3.0-3.9 MB** all cleared the gate and the 15 MB cap. The Android gate is the same pure function over a pixel buffer (`clarity.ts`), and the diagram export did rasterise and gate correctly on the device (A4) | - | **NOT RUN (iOS-measured)** | §7A Q9 · §7.2 |
 | A7 | Web push does **not** fire in the WebView | Visible on every screen from the login page onward | Whether the panel offers "Enable notifications" or the unsupported notice | **Confirmed, and it needed no assignment to prove.** The WebView exposes no `PushManager`, so `PushUnsupportedNotice` renders in place of the enable button: *"This browser cannot show claim notifications. New claims will still appear in My claims."* The graceful-degradation path slice 3.4 built is doing exactly its job | `a0-shell-boot.png` | **CONFIRMED - no web push in the WebView** | **The reason 6.3 exists** |
 
 ## iOS — Safari, then the installed PWA
@@ -105,6 +105,28 @@ like a platform limitation**, and would have gone into `research-capacitor.md` a
   unknown" because a mkcert root carries no CRL or OCSP. `--ssl-revoke-best-effort` validates. This is
   a curl artifact, not a certificate defect, and iOS does not require revocation data for a
   user-installed root — but it is the kind of thing that reads as a broken certificate at 9am.
+
+## The Android WebView reports "location is switched off" as a *timeout*, and that misleads the expert
+
+The handset's system location toggle was off. `geolocation.ts` already branches on all four
+`GeolocationPositionError` codes with distinct copy - denied, unavailable, timeout, unsupported - so
+this should have been the `unavailable` case: *"This device could not determine a location."*
+
+**It came back as code 3, TIMEOUT**, after the full 15-second wait, so the expert was told *"Finding a
+location took too long... press Arrived again once the device has a signal"* - advice that will never
+work, because no amount of signal helps when location services are off. The developer found the real
+cause by turning the toggle on, at which point the arrival sent on attempt 1.
+
+**No amount of correct branching fixes this**: the platform reports the wrong code, and a web page
+cannot read the system location setting. What *can* fix it is native code - Play Services can both
+detect the setting and show the standard "turn on location?" dialog - which is another entry in the
+column marked "things only the Capacitor plugin can do", alongside A1.
+
+**Two honest corrections to "the app should have asked me":** the app-level permission prompt did not
+appear because **this session granted `ACCESS_FINE_LOCATION` over `adb` before testing**, to keep A2
+about the app rather than about a system dialog; a real install would prompt. And the *system* toggle
+is a separate thing that no web page can prompt for at all. Carried as a **6.3 ticket**: on Android,
+the timeout copy should also point at the location setting.
 
 ## The two platforms answer §7.1 in opposite directions, and that decides slice 6.3
 
