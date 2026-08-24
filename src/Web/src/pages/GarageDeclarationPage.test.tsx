@@ -8,7 +8,11 @@ import GarageDeclarationPage from './GarageDeclarationPage'
 
 const ID = '00000000-0000-0000-0000-0000000d0001'
 
-/** §7.1's two garage buckets as `GET /api/config/media` serves them (slice 4.1 added them). */
+/**
+ * §7.1's garage buckets as `GET /api/config/media` serves them — the two from slice 4.1 and the
+ * three G4 ones from 5.1. The endpoint projects `MediaBuckets` wholesale, so a bucket missing here
+ * is a bucket whose panel renders "not configured for uploads yet" instead of a control.
+ */
 const MEDIA_CONFIG: MediaConfig = {
   clarity: { minWidth: 1024, minHeight: 768, blurVarianceThreshold: 100, blurAnalysisMaxEdge: 512 },
   maxFileMb: 15,
@@ -16,6 +20,10 @@ const MEDIA_CONFIG: MediaConfig = {
     { bucket: 'garage_documents', allowUpload: true, contentTypes: ['image/jpeg', 'application/pdf'] },
     // Capture-only, the BRD's hard rule — so the panel must render no file picker at all.
     { bucket: 'garage_car_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+    // G4: the repair photo is capture-only for the same reason; the paperwork is not.
+    { bucket: 'repair_photo', allowUpload: false, contentTypes: ['image/jpeg'] },
+    { bucket: 'discharge', allowUpload: true, contentTypes: ['image/jpeg', 'application/pdf'] },
+    { bucket: 'invoice', allowUpload: true, contentTypes: ['image/jpeg', 'application/pdf'] },
   ],
 }
 
@@ -29,8 +37,20 @@ const DOCUMENT: DeclarationDocument = {
   fileName: 'PLACEHOLDER-photo.jpg',
   sizeBytes: 1024,
   pushStatus: 'deferred',
+  pushConfirmed: false,
   blobRetained: true,
   createdAt: '2026-08-22T09:00:00',
+}
+
+const INVOICE: DeclarationDocument = {
+  ...DOCUMENT,
+  id: '00000000-0000-0000-0000-0000000dd002',
+  bucket: 'invoice',
+  docType: 'PLACEHOLDER-DOC-11',
+  origin: 'uploaded',
+  contentType: 'application/pdf',
+  fileName: 'PLACEHOLDER-invoice.pdf',
+  pushStatus: 'queued',
 }
 
 function detail(overrides: Partial<DeclarationDetail> = {}): DeclarationDetail {
@@ -45,6 +65,7 @@ function detail(overrides: Partial<DeclarationDetail> = {}): DeclarationDetail {
     submittedAt: null,
     decidedAt: null,
     repairsStartedAt: null,
+    repairDocsSubmittedAt: null,
     claimStatus: null,
     claimFetchedAt: null,
     claim: null,
@@ -79,6 +100,12 @@ const REJECTED = detail({
   submittedAt: '2026-08-22T08:30:00',
   decidedAt: '2026-08-22T09:30:00',
   comments: [],
+})
+
+const REPAIRING = detail({
+  ...APPROVED,
+  state: 'repairs_in_progress',
+  repairsStartedAt: '2026-08-22T10:00:00',
 })
 
 describe('G3 — declaration detail', () => {
@@ -157,14 +184,81 @@ describe('G3 — declaration detail', () => {
       expect(screen.queryByLabelText('Take a photo')).toBeNull()
     })
 
-    it('repairs in progress names the slice that will finish it', async () => {
-      show(detail({ ...APPROVED, state: 'repairs_in_progress' }), [DOCUMENT])
+    it('repairs in progress offers the three G4 buckets', async () => {
+      // **Rewritten in slice 5.1**, and the assertion it replaced was the honest one for 4.2: it
+      // pinned a placeholder naming this slice. What it checked no longer exists on the screen.
+      show(REPAIRING, [DOCUMENT])
 
-      // Named rather than left blank: a garage mid-repair will look for where to send the invoice,
-      // and "not in this release" is a better answer than an empty screen.
-      expect(await screen.findByRole('heading', { name: 'Repairs in progress' })).toBeDefined()
-      expect(screen.getByText(/not part of this release/)).toBeDefined()
+      await screen.findAllByLabelText('Take a photo')
+
+      expect(screen.getByRole('heading', { name: /^Repair photos/ })).toBeDefined()
+      expect(screen.getByRole('heading', { name: /^Discharge/ })).toBeDefined()
+      expect(screen.getByRole('heading', { name: /^Invoice/ })).toBeDefined()
       expect(screen.queryByRole('button', { name: 'Start repairs' })).toBeNull()
+
+      // §7.1's capture-only rule again, and the split that makes these three buckets rather than
+      // one: the repair photo offers no file picker, the paperwork does.
+      const photos = within(
+        screen.getByRole('heading', { name: /^Repair photos/ }).closest('section')!,
+      )
+      expect(photos.queryByLabelText('Choose a file')).toBeNull()
+      expect(photos.getByLabelText('Take a photo')).toBeDefined()
+
+      const invoice = within(screen.getByRole('heading', { name: /^Invoice/ }).closest('section')!)
+      expect(invoice.getByLabelText('Choose a file')).toBeDefined()
+    })
+
+    it('repair documents show that they are already on their way to AXA', async () => {
+      // The first garage screen where `PushIndicator` says anything: these buckets are Immediate, so
+      // a repair document is `queued` at upload rather than waiting for a transition. Before
+      // approval every garage row is `deferred` and the indicator deliberately renders nothing.
+      show(REPAIRING, [DOCUMENT, INVOICE])
+
+      expect(await screen.findByText('Queued, will send')).toBeDefined()
+    })
+
+    it('and say so once NEXT3 has acknowledged them', async () => {
+      // **`pushConfirmed`, not `pushStatus === 'sent'`.** The document row never says "sent" — §4
+      // keeps live push state on the outbox row — so the indicator asked a question the API cannot
+      // answer, and this string never appeared on any screen until slice 5.1 computed it at read
+      // time. Found by the manual pass, which is the only place it could have been.
+      show(REPAIRING, [DOCUMENT, { ...INVOICE, pushConfirmed: true }])
+
+      expect(await screen.findByText('Sent to AXA')).toBeDefined()
+      expect(screen.queryByText('Queued, will send')).toBeNull()
+    })
+
+    it('the last step is refused until something from the repair exists', async () => {
+      // "At least one repair document, any bucket" — pass-2 review decision 5. The artboard proposed
+      // invoice-only, which the BRD ("documents such like discharge, invoice") does not support, so
+      // a declaration carrying only its pre-approval car photo is not finishable.
+      show(REPAIRING, [DOCUMENT])
+
+      const submit = await screen.findByRole('button', { name: 'Submit repair documents' })
+      expect(submit.hasAttribute('disabled')).toBe(true)
+      expect(screen.getByText(/Add at least one repair document/)).toBeDefined()
+    })
+
+    it('repair documents sent is terminal and shows the four timestamps', async () => {
+      show(
+        detail({
+          ...APPROVED,
+          state: 'repair_docs_submitted',
+          repairsStartedAt: '2026-08-22T10:00:00',
+          repairDocsSubmittedAt: '2026-08-22T11:00:00',
+        }),
+        [DOCUMENT, INVOICE],
+      );
+
+      expect(await screen.findByRole('heading', { name: 'Repair documents sent' })).toBeDefined()
+      expect(screen.getByText(/Nothing further is needed from the garage/)).toBeDefined()
+
+      // G4Submitted's timeline. Four labels, and no control of any kind — §5.2 defines no state
+      // after this one, so there is nothing to offer.
+      expect(screen.getByText('Repairs started')).toBeDefined()
+      expect(screen.getByText('Documents sent')).toBeDefined()
+      expect(screen.queryByRole('button')).toBeNull()
+      expect(screen.queryByLabelText('Take a photo')).toBeNull()
     })
   })
 
@@ -209,12 +303,42 @@ describe('G3 — declaration detail', () => {
         expect(submitCalls()).toBe(1)
       })
     })
+
+    it('finishes the repair with exactly one request however fast the button is pressed', async () => {
+      // The same latch on the terminal transition, and the one place it matters most: a second
+      // `submit-repair-docs` cannot succeed (the server's `state` token refuses it), but it renders
+      // a 409 the garage never caused on the last screen of the flow.
+      show(REPAIRING, [DOCUMENT, INVOICE])
+
+      const submit = await screen.findByRole('button', { name: 'Submit repair documents' })
+      await waitFor(() => {
+        expect(submit.hasAttribute('disabled')).toBe(false)
+      })
+
+      await act(async () => {
+        submit.click()
+        submit.click()
+        submit.click()
+      })
+
+      await waitFor(() => {
+        expect(repairSubmitCalls()).toBe(1)
+      })
+    })
   })
 
+  function repairSubmitCalls(): number {
+    return postsTo('/submit-repair-docs')
+  }
+
   function submitCalls(): number {
+    return postsTo('/submit')
+  }
+
+  function postsTo(suffix: string): number {
     return fetchMock.mock.calls.filter(([url, init]) => {
       const request = init as RequestInit | undefined
-      return String(url).endsWith('/submit') && request?.method === 'POST'
+      return String(url).endsWith(suffix) && request?.method === 'POST'
     }).length
   }
 
@@ -222,6 +346,9 @@ describe('G3 — declaration detail', () => {
     fetchMock = vi.fn((url: string, init?: RequestInit) => {
       const path = String(url)
       if (path.endsWith('/api/config/media')) return Promise.resolve(json(MEDIA_CONFIG))
+      if (path.endsWith('/submit-repair-docs')) {
+        return Promise.resolve(json({ state: 'repair_docs_submitted' as DeclarationState }))
+      }
       if (path.endsWith('/submit') || path.endsWith('/start-repairs')) {
         return Promise.resolve(json({ state: 'submitted' as DeclarationState }))
       }

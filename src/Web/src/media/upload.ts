@@ -26,6 +26,7 @@ export interface UploadedDocument {
   fileName: string | null
   sizeBytes: number
   pushStatus: string
+  pushConfirmed: boolean
   blobRetained: boolean
   createdAt: string
 }
@@ -84,6 +85,14 @@ const UPLOAD_EXPLANATIONS: Record<string, string> = {
     'That kind of file cannot be added here. Use the sections on this screen.',
   declaration_already_decided:
     'AXA has already decided this declaration, so nothing more can be attached to it.',
+  // Slice 5.1's two. The first is the repair buckets' half of the same rule — the same file is
+  // welcome once the repair has started and refused before and after it. The second is the race:
+  // the declaration moved on *while* this file was uploading, so the answer is to look, not to
+  // conclude that nothing more can ever be attached.
+  repairs_not_in_progress:
+    'Repair documents can only be added once the repair has been started, and before it is finished.',
+  declaration_changed:
+    'This declaration moved on while the file was uploading. Reopen it to see where it is now.',
 }
 
 /** Pulls the `{ "error": "code" }` body the media endpoint returns on a refusal. */

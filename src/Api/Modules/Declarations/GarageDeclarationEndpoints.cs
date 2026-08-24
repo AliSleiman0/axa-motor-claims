@@ -4,6 +4,7 @@ using Api.Integrations.Blob;
 using Api.Modules.Claims;
 using Api.Modules.Media;
 using Api.Modules.Users;
+using Api.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Modules.Declarations;
@@ -48,6 +49,7 @@ public sealed record DeclarationDetailDto(
     DateTime? SubmittedAt,
     DateTime? DecidedAt,
     DateTime? RepairsStartedAt,
+    DateTime? RepairDocsSubmittedAt,
     string? ClaimStatus,
     DateTime? ClaimFetchedAt,
     ClaimDto? Claim,
@@ -63,8 +65,8 @@ public sealed record DeclarationCommentDto(string Body, DateTime CreatedAt);
 /// not-yours are the same bare 404: the 2.x convention, and the reason is the same one E2 gives — a
 /// garage must not be able to discover which declaration ids exist by watching the status code change.
 ///
-/// G4's repair submission is slice 5.1. The entity can already make that transition; nothing here
-/// calls it, and the repair buckets do not exist yet.
+/// G4's repair submission arrived in slice 5.1: the three repair buckets, the state-dependent upload
+/// gate underneath them, and the terminal transition they are the precondition for.
 /// </summary>
 public static class GarageDeclarationEndpoints
 {
@@ -189,6 +191,7 @@ public static class GarageDeclarationEndpoints
                 declaration.SubmittedAt,
                 declaration.DecidedAt,
                 declaration.RepairsStartedAt,
+                declaration.RepairDocsSubmittedAt,
                 lookup?.Status.Describe(),
                 lookup?.Claim?.FetchedAt,
                 lookup?.Claim is null ? null : ClaimDto.From(lookup.Claim),
@@ -213,6 +216,17 @@ public static class GarageDeclarationEndpoints
                 : Answer(await declarations.StartRepairs(id, garageUserId.Value, ct));
         });
 
+        // §5.2's last row (G4). Terminal: there is no closure or settlement state, because the BRD
+        // defines none and §1 forbids inventing one.
+        group.MapPost("/{id:guid}/submit-repair-docs", async (
+            Guid id, ClaimsPrincipal principal, DeclarationService declarations, CancellationToken ct) =>
+        {
+            var garageUserId = principal.GetUserId();
+            return garageUserId is null
+                ? Results.Unauthorized()
+                : Answer(await declarations.SubmitRepairDocs(id, garageUserId.Value, ct));
+        });
+
         MapDocuments(group);
 
         return app;
@@ -230,42 +244,56 @@ public static class GarageDeclarationEndpoints
                 return Results.Unauthorized();
             }
 
-            var declaration = await Find(db, id, garageUserId.Value, ct);
+            // **Tracked, unlike every other read on this group**, and that is the guard rather than a
+            // detail. The gate below decides from a snapshot, but the document row commits in a later
+            // `SaveChanges` inside the pipeline, so an upload admitted while the declaration was
+            // undecided can land *after* the officer's approve transition has already swept the
+            // deferred set — a `deferred` row nothing will ever queue: never pushed, absent from A2,
+            // excluded from §7.3's sweep 1, blob retained for ever, and nothing thrown. The gate's own
+            // rule with a race left in it. So `state` — the same concurrency token every transition
+            // uses — is made part of the upload's transaction below, which turns the check into the
+            // `UPDATE … WHERE state = @expected` CLAUDE.md asks for instead of an `if`.
+            var declaration = await db.Declarations
+                .SingleOrDefaultAsync(d => d.Id == id && d.GarageUserId == garageUserId.Value, ct);
+
             if (declaration is null)
             {
                 return Results.NotFound();
             }
 
-            // **Only before the decision**, and this is not tidiness — it closes a hole the db-reviewer
-            // found. These buckets are OnApproval, so an upload writes a `deferred` row with no outbox
-            // row and relies on the approve transition to queue it. Upload *after* that transition has
-            // already run and nothing ever will: the row is invisible on A2 (there is no outbox row to
-            // list), §7.3's sweep 1 structurally excludes it, and its blob is retained for ever — a
-            // document that silently never reaches AXA, which is the one outcome this project exists
-            // to prevent. Nothing throws and nothing logs, so it would surface as a support ticket.
-            //
-            // G4's post-repair uploads are slice 5.1's, with their own buckets and their own place in
-            // the machine; they are not these.
-            if (declaration.DecidedAt is not null)
-            {
-                return Results.Json(
-                    new { error = "declaration_already_decided" }, statusCode: StatusCodes.Status409Conflict);
-            }
+            // Marking `state` modified writes it back unchanged, so two concurrent uploads never
+            // fight — the token's *value* is what a transition changes — while any transition that
+            // commits in between makes this `SaveChanges` match no row and roll the document back.
+            db.Entry(declaration).Property(d => d.State).IsModified = true;
 
-            // **No visa** — at Draft the officer has not chosen one and may yet reject the whole
-            // declaration. The pipeline stores the row `deferred` with no outbox row and §5.2's
-            // approve transition queues it later, under the visa that by then exists.
-            // Restricted to the garage's own two buckets, and this is authorization rather than
-            // tidiness: `approval_image` shares this owner kind, so without the allow-list a garage
-            // could attach its own "approval" and satisfy the very gate that exists to make an officer
-            // sign the decision (§5.2's `approval_image_required`). Capture-only would not stop it —
-            // `origin` is a claim the client makes.
-            var outcome = await uploads.Upload(
-                request,
-                new MediaUploadTarget(
-                    DocumentOwnerKinds.Declaration, declaration.Id, VisaNo: null, garageUserId),
-                ct,
-                allowedBuckets: [MediaBuckets.GarageDocuments, MediaBuckets.GarageCarPhoto]);
+            MediaUploadOutcome outcome;
+            try
+            {
+                // **The visa is read off the row, not decided here.** `CK_declaration_decision` makes
+                // it exactly the two cases §5.2 needs: null before a decision, and the officer's visa
+                // from `approved` onwards. So `RequireVisa` on the Immediate repair buckets is
+                // satisfied by the schema rather than by this line remembering to be right, and a
+                // pre-decision upload still stores `deferred` with no outbox row for the approve
+                // transition to queue later.
+                outcome = await uploads.Upload(
+                    request,
+                    new MediaUploadTarget(
+                        DocumentOwnerKinds.Declaration, declaration.Id, declaration.VisaNo, garageUserId),
+                    ct,
+                    gate: GarageBucketGate(declaration));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // The declaration moved while the file was still being read. The blob is written and
+                // is now an orphan for §7.3's sweep — the safe failure order — and the document row is
+                // not, which is the whole point. Its own code rather than the gate's: the gate refuses
+                // a request that arrived too late, this refuses one that *became* too late, and the
+                // screen's answer differs — reopen and look, rather than "nothing more can be
+                // attached".
+                db.ChangeTracker.Clear();
+                return Results.Json(
+                    new { error = "declaration_changed" }, statusCode: StatusCodes.Status409Conflict);
+            }
 
             return outcome.Document is null
                 ? Results.Json(new { error = outcome.ErrorCode }, statusCode: outcome.StatusCode)
@@ -275,7 +303,8 @@ public static class GarageDeclarationEndpoints
         });
 
         group.MapGet("/{id:guid}/documents", async (
-            Guid id, ClaimsPrincipal principal, AppDbContext db, CancellationToken ct) =>
+            Guid id, ClaimsPrincipal principal, AppDbContext db, OutboxSentQuery sentPushes,
+            CancellationToken ct) =>
         {
             var garageUserId = principal.GetUserId();
             if (garageUserId is null)
@@ -289,7 +318,7 @@ public static class GarageDeclarationEndpoints
                 return Results.NotFound();
             }
 
-            return Results.Ok(await DocumentsFor(db, id, ct));
+            return Results.Ok(await DocumentsFor(db, sentPushes, id, ct));
         });
 
         // G3's previews (slice 4.2). Scoped to the caller's own declaration first, then to that
@@ -314,15 +343,30 @@ public static class GarageDeclarationEndpoints
         });
     }
 
-    /// <summary>The documents on one declaration, newest first — shared by both views (§5.2).</summary>
-    internal static Task<List<DocumentDto>> DocumentsFor(AppDbContext db, Guid declarationId, CancellationToken ct) =>
-        db.Documents.AsNoTracking()
+    /// <summary>
+    /// The documents on one declaration, newest first — shared by both views (§5.2).
+    ///
+    /// The `Contains` over <see cref="OutboxSentQuery"/> composes into this one statement, so "has
+    /// NEXT3 acknowledged this?" is answered by the database from the outbox row itself rather than
+    /// from a denormalised copy of it (§4's rule; the same join §7.3's sweep uses, and the reason
+    /// architecture rule 4 survives it).
+    /// </summary>
+    internal static Task<List<DocumentDto>> DocumentsFor(
+        AppDbContext db, OutboxSentQuery sentPushes, Guid declarationId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sentPushes);
+        var sent = sentPushes.MessageIdsSent();
+
+        return db.Documents.AsNoTracking()
             .Where(d => d.OwnerKind == DocumentOwnerKinds.Declaration && d.OwnerId == declarationId)
             .OrderByDescending(d => d.CreatedAt)
             .Select(d => new DocumentDto(
                 d.Id, d.Bucket, d.DocType, d.Origin, d.ClarityResult, d.ContentType,
-                d.FileName, d.SizeBytes, d.PushStatus, d.BlobDeletedAt == null, d.CreatedAt))
+                d.FileName, d.SizeBytes, d.PushStatus,
+                d.OutboxMessageId != null && sent.Contains(d.OutboxMessageId.Value),
+                d.BlobDeletedAt == null, d.CreatedAt))
             .ToListAsync(ct);
+    }
 
     /// <summary>
     /// Turns a service outcome into a response. The status and the code are decided where the rule
@@ -339,6 +383,51 @@ public static class GarageDeclarationEndpoints
             ? Results.NotFound()
             : Results.Json(new { error = outcome.ErrorCode }, statusCode: outcome.StatusCode);
     }
+
+    /// <summary>
+    /// Which of §7.1's declaration buckets this garage may write to, in the state this declaration is
+    /// actually in (§5.2, slice 5.1). Three answers, and each refusal says something true:
+    ///
+    /// <list type="bullet">
+    /// <item><b>The pre-decision buckets, while undecided.</b> They are OnApproval, so an upload
+    /// writes a `deferred` row with no outbox row and relies on the approve transition to queue it.
+    /// Upload after that transition has run and nothing ever will: invisible on A2 (no outbox row to
+    /// list), structurally excluded from §7.3's sweep 1, blob retained for ever — a document that
+    /// silently never reaches AXA, which is the one outcome this project exists to prevent. Nothing
+    /// throws and nothing logs, so it would surface as a support ticket. Note the test is
+    /// <c>DecidedAt</c>, not "state is Draft": while an officer is reviewing, a garage may still add
+    /// the photo it forgot, and nothing about a `submitted` declaration has been decided yet.</item>
+    /// <item><b>G4's repair buckets, at `repairs_in_progress` only.</b> They are Immediate, so each
+    /// one queues a push at upload under the declaration's visa — which exists from `approved`
+    /// onwards, but before Start Repairs there is no repair to document, and after
+    /// `repair_docs_submitted` §5.2 is terminal.</item>
+    /// <item><b>Anything else — `approval_image` — refused outright</b>, as in 4.1. It shares this
+    /// owner kind, so without this a garage could attach its own "approval" and satisfy the very gate
+    /// that exists to make an officer sign the decision (§5.2's `approval_image_required`).
+    /// Capture-only would not stop it: `origin` is a claim the client makes.</item>
+    /// </list>
+    /// </summary>
+    private static BucketGate GarageBucketGate(Declaration declaration) => rule =>
+    {
+        if (MediaBuckets.GarageDeclaration.Contains(rule.Bucket, StringComparer.Ordinal))
+        {
+            return declaration.DecidedAt is null
+                ? null
+                : MediaUploadOutcome.Refused(
+                    StatusCodes.Status409Conflict, "declaration_already_decided");
+        }
+
+        if (MediaBuckets.Repair.Contains(rule.Bucket, StringComparer.Ordinal))
+        {
+            return declaration.State == DeclarationState.RepairsInProgress
+                ? null
+                : MediaUploadOutcome.Refused(
+                    StatusCodes.Status409Conflict, "repairs_not_in_progress");
+        }
+
+        return MediaUploadOutcome.Refused(
+            StatusCodes.Status400BadRequest, "bucket_not_allowed_for_caller");
+    };
 
     private static Task<Declaration?> Find(
         AppDbContext db, Guid id, Guid garageUserId, CancellationToken ct) =>

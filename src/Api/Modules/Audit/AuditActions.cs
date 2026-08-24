@@ -29,6 +29,7 @@ public static class AuditActions
     public const string DeclarationApproved = "declaration_approved";
     public const string DeclarationRejected = "declaration_rejected";
     public const string DeclarationRepairsStarted = "declaration_repairs_started";
+    public const string DeclarationRepairDocsSubmitted = "declaration_repair_docs_submitted";
 
     // §9's "public-page submissions (actor null, token id logged)".
     public const string PublicLinkIssued = "public_link_issued";

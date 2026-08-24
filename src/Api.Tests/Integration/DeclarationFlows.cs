@@ -37,6 +37,7 @@ internal sealed record DeclarationDetailBodyDto(
     DateTime? SubmittedAt,
     DateTime? DecidedAt,
     DateTime? RepairsStartedAt,
+    DateTime? RepairDocsSubmittedAt,
     string? ClaimStatus,
     DateTime? ClaimFetchedAt,
     ClaimBodyDto? Claim,
@@ -166,6 +167,34 @@ internal static class DeclarationFlows
         garage.Client.PostAsync(
             new Uri($"/api/garage/declarations/{declarationId}/submit", UriKind.Relative), null);
 
+    /// <summary>G4's post-repair photo — capture-only, the same BRD rule as the declaration's.</summary>
+    public static Task<HttpResponseMessage> UploadRepairPhoto(this Actor garage, Guid declarationId) =>
+        MediaFlows.Upload(
+            garage.Client,
+            DeclarationDocumentsPath(declarationId),
+            MediaFlows.Multipart(
+                MediaBuckets.RepairPhoto, DocumentOrigins.Captured, TestImages.Jpeg(1600, 1200)));
+
+    /// <summary>G4's discharge — paperwork, so a picked PDF is legitimate.</summary>
+    public static Task<HttpResponseMessage> UploadDischarge(
+        this Actor garage, Guid declarationId, string fileName = "PLACEHOLDER-discharge.pdf") =>
+        MediaFlows.Upload(
+            garage.Client,
+            DeclarationDocumentsPath(declarationId),
+            MediaFlows.Multipart(
+                MediaBuckets.Discharge, DocumentOrigins.Uploaded, TestImages.Pdf(4_000),
+                ImageHeader.Pdf, fileName));
+
+    /// <summary>G4's invoice — the one AXA settles against, and still not required on its own.</summary>
+    public static Task<HttpResponseMessage> UploadInvoice(
+        this Actor garage, Guid declarationId, string fileName = "PLACEHOLDER-invoice.pdf") =>
+        MediaFlows.Upload(
+            garage.Client,
+            DeclarationDocumentsPath(declarationId),
+            MediaFlows.Multipart(
+                MediaBuckets.Invoice, DocumentOrigins.Uploaded, TestImages.Pdf(4_000),
+                ImageHeader.Pdf, fileName));
+
     public static Task<HttpResponseMessage> StartRepairs(this Actor garage, Guid declarationId) =>
         garage.Client.PostAsync(
             new Uri($"/api/garage/declarations/{declarationId}/start-repairs", UriKind.Relative), null);
@@ -180,12 +209,34 @@ internal static class DeclarationFlows
         officer.Client.PostAsJsonAsync(
             $"/api/officer/declarations/{declarationId}/reject", new { comment });
 
+    public static Task<HttpResponseMessage> SubmitRepairDocs(this Actor garage, Guid declarationId) =>
+        garage.Client.PostAsync(
+            new Uri($"/api/garage/declarations/{declarationId}/submit-repair-docs", UriKind.Relative), null);
+
     /// <summary>Takes a declaration all the way to submitted, with one document attached.</summary>
     public static async Task<Guid> SubmittedDeclaration(this Actor garage, string? plateNo = null)
     {
         var id = await garage.CreateDraft(plateNo);
         (await garage.UploadCarPhoto(id)).EnsureSuccessStatusCode();
         (await garage.Submit(id)).EnsureSuccessStatusCode();
+        return id;
+    }
+
+    /// <summary>
+    /// The whole §5.2 chain up to the state G4 starts from: draft → car photo → submit → approval
+    /// image → approve → start repairs. The visa is seeded in the fake so the approve call's NEXT3
+    /// verification finds it.
+    /// </summary>
+    public static async Task<Guid> RepairingDeclaration(
+        this ApiFixture fixture, Actor garage, Actor officer, string visaNo)
+    {
+        fixture.SeedClaim(visaNo);
+
+        var id = await garage.SubmittedDeclaration();
+        (await officer.UploadApprovalImage(id)).EnsureSuccessStatusCode();
+        (await officer.Approve(id, visaNo)).EnsureSuccessStatusCode();
+        (await garage.StartRepairs(id)).EnsureSuccessStatusCode();
+
         return id;
     }
 

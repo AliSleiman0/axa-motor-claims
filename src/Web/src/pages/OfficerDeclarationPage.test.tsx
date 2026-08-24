@@ -36,6 +36,7 @@ const PHOTO: DeclarationDocument = {
   fileName: 'PLACEHOLDER-photo.jpg',
   sizeBytes: 2048,
   pushStatus: 'deferred',
+  pushConfirmed: false,
   blobRetained: true,
   createdAt: '2026-08-22T09:00:00',
 }

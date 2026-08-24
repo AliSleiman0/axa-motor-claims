@@ -4,6 +4,7 @@ using Api.Integrations.Blob;
 using Api.Integrations.Next3;
 using Api.Modules.Media;
 using Api.Modules.Users;
+using Api.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Modules.Declarations;
@@ -237,8 +238,11 @@ public static class OfficerEndpoints
                 return Results.Unauthorized();
             }
 
-            var declaration = await db.Declarations.AsNoTracking()
-                .SingleOrDefaultAsync(d => d.Id == id, ct);
+            // Tracked, for the garage route's reason (slice 5.1): the check below reads a snapshot and
+            // the row commits later, so without `state` in the upload's own transaction a decision
+            // committed in between would strand this image as a `deferred` row nothing ever queues.
+            // The lesson is checked in both routes because it is the same route twice.
+            var declaration = await db.Declarations.SingleOrDefaultAsync(d => d.Id == id, ct);
 
             if (declaration is null)
             {
@@ -254,16 +258,37 @@ public static class OfficerEndpoints
                     new { error = "declaration_already_decided" }, statusCode: StatusCodes.Status409Conflict);
             }
 
+            db.Entry(declaration).Property(d => d.State).IsModified = true;
+
             // The officer's only write to the media pipeline is #18's approval image. The allow-list
             // goes into the pipeline rather than being checked on the way out, because the bucket
             // arrives inside a streamed body: checking afterwards would mean the blob and the row were
             // already written and had to be unpicked, and an unpicking that half-fails leaves exactly
             // the orphan §7.3 spends a sweep collecting.
-            var outcome = await uploads.Upload(
-                request,
-                new MediaUploadTarget(DocumentOwnerKinds.Declaration, id, VisaNo: null, officerUserId),
-                ct,
-                allowedBuckets: [MediaBuckets.ApprovalImage]);
+            MediaUploadOutcome outcome;
+            try
+            {
+                outcome = await uploads.Upload(
+                    request,
+                    // The visa off the row rather than a hard-coded null, matching the garage route.
+                    // It is null here in practice — the approval image is uploaded before the approve
+                    // call that sets one — and `approval_image` is OnApproval, so nothing reads it
+                    // either way. It is written this way so the two sibling routes cannot drift: the
+                    // first officer-writable bucket that pushed immediately would otherwise 500 after
+                    // the blob was written.
+                    new MediaUploadTarget(
+                        DocumentOwnerKinds.Declaration, id, declaration.VisaNo, officerUserId),
+                    ct,
+                    gate: BucketGates.Only(MediaBuckets.ApprovalImage));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // A decision landed while the image was uploading — the only transition that can move
+                // a declaration this route accepted. Same answer as the pre-check above.
+                db.ChangeTracker.Clear();
+                return Results.Json(
+                    new { error = "declaration_already_decided" }, statusCode: StatusCodes.Status409Conflict);
+            }
 
             if (outcome.Document is null)
             {
@@ -276,11 +301,11 @@ public static class OfficerEndpoints
         });
 
         group.MapGet("/declarations/{id:guid}/documents", async (
-            Guid id, AppDbContext db, CancellationToken ct) =>
+            Guid id, AppDbContext db, OutboxSentQuery sentPushes, CancellationToken ct) =>
         {
             var exists = await db.Declarations.AsNoTracking().AnyAsync(d => d.Id == id, ct);
             return exists
-                ? Results.Ok(await GarageDeclarationEndpoints.DocumentsFor(db, id, ct))
+                ? Results.Ok(await GarageDeclarationEndpoints.DocumentsFor(db, sentPushes, id, ct))
                 : Results.NotFound();
         });
 

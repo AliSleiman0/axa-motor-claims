@@ -156,7 +156,11 @@ function ReviewDocument({
         nothing at all, which is right — before approval there is no push to be in a state about.
       */
       indicator={
-        <PushIndicator pushStatus={document.pushStatus} blobRetained={document.blobRetained} />
+        <PushIndicator
+          pushStatus={document.pushStatus}
+          pushConfirmed={document.pushConfirmed}
+          blobRetained={document.blobRetained}
+        />
       }
     >
       {!document.blobRetained ? (

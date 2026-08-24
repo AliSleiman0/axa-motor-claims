@@ -86,8 +86,9 @@ public sealed record BucketRule(
 /// here in slice 4.1**, superseding this comment's earlier note that they belonged to 5.1: G2 attaches
 /// documents at Draft, so the state machine cannot ship without them. §7.1's garage documents row —
 /// "Documents (survey, discharge, invoice)" — is one bucket carrying several NEXT3 document-type
-/// codes; 4.1 encodes the *survey* code it needs, and slice 5.1 owns the repair buckets and the
-/// discharge/invoice split with 5.1's knowledge of G4.
+/// codes; 4.1 encoded the *survey* code it needed, and **slice 5.1 split the rest into the three G4
+/// repair buckets below**, which is why `garage_documents` now means the survey paperwork attached
+/// before submission and nothing else.
 ///
 /// The broker and public rows (§5.3) push to NEXT3 not at all and will carry
 /// <see cref="PushTiming.Never"/> with <c>push_status = n/a</c> instead of a doc type.
@@ -107,6 +108,9 @@ public static class MediaBuckets
     public const string GarageDocuments = "garage_documents";
     public const string GarageCarPhoto = "garage_car_photo";
     public const string ApprovalImage = "approval_image";
+    public const string RepairPhoto = "repair_photo";
+    public const string Discharge = "discharge";
+    public const string Invoice = "invoice";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
@@ -174,7 +178,46 @@ public static class MediaBuckets
                 ApprovalImage, DocumentOwnerKinds.Declaration, AllowUpload: false,
                 "ApprovalImage", MediaKind.Image, Next3Folders.Survey, PushTiming.OnApproval,
                 Next3PushKind.Approval),
+
+            // §5.2's last row — G4's post-repair uploads (slice 5.1). Same owner kind and same
+            // *Survey* folder as the three above, and **`Immediate` rather than `OnApproval`**: these
+            // are attached at `repairs_in_progress`, which `CK_declaration_decision` guarantees has a
+            // visa, so there is nothing left to wait for. Deferring them would be worse than
+            // pointless — the only transition that drains the deferred set is `approve`, which has
+            // already happened, so they would sit `deferred` for ever.
+
+            // Capture-only, the same BRD rule as every other car photo: the point of a post-repair
+            // photograph is that it is of the car that was actually repaired.
+            [RepairPhoto] = new(
+                RepairPhoto, DocumentOwnerKinds.Declaration, AllowUpload: false,
+                "RepairPhoto", MediaKind.Image, Next3Folders.Survey, PushTiming.Immediate),
+
+            // Discharge and invoice are paperwork, so upload is allowed and so is a photograph of a
+            // paper original — §7.1's garage documents row marks both provenances acceptable, and
+            // `origin` records which one every row was.
+            [Discharge] = new(
+                Discharge, DocumentOwnerKinds.Declaration, AllowUpload: true,
+                "Discharge", MediaKind.Document, Next3Folders.Survey, PushTiming.Immediate),
+
+            [Invoice] = new(
+                Invoice, DocumentOwnerKinds.Declaration, AllowUpload: true,
+                "Invoice", MediaKind.Document, Next3Folders.Survey, PushTiming.Immediate),
         };
+
+    /// <summary>
+    /// The buckets a garage fills **before** submission (§5.2's G2), as distinct from the three it
+    /// fills after the repair. Named here rather than listed at each call site for
+    /// <see cref="DocumentPushStatuses.WithoutOutboxRow"/>'s reason: G3's upload gate and the officer's
+    /// allow-list both ask which side of the decision a bucket falls on, and two hand-written lists
+    /// would eventually disagree about a fourth one.
+    /// </summary>
+    public static readonly string[] GarageDeclaration = [GarageDocuments, GarageCarPhoto];
+
+    /// <summary>
+    /// §5.2's G4 buckets — the ones a garage may only fill at `repairs_in_progress`, and the set
+    /// `submit-repair-docs` requires at least one document from.
+    /// </summary>
+    public static readonly string[] Repair = [RepairPhoto, Discharge, Invoice];
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>
     public static IReadOnlyCollection<string> All => Rules.Keys;

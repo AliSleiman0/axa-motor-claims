@@ -34,7 +34,17 @@ public sealed class OutboxSentQuery(AppDbContext db)
     /// expert's screen went on saying the photo was still held.
     /// </remarks>
     public IQueryable<Guid> MessageIdsSentOnOrBefore(DateTime cutoff) =>
+        Sent().Where(m => m.SentAt <= cutoff).Select(m => m.Id);
+
+    /// <summary>
+    /// Every push NEXT3 has confirmed, with no cutoff (slice 5.1). The document lists compose this to
+    /// answer "has this actually reached AXA?", which `document.push_status` deliberately cannot: §4
+    /// keeps live push state on the outbox row alone, because §7.3 deletes blobs on it and two copies
+    /// of it can disagree. Read at projection time it is one truth, not a second one.
+    /// </summary>
+    public IQueryable<Guid> MessageIdsSent() => Sent().Select(m => m.Id);
+
+    private IQueryable<Next3OutboxMessage> Sent() =>
         db.Set<Next3OutboxMessage>()
-            .Where(m => m.Status == Next3OutboxStatuses.Sent && m.SentAt != null && m.SentAt <= cutoff)
-            .Select(m => m.Id);
+            .Where(m => m.Status == Next3OutboxStatuses.Sent && m.SentAt != null);
 }

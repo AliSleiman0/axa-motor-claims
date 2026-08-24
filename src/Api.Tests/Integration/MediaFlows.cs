@@ -18,6 +18,7 @@ internal sealed record DocumentBodyDto(
     string? FileName,
     long SizeBytes,
     string PushStatus,
+    bool PushConfirmed,
     bool BlobRetained,
     DateTime CreatedAt);
 

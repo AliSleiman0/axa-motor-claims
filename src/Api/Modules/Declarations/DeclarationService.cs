@@ -140,6 +140,60 @@ public sealed partial class DeclarationService(
     }
 
     /// <summary>
+    /// Garage submits the repair paperwork (§5.2's G4) — the machine's terminal transition.
+    ///
+    /// **At least one document from any of the three repair buckets**, not specifically an invoice:
+    /// the BRD says "documents such like discharge, invoice", so requiring one particular kind would
+    /// be an invented rule (pass-2 review decision 5). The precondition is over the *repair* set
+    /// rather than "any document", because every declaration that reaches this state already has the
+    /// survey paperwork and the approval image attached — a check over all documents would pass with
+    /// nothing from the repair at all.
+    ///
+    /// The uploads are already at AXA by the time this runs: the repair buckets are
+    /// <see cref="PushTiming.Immediate"/>, so each queued its own push under the visa when it landed.
+    /// This transition records that the garage considers the job finished; it sends nothing.
+    ///
+    /// **And it notifies nobody.** §5.2 records the absence of an officer notification here as a gap
+    /// in the BRD rather than an oversight — the BRD specifies none, so none is added quietly.
+    /// </summary>
+    public async Task<DeclarationOutcome> SubmitRepairDocs(Guid id, Guid garageUserId, CancellationToken ct)
+    {
+        var declaration = await Owned(id, garageUserId, ct);
+        if (declaration is null)
+        {
+            return DeclarationOutcome.NotFound();
+        }
+
+        // An early exit, not the guard — Approve's reasoning, for the same reason: it only saves an
+        // already-terminal declaration a pointless count query. The guard is the entity plus the
+        // `state` concurrency token inside Transition.
+        if (DeclarationTransitions.Target(declaration.State, DeclarationTransition.SubmitRepairDocs) is null)
+        {
+            return DeclarationOutcome.Refused(StatusCodes.Status409Conflict, "illegal_transition");
+        }
+
+        var repairDocuments = await db.Documents
+            .Where(d => d.OwnerKind == DocumentOwnerKinds.Declaration
+                && d.OwnerId == id
+                && MediaBuckets.Repair.Contains(d.Bucket))
+            .CountAsync(ct);
+
+        if (repairDocuments == 0)
+        {
+            return DeclarationOutcome.Refused(
+                StatusCodes.Status409Conflict, "repair_documents_required");
+        }
+
+        return await Transition(
+            declaration,
+            d => d.SubmitRepairDocs(time.GetUtcNow().UtcDateTime),
+            garageUserId,
+            AuditActions.DeclarationRepairDocsSubmitted,
+            detail: new { Documents = repairDocuments },
+            ct);
+    }
+
+    /// <summary>
     /// Officer approves and links the declaration to a visa (§5.2) — the slice's load-bearing
     /// transition, and the only one that puts anything in the NEXT3 queue.
     ///
@@ -170,8 +224,13 @@ public sealed partial class DeclarationService(
             return DeclarationOutcome.Refused(StatusCodes.Status409Conflict, "illegal_transition");
         }
 
-        var deferred = await Deferred(id, ct);
-        if (!deferred.Exists(d => d.Bucket == MediaBuckets.ApprovalImage))
+        var hasApprovalImage = await db.Documents
+            .AnyAsync(d => d.OwnerKind == DocumentOwnerKinds.Declaration
+                && d.OwnerId == id
+                && d.PushStatus == DocumentPushStatuses.Deferred
+                && d.Bucket == MediaBuckets.ApprovalImage, ct);
+
+        if (!hasApprovalImage)
         {
             return DeclarationOutcome.Refused(StatusCodes.Status409Conflict, "approval_image_required");
         }
@@ -197,6 +256,16 @@ public sealed partial class DeclarationService(
             default:
                 break;
         }
+
+        // **Loaded here, not before the NEXT3 call** (slice 5.1). The set this reads is what the
+        // transition below queues, and every document that lands between the read and the commit is
+        // stranded: `deferred` for ever, with the only transition that drains that set already run.
+        // Read before `claims.Open` — as it was — that window spanned a call to a legacy core with a
+        // 30-second timeout, which on a bad day is the whole time a garage spends uploading. Read
+        // here it is the microseconds up to `SaveChanges`. It does not close the window (the fix for
+        // the remainder is a re-queue sweep, recorded as a ticket rather than built here), but it
+        // stops it being wide enough to hit by accident.
+        var deferred = await Deferred(id, ct);
 
         var outcome = await Transition(
             declaration,

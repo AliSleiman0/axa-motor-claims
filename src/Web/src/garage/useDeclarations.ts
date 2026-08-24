@@ -2,12 +2,14 @@ import { useRef, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../api/client'
 import {
+  type DeclarationState,
   garageKeys,
   getDeclaration,
   listDeclarationDocuments,
   listDeclarations,
   startRepairs,
   submitDeclaration,
+  submitRepairDocs,
 } from './api'
 
 /**
@@ -60,7 +62,7 @@ export function useRefreshAfterCapture(declarationId: string) {
   }
 }
 
-export type DeclarationAction = 'submit' | 'start-repairs'
+export type DeclarationAction = 'submit' | 'start-repairs' | 'submit-repair-docs'
 
 export interface UseDeclarationActionResult {
   run: () => void
@@ -69,7 +71,7 @@ export interface UseDeclarationActionResult {
 }
 
 /**
- * One of the garage's two transitions, behind the house latch.
+ * One of the garage's three transitions, behind the house latch.
  *
  * `inFlight` is a `useRef` rather than `mutation.isPending`: two taps in the same tick both run
  * before React re-renders, so state has not caught up and the second would issue a second request.
@@ -86,8 +88,7 @@ export function useDeclarationAction(
   const inFlight = useRef(false)
 
   const mutation = useMutation({
-    mutationFn: () =>
-      action === 'submit' ? submitDeclaration(declarationId) : startRepairs(declarationId),
+    mutationFn: () => RUNNERS[action](declarationId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: garageKeys.detail(declarationId) })
       await queryClient.invalidateQueries({ queryKey: garageKeys.lists() })
@@ -115,10 +116,33 @@ export function useDeclarationAction(
   return { run, pending: mutation.isPending, failed }
 }
 
+const RUNNERS: Record<
+  DeclarationAction,
+  (declarationId: string) => Promise<{ state: DeclarationState }>
+> = {
+  submit: submitDeclaration,
+  'start-repairs': startRepairs,
+  'submit-repair-docs': submitRepairDocs,
+}
+
+const VERBS: Record<DeclarationAction, string> = {
+  submit: 'submitted',
+  'start-repairs': 'started',
+  'submit-repair-docs': 'sent',
+}
+
 function describe(error: unknown, action: DeclarationAction): string {
-  const verb = action === 'submit' ? 'submitted' : 'started'
+  const verb = VERBS[action]
 
   if (error instanceof ApiError && error.status === 409) {
+    // Slice 5.1's one 409 that is not "somebody moved this first": the repair documents are missing.
+    // The button is disabled until the list says otherwise, so reaching this means the list was a
+    // moment behind — and telling that garage the declaration "has already moved on" would send it
+    // looking for a state change that never happened.
+    if (error.body.includes('repair_documents_required')) {
+      return 'Add at least one repair document before sending these to AXA.'
+    }
+
     // The concurrency token, or a genuinely out-of-order request. Either way somebody else moved
     // this declaration first, and the honest answer is to say so and let the screen refetch.
     return `This declaration has already moved on — reopen it to see where it is now.`

@@ -58,6 +58,7 @@ export interface DeclarationDetail {
   submittedAt: string | null
   decidedAt: string | null
   repairsStartedAt: string | null
+  repairDocsSubmittedAt: string | null
   claimStatus: 'fresh' | 'stale' | 'not_found' | null
   claimFetchedAt: string | null
   claim: Claim | null
@@ -75,6 +76,7 @@ export interface DeclarationDocument {
   fileName: string | null
   sizeBytes: number
   pushStatus: string
+  pushConfirmed: boolean
   /** False once §7.3's sweep has deleted the bytes — the screens link nothing that is false. */
   blobRetained: boolean
   createdAt: string
@@ -156,6 +158,18 @@ export function submitDeclaration(declarationId: string): Promise<{ state: Decla
 export function startRepairs(declarationId: string): Promise<{ state: DeclarationState }> {
   return api<{ state: DeclarationState }>(
     `/api/garage/declarations/${declarationId}/start-repairs`,
+    { method: 'POST' },
+  )
+}
+
+/**
+ * §5.2's terminal transition (G4). Refused with `repair_documents_required` when the declaration
+ * carries nothing from the three repair buckets — the screen disables the button for the same
+ * reason, but the screen's copy of the document list can be a moment behind the server's.
+ */
+export function submitRepairDocs(declarationId: string): Promise<{ state: DeclarationState }> {
+  return api<{ state: DeclarationState }>(
+    `/api/garage/declarations/${declarationId}/submit-repair-docs`,
     { method: 'POST' },
   )
 }

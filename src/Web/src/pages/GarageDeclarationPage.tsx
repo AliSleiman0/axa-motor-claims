@@ -11,7 +11,7 @@ import {
 } from '../garage/useDeclarations'
 import { CapturePanel } from '../media/CapturePanel'
 import { useMediaConfig } from '../media/useMediaConfig'
-import { AlertBanner, StatusBanner } from '../ui/Banner'
+import { AlertBanner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { DetailTable } from '../ui/DetailTable'
 import { DocumentRow, PushIndicator } from '../ui/DocumentRow'
@@ -191,10 +191,14 @@ function WaitingPanel({ declarationId }: { declarationId: string }) {
  * "What was sent" — the garage's own evidence, while the declaration is with an officer.
  *
  * It answers the question the waiting state otherwise leaves open: *did my photographs go
- * anywhere?* And the honest answer is **"Queued, will send"** rather than "sent", because §5.2 holds
- * every garage document at `push_status = deferred` with no outbox row at all until an officer
- * approves and picks the visa it belongs under. `PushIndicator` renders nothing for `deferred`,
- * which is right — before a decision there is no push to be in a state about.
+ * anywhere?* Before a decision the honest answer is nothing at all: §5.2 holds every garage document
+ * at `push_status = deferred` with no outbox row until an officer approves and picks the visa it
+ * belongs under, and `PushIndicator` renders nothing for `deferred` — there is no push to be in a
+ * state about yet.
+ *
+ * **Reused by the repairs panel (slice 5.1), where the same rows finally say something.** Those
+ * buckets are `Immediate`, so a repair document is `queued` the moment it lands and `sent` after the
+ * next worker tick: "Queued, will send" then "Sent to AXA", on the one screen where both are true.
  *
  * Names and buckets only: no preview and no blob fetch. The artboard draws a file name and a status,
  * and previewing here would mean lifting `useDocumentBlobUrl` out of `officer/` into shared code for
@@ -218,6 +222,7 @@ function SubmittedDocuments({ declarationId }: { declarationId: string }) {
           indicator={
             <PushIndicator
               pushStatus={document.pushStatus}
+              pushConfirmed={document.pushConfirmed}
               blobRetained={document.blobRetained}
             />
           }
@@ -314,25 +319,134 @@ function ApprovedPanel({
       )}
 
       {detail.state === 'repairs_in_progress' && (
-        <section className="panel">
-          <h3 className="panel__title">Repairs in progress</h3>
-          {/* Named rather than hidden: a garage that has started repairs will look for where to send
-              the invoice, and "not built yet" is a better answer than a screen with nothing on it. */}
-          <StatusBanner>
-            Sending the discharge, the invoice and the post-repair photos is not part of this release
-            yet (slice 5.1). Send them to AXA the way you do today.
-          </StatusBanner>
-        </section>
+        <RepairsPanel declarationId={declarationId} />
       )}
 
-      {detail.state === 'repair_docs_submitted' && (
-        <section className="panel">
-          <h3 className="panel__title">Repair documents sent</h3>
-          <p className="muted">This declaration is complete.</p>
-        </section>
-      )}
+      {detail.state === 'repair_docs_submitted' && <CompletePanel detail={detail} />}
     </section>
   )
+}
+
+/** The three G4 buckets, in the order the artboard draws them. */
+const REPAIR_BUCKETS = [
+  { bucket: 'repair_photo', label: 'Repair photos', qualifier: 'the repaired car' },
+  { bucket: 'discharge', label: 'Discharge', qualifier: 'the discharge' },
+  { bucket: 'invoice', label: 'Invoice', qualifier: 'the invoice' },
+]
+
+/**
+ * `repairs_in_progress` — G4 (§5.2's last two rows, slice 5.1).
+ *
+ * Structurally the draft panel again, and deliberately so: the same `CapturePanel` on the same
+ * declaration path, with three buckets instead of two. What differs is **when the files leave**.
+ * These buckets are `Immediate`, because at this point the officer has already chosen a visa, so
+ * each upload queues its own push and "What was sent" says *Queued, will send* and then *Sent to
+ * AXA* — the first place on a garage screen where `PushIndicator` shows anything at all, since
+ * everything before approval is `deferred` and has no push to be in a state about.
+ *
+ * So **Submit repair documents does not send anything**. It records that the garage considers the
+ * job finished, which is what makes the declaration terminal.
+ */
+function RepairsPanel({ declarationId }: { declarationId: string }) {
+  const { data: config, error } = useMediaConfig()
+  const { data: documents } = useDeclarationDocuments(declarationId)
+  const refresh = useRefreshAfterCapture(declarationId)
+  const submit = useDeclarationAction(declarationId, 'submit-repair-docs')
+  const path = declarationDocumentsPath(declarationId)
+
+  if (error) {
+    return (
+      <section className="stack">
+        <h3 className="section-title">Repair documents</h3>
+        <AlertBanner>
+          Photo quality settings could not be loaded, so nothing can be sent yet. Reload the page.
+        </AlertBanner>
+      </section>
+    )
+  }
+
+  const countFor = (bucket: string) =>
+    documents?.filter((document) => document.bucket === bucket).length
+
+  // **At least one of any kind.** The artboard proposed "disabled until an invoice exists", but the
+  // BRD says "documents such like discharge, invoice" — singling one out is an invented rule
+  // (pass-2 review decision 5). The server enforces the same set, so this is the screen agreeing
+  // with it rather than a control of its own.
+  const canSubmit = REPAIR_BUCKETS.some((panel) => (countFor(panel.bucket) ?? 0) > 0)
+
+  return (
+    <section className="stack">
+      <h3 className="section-title">Repair documents</h3>
+      <p className="muted">
+        Send these when the work is finished. They go to the same claim folder as the declaration.
+      </p>
+
+      {REPAIR_BUCKETS.map((panel) => (
+        <CapturePanel
+          key={panel.bucket}
+          path={path}
+          bucket={panel.bucket}
+          label={panel.label}
+          config={config}
+          count={countFor(panel.bucket)}
+          onUploaded={refresh}
+          qualifier={panel.qualifier}
+        />
+      ))}
+
+      <SubmittedDocuments declarationId={declarationId} />
+
+      <div className="panel">
+        <h3 className="panel__title">Finish this declaration</h3>
+        <p className="muted">
+          {canSubmit
+            ? 'This tells AXA the repair is complete. Nothing else can be added afterwards.'
+            : 'Add at least one repair document before finishing this declaration.'}
+        </p>
+        <div className="actions">
+          <Button variant="primary" disabled={!canSubmit || submit.pending} onClick={submit.run}>
+            {submit.pending ? 'Sending…' : 'Submit repair documents'}
+          </Button>
+        </div>
+        {submit.failed && <AlertBanner>{submit.failed}</AlertBanner>}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * `repair_docs_submitted` — G4Submitted, and the end of the machine.
+ *
+ * **Terminal, and deliberately so:** the BRD defines no closure or settlement state and §1 forbids
+ * inventing one, so nothing here says paid, closed or settled. It says the paperwork is with AXA and
+ * shows when each step happened, which is the question a garage comes back to this screen to answer.
+ */
+function CompletePanel({ detail }: { detail: DeclarationDetail }) {
+  return (
+    <section className="stack">
+      <section className="panel">
+        <h3 className="panel__title">Repair documents sent</h3>
+        <p className="muted">This declaration is complete.</p>
+        <p className="muted">
+          Everything is with AXA under {detail.visaNo}. Nothing further is needed from the garage.
+        </p>
+      </section>
+
+      <DetailTable
+        rows={[
+          { label: 'Submitted', value: when(detail.submittedAt) },
+          { label: 'Approved', value: when(detail.decidedAt) },
+          { label: 'Repairs started', value: when(detail.repairsStartedAt) },
+          { label: 'Documents sent', value: when(detail.repairDocsSubmittedAt) },
+        ]}
+      />
+    </section>
+  )
+}
+
+/** A timestamp the table can render, or nothing — `DetailTable` draws an em dash for null. */
+function when(iso: string | null): string | null {
+  return iso ? formatDateTime(iso) : null
 }
 
 function describe(error: Error): string {

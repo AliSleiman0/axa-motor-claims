@@ -58,6 +58,7 @@ export interface AssignmentDocument {
   fileName: string | null
   sizeBytes: number
   pushStatus: string
+  pushConfirmed: boolean
   blobRetained: boolean
   createdAt: string
 }

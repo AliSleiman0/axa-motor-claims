@@ -33,6 +33,35 @@ public sealed record MediaUploadOutcome(int StatusCode, string? ErrorCode, Docum
 }
 
 /// <summary>
+/// A caller's answer to "may this upload use this bucket, here, now?" — null to allow it, otherwise
+/// the refusal to return.
+///
+/// It replaced a flat allow-list in slice 5.1. §5.2's garage now owns two bucket sets whose refusals
+/// differ (`declaration_already_decided` for the pre-decision ones, `repairs_not_in_progress` for
+/// G4's), and the bucket is not known until the multipart metadata has been read — inside the
+/// service. Returning the attempted bucket to the endpoint and re-deciding there would put the same
+/// policy in two places, which is the drift <see cref="MediaBuckets"/> exists to prevent.
+/// </summary>
+public delegate MediaUploadOutcome? BucketGate(BucketRule rule);
+
+/// <summary>The gates that are not state-dependent.</summary>
+public static class BucketGates
+{
+    /// <summary>
+    /// Narrows a caller to a fixed set of buckets, refusing anything else with
+    /// <c>400 bucket_not_allowed_for_caller</c> — slice 4.1's rule, unchanged. §5.2's officer needs
+    /// it: the approval image and the garage's own documents share an owner kind, so the bucket rules
+    /// alone would accept a `garage_car_photo` from an officer, and §5.2 grants the officer review,
+    /// not the ability to add evidence to a claim.
+    /// </summary>
+    public static BucketGate Only(params string[] buckets) =>
+        rule => buckets.Contains(rule.Bucket, StringComparer.Ordinal)
+            ? null
+            : MediaUploadOutcome.Refused(
+                StatusCodes.Status400BadRequest, "bucket_not_allowed_for_caller");
+}
+
+/// <summary>
 /// design.md §7's server pipeline, in the order §7.3 specifies:
 ///
 /// <code>
@@ -67,18 +96,16 @@ public sealed class MediaUploadService(
     private const string OriginField = "origin";
     private const int MaxFieldValueBytes = 256;
 
-    /// <param name="allowedBuckets">
-    /// Narrows the caller to a subset of the buckets its owner kind allows, refused **before the file
-    /// is read** so no blob and no row are written. §5.2's officer needs it: the approval image and the
-    /// garage's own documents share an owner kind, so the bucket rules alone would accept a
-    /// `garage_car_photo` from an officer — the right owner kind, and nothing else to refuse it. §5.2
-    /// grants the officer review, not the ability to add evidence to a claim.
+    /// <param name="gate">
+    /// Narrows the caller to a subset of the buckets its owner kind allows, consulted **before the
+    /// file is read** so a refusal costs no blob and leaves no row. See <see cref="BucketGate"/> for
+    /// why it is a callback rather than a list.
     /// </param>
     public async Task<MediaUploadOutcome> Upload(
         HttpRequest request,
         MediaUploadTarget target,
         CancellationToken ct,
-        IReadOnlyCollection<string>? allowedBuckets = null)
+        BucketGate? gate = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(target);
@@ -141,13 +168,13 @@ public sealed class MediaUploadService(
                 return MediaUploadOutcome.Refused(StatusCodes.Status400BadRequest, "unknown_bucket");
             }
 
-            if (allowedBuckets is not null && !allowedBuckets.Contains(rule.Bucket))
+            // A distinct refusal from `unknown_bucket`: the bucket is real and this owner kind has
+            // it, the *caller* may not use it — or may not use it in the state its owner is in.
+            // Consulted here, before StoreFile, so the rejection costs no blob and leaves no row for
+            // the orphan sweep to find later.
+            if (gate?.Invoke(rule) is { } refusal)
             {
-                // A distinct code from `unknown_bucket`: this bucket is real and this owner kind has
-                // it, the *caller* may not use it. Refused here, before StoreFile, so the rejection
-                // costs no blob and leaves no row for the orphan sweep to find later.
-                return MediaUploadOutcome.Refused(
-                    StatusCodes.Status400BadRequest, "bucket_not_allowed_for_caller");
+                return refusal;
             }
 
             return await StoreFile(section, disposition, rule, origin, target, ct);

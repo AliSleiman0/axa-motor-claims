@@ -162,6 +162,30 @@ public sealed class DeclarationConcurrencyTests(ApiFixture fixture)
         Assert.Equal(DeclarationState.RepairsInProgress, (await fixture.DeclarationRow(id)).State);
     }
 
+    [Fact]
+    public async Task ConcurrentSubmitRepairDocs_ProduceExactlyOneTransition()
+    {
+        using var garage = await fixture.CreateGarage();
+        using var officer = await fixture.CreateOfficer();
+        var id = await fixture.RepairingDeclaration(garage, officer, ExpertFlows.NextVisa());
+        (await garage.UploadInvoice(id)).EnsureSuccessStatusCode();
+
+        var responses = await Task.WhenAll(
+            Enumerable.Range(0, Racers).Select(_ => garage.SubmitRepairDocs(id)));
+
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Equal(Racers - 1, responses.Count(r => r.StatusCode == HttpStatusCode.Conflict));
+
+        var row = await fixture.DeclarationRow(id);
+        Assert.Equal(DeclarationState.RepairDocsSubmitted, row.State);
+        Assert.NotNull(row.RepairDocsSubmittedAt);
+
+        // The terminal state's once-only guard. The precondition above it — "at least one repair
+        // document" — is a read, so all four racers pass it; only the token stops the second
+        // transition, and a second audit row would be a trail claiming the garage finished twice.
+        Assert.Equal(1, await AuditCount(id, "declaration_repair_docs_submitted"));
+    }
+
     private async Task<int> AuditCount(Guid declarationId, string action)
     {
         await using var db = fixture.CreateDbContext();

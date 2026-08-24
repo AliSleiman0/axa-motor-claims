@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Api.Infrastructure;
 using Api.Modules.Media;
 using Api.Modules.Users;
+using Api.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Modules.Expert;
@@ -54,7 +55,8 @@ public static class ExpertDocumentEndpoints
         });
 
         group.MapGet("/", async (
-            Guid id, ClaimsPrincipal principal, AppDbContext db, CancellationToken ct) =>
+            Guid id, ClaimsPrincipal principal, AppDbContext db, OutboxSentQuery sentPushes,
+            CancellationToken ct) =>
         {
             var expertUserId = principal.GetUserId();
             if (expertUserId is null)
@@ -68,12 +70,17 @@ public static class ExpertDocumentEndpoints
                 return Results.NotFound();
             }
 
+            // Same join as the declaration list (slice 5.1): an expert standing at a crash site on a
+            // bad connection is asking whether the photograph reached AXA, and `queued` cannot say.
+            var sent = sentPushes.MessageIdsSent();
             var documents = await db.Documents.AsNoTracking()
                 .Where(d => d.OwnerKind == DocumentOwnerKinds.Assignment && d.OwnerId == assignment.Id)
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new DocumentDto(
                     d.Id, d.Bucket, d.DocType, d.Origin, d.ClarityResult, d.ContentType,
-                    d.FileName, d.SizeBytes, d.PushStatus, d.BlobDeletedAt == null, d.CreatedAt))
+                    d.FileName, d.SizeBytes, d.PushStatus,
+                    d.OutboxMessageId != null && sent.Contains(d.OutboxMessageId.Value),
+                    d.BlobDeletedAt == null, d.CreatedAt))
                 .ToListAsync(ct);
 
             return Results.Ok(documents);

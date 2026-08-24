@@ -30,6 +30,12 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.GarageDocuments, true, MediaKind.Document)]
     [InlineData(MediaBuckets.GarageCarPhoto, false, MediaKind.Image)]
     [InlineData(MediaBuckets.ApprovalImage, false, MediaKind.Image)]
+    // Slice 5.1's G4 buckets. The repair photo is capture-only for the BRD's reason again — the point
+    // of a post-repair photograph is that it is of the car that was repaired. The discharge and the
+    // invoice are paperwork, so both provenances are acceptable.
+    [InlineData(MediaBuckets.RepairPhoto, false, MediaKind.Image)]
+    [InlineData(MediaBuckets.Discharge, true, MediaKind.Document)]
+    [InlineData(MediaBuckets.Invoice, true, MediaKind.Document)]
     public void TheBucketMatrixMatchesSection71(string bucket, bool allowUpload, MediaKind kind)
     {
         var rule = MediaBuckets.Find(bucket);
@@ -56,19 +62,55 @@ public class MediaBucketTests
     }
 
     [Fact]
-    public void EveryDeclarationBucketLandsInTheSurveyFolderAndWaitsForApproval()
+    public void EveryDeclarationBucketLandsInTheSurveyFolderAndOnlyThePreDecisionOnesWait()
     {
         // §5.2's other half. *Survey* is the folder the BRD names for the garage-initiated path, and
-        // OnApproval is what makes "nothing goes to NEXT3 before approval" true of the pipeline rather
-        // than of one endpoint: a declaration bucket that shipped as Immediate would push a photo
-        // under a visa that does not exist yet.
+        // that half of the guarantee is unconditional: all six declaration buckets land there.
+        //
+        // **Renamed in slice 5.1**, because the timing half stopped being true of every row and this
+        // test was right about a guarantee that has genuinely narrowed. OnApproval is what makes
+        // "nothing goes to NEXT3 before approval" true of the pipeline rather than of one endpoint —
+        // a *pre-decision* bucket that shipped as Immediate would push a photo under a visa that does
+        // not exist yet. G4's three are the opposite case: they are attached at `repairs_in_progress`,
+        // where `CK_declaration_decision` guarantees a visa, and the only transition that drains the
+        // deferred set is `approve`, which has already run — so deferring them would strand them for
+        // ever rather than protect anything.
         var declarationRules = MediaBuckets.AllRules
             .Where(r => r.OwnerKind == DocumentOwnerKinds.Declaration)
             .ToList();
 
-        Assert.Equal(3, declarationRules.Count);
+        Assert.Equal(6, declarationRules.Count);
         Assert.All(declarationRules, rule => Assert.Equal(Next3Folders.Survey, rule.Next3Folder));
-        Assert.All(declarationRules, rule => Assert.Equal(PushTiming.OnApproval, rule.Timing));
+
+        // The split is pinned to the two named sets, not to a count of three and three: that is what
+        // makes a fourth repair bucket added without touching `MediaBuckets.Repair` fail here rather
+        // than quietly inherit whichever timing its author typed.
+        Assert.Equal(
+            MediaBuckets.Repair.Order(StringComparer.Ordinal),
+            Buckets(declarationRules, PushTiming.Immediate));
+
+        Assert.Equal(
+            MediaBuckets.GarageDeclaration.Append(MediaBuckets.ApprovalImage).Order(StringComparer.Ordinal),
+            Buckets(declarationRules, PushTiming.OnApproval));
+    }
+
+    [Fact]
+    public void TheTwoNamedDeclarationSetsAreExactlyTheGaragesOwnBuckets()
+    {
+        // The gate in GarageDeclarationEndpoints branches on these two sets and refuses everything
+        // else, so a bucket that belongs to neither is unreachable by a garage — which is correct for
+        // `approval_image` and would be a silently dead feature for anything else. Pinned here so
+        // adding a seventh declaration bucket forces the decision instead of defaulting to "refused".
+        var garageBuckets = MediaBuckets.AllRules
+            .Where(r => r.OwnerKind == DocumentOwnerKinds.Declaration && r.Bucket != MediaBuckets.ApprovalImage)
+            .Select(r => r.Bucket)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(
+            MediaBuckets.GarageDeclaration.Concat(MediaBuckets.Repair).Order(StringComparer.Ordinal),
+            garageBuckets);
+
+        Assert.Empty(MediaBuckets.GarageDeclaration.Intersect(MediaBuckets.Repair, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -77,6 +119,10 @@ public class MediaBucketTests
         // The non-vacuity guard for the two tests above: together they must cover every rule, or a
         // bucket added under a third owner kind would be asserted by neither and both would still
         // read green. CLAUDE.md: "a guard that quietly stops covering new code is worse than none".
+        //
+        // Slice 5.1 left this alone deliberately. Its three buckets are declaration rows, so the
+        // guard still covers every rule and is still non-vacuous — the assertion needed no widening,
+        // only re-reading to confirm that.
         Assert.Equal(
             MediaBuckets.AllRules.Count,
             MediaBuckets.AllRules.Count(r =>
@@ -104,6 +150,7 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.DamageDiagram)]
     [InlineData(MediaBuckets.GarageCarPhoto)]
     [InlineData(MediaBuckets.ApprovalImage)]
+    [InlineData(MediaBuckets.RepairPhoto)]
     public void ACaptureOnlyBucketRefusesAnUploadedFile(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;
@@ -122,6 +169,8 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.TpDocuments)]
     [InlineData(MediaBuckets.ExpertReport)]
     [InlineData(MediaBuckets.GarageDocuments)]
+    [InlineData(MediaBuckets.Discharge)]
+    [InlineData(MediaBuckets.Invoice)]
     public void ADocumentBucketTakesEitherProvenance(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;
@@ -149,4 +198,7 @@ public class MediaBucketTests
         Assert.Null(MediaBuckets.Find("PLACEHOLDER-not-a-bucket"));
         Assert.Null(MediaBuckets.Find(null));
     }
+
+    private static IEnumerable<string> Buckets(IEnumerable<BucketRule> rules, PushTiming timing) =>
+        rules.Where(r => r.Timing == timing).Select(r => r.Bucket).Order(StringComparer.Ordinal);
 }
