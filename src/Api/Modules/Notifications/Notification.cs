@@ -56,6 +56,13 @@ public static class NotificationTemplates
     public const string DeclarationSubmitted = "declaration_submitted";
 
     /// <summary>§8's garage rows. Approval unlocks G3's detail view; rejection shows status only (§1).</summary>
+    /// <summary>
+    /// §8's broker row: the Option 1 request routed to the AXA recipient for its insurance type
+    /// (slice 5.2). The only send in the application whose recipient is a mailbox rather than a user,
+    /// which is why the `notification` row carries a null `recipient_user_id`.
+    /// </summary>
+    public const string BrokerRequestSubmitted = "broker_request_submitted";
+
     public const string DeclarationApproved = "declaration_approved";
 
     public const string DeclarationRejected = "declaration_rejected";

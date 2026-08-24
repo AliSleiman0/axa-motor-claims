@@ -2,8 +2,10 @@ using Api.Infrastructure;
 using Api.Infrastructure.Cleanup;
 using Api.Integrations;
 using Api.Integrations.Blob;
+using Api.Integrations.Email;
 using Api.Integrations.Push;
 using Api.Integrations.Sms;
+using Api.Modules.Broker;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
 using Api.Outbox;
@@ -31,6 +33,13 @@ public sealed class ApiFixture : IAsyncLifetime
     private string _connectionString = string.Empty;
 
     public CapturingSmsSender Sms { get; } = new();
+
+    /// <summary>
+    /// The booted app's <see cref="IEmailSender"/> (slice 5.2). It wraps the real fake rather than
+    /// replacing it, so every `notification` assertion is untouched — what it adds is the attachment
+    /// **bytes**, which §4 deliberately keeps out of the notification payload.
+    /// </summary>
+    public CapturingEmailSender Email => (CapturingEmailSender)Services.GetRequiredService<IEmailSender>();
 
     public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 8, 19, 12, 0, 0, TimeSpan.Zero));
 
@@ -87,6 +96,16 @@ public sealed class ApiFixture : IAsyncLifetime
     public MutableOptionsMonitor<ClarityOptions> Clarity =>
         (MutableOptionsMonitor<ClarityOptions>)Services
             .GetRequiredService<IOptionsMonitor<ClarityOptions>>();
+
+    /// <summary>
+    /// §5.3's broker settings (slice 5.2). Mutable above all for the BRD's upload kill-switch: the
+    /// whole point of `Broker:AllowUpload` is that it changes without a restart, and a test that could
+    /// not flip it in place would be proving something else. Restore it in a <c>finally</c>, as with
+    /// <see cref="Fake"/> — <c>BrokerFlows.WithUploadSwitch</c> does it for you.
+    /// </summary>
+    public MutableOptionsMonitor<BrokerOptions> Broker =>
+        (MutableOptionsMonitor<BrokerOptions>)Services
+            .GetRequiredService<IOptionsMonitor<BrokerOptions>>();
 
     /// <summary>
     /// §8's push settings (slice 3.4). Mutable so a test can read the subscription cap rather than
@@ -173,6 +192,8 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.ConfigureTestServices(services =>
             {
                 services.Replace(ServiceDescriptor.Singleton<ISmsSender>(Sms));
+                services.Replace(ServiceDescriptor.Singleton<IEmailSender>(sp =>
+                    new CapturingEmailSender(ActivatorUtilities.CreateInstance<FakeEmailSender>(sp))));
                 services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time));
 
                 // The rate limiter reads PublicLinkOptions per request, so swapping the monitor for
@@ -208,6 +229,10 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<PushOptions>>(sp =>
                     new MutableOptionsMonitor<PushOptions>(
                         sp.GetRequiredService<IOptions<PushOptions>>().Value)));
+                // And §5.3's broker settings, so the kill-switch can be thrown mid-test (slice 5.2).
+                services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<BrokerOptions>>(sp =>
+                    new MutableOptionsMonitor<BrokerOptions>(
+                        sp.GetRequiredService<IOptions<BrokerOptions>>().Value)));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test

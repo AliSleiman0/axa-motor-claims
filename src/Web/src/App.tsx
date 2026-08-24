@@ -17,6 +17,10 @@ import GarageDeclarationPage from './pages/GarageDeclarationPage'
 import NewDeclarationPage from './pages/NewDeclarationPage'
 import OfficerInboxPage from './pages/OfficerInboxPage'
 import OfficerDeclarationPage from './pages/OfficerDeclarationPage'
+import BrokerRequestsPage from './pages/BrokerRequestsPage'
+import BrokerRequestPage from './pages/BrokerRequestPage'
+import NewBrokerRequestPage from './pages/NewBrokerRequestPage'
+import BrokerLinkPage from './pages/BrokerLinkPage'
 
 const queryClient = createQueryClient()
 
@@ -79,6 +83,21 @@ function OfficerLayout() {
   )
 }
 
+/**
+ * §5.3's broker view (slice 5.2). **No `PushPanel`**, on `OfficerLayout`'s reasoning: §2 puts the
+ * broker at a desk, and the one push §8 sends them — "Option 2 file ready to send" — belongs to 5.3,
+ * which pairs it with an email fallback. Offering the prompt on every screen before anything can
+ * arrive would be noise.
+ */
+function BrokerLayout() {
+  if (!getTokens()) return <Navigate to="/login" replace />
+  return (
+    <AppShell role="broker">
+      <Outlet />
+    </AppShell>
+  )
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -115,6 +134,15 @@ function App() {
           <Route element={<OfficerLayout />}>
             <Route path="/officer" element={<OfficerInboxPage />} />
             <Route path="/officer/:id" element={<OfficerDeclarationPage />} />
+          </Route>
+          {/* `/broker/{id}` is 5.3's push target as well as B1's Review link, so it is pinned the
+              way the garage and officer paths are. `new` and `link` precede `:id` — a literal
+              segment must not be eaten by the parameter route. */}
+          <Route element={<BrokerLayout />}>
+            <Route path="/broker" element={<BrokerRequestsPage />} />
+            <Route path="/broker/new" element={<NewBrokerRequestPage />} />
+            <Route path="/broker/link" element={<BrokerLinkPage />} />
+            <Route path="/broker/:id" element={<BrokerRequestPage />} />
           </Route>
           <Route element={<AdminLayout />}>
             <Route path="/admin/:kind" element={<ProfileListPage />} />

@@ -18,12 +18,16 @@ describe('homePathFor', () => {
     // a naming choice — renaming either route silently breaks §8's popups, with nothing going red.
     expect(homePathFor('garage')).toBe('/garage')
     expect(homePathFor('claim_officer')).toBe('/officer')
+
+    // Slice 5.2. This line replaces one asserting the fallback, which was pinning a placeholder
+    // rather than a rule: `/broker` is B1, and it is also 5.3's push target, so it is a contract in
+    // the same way the two above are.
+    expect(homePathFor('broker')).toBe('/broker')
   })
 
   it('falls back to admin for a role with no screen yet, and for no role at all', () => {
-    // `broker` is slice 5.2's B1. A token that cannot be read is routed as "no role" for the same
-    // reason: the admin screens' own calls will 401 and bounce to /login.
-    expect(homePathFor('broker')).toBe('/admin/experts')
+    // A token that cannot be read is routed as "no role": the admin screens' own calls will 401 and
+    // bounce to /login. Every role in §2 now has a home of its own.
     expect(homePathFor('admin')).toBe('/admin/experts')
     expect(homePathFor(null)).toBe('/admin/experts')
     expect(homePathFor('PLACEHOLDER-not-a-role')).toBe('/admin/experts')

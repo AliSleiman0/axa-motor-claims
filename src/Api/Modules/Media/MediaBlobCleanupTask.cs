@@ -1,7 +1,6 @@
 using Api.Infrastructure;
 using Api.Infrastructure.Cleanup;
 using Api.Integrations.Blob;
-using Api.Modules.Audit;
 using Api.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -34,27 +33,15 @@ public sealed partial class MediaBlobCleanupTask(
     AppDbContext db,
     IBlobStore blobs,
     OutboxSentQuery sentPushes,
-    AuditWriter audit,
+    DocumentBlobSweeper sweeper,
     IOptionsMonitor<RetentionOptions> options,
     TimeProvider time,
     ILogger<MediaBlobCleanupTask> logger) : ICleanupTask
 {
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Retention delete failed for document {DocumentId} ({BlobKey}); it stays eligible.")]
-    private static partial void LogDeleteFailed(
-        ILogger logger, Guid documentId, string blobKey, Exception exception);
-
-    [LoggerMessage(
-        Level = LogLevel.Warning,
         Message = "Orphan-blob delete failed for {BlobKey}; the next sweep retries it.")]
     private static partial void LogOrphanDeleteFailed(ILogger logger, string blobKey, Exception exception);
-
-    /// <summary>
-    /// A pass is bounded so one sweep cannot hold the database or the storage account for minutes on
-    /// end; the loop simply picks the rest up next time.
-    /// </summary>
-    private const int BatchSize = 500;
 
     public string Name => "media_blobs";
 
@@ -65,64 +52,20 @@ public sealed partial class MediaBlobCleanupTask(
         return deleted;
     }
 
-    private async Task<int> SweepConfirmedPushes(CancellationToken ct)
+    private Task<int> SweepConfirmedPushes(CancellationToken ct)
     {
         var settings = options.CurrentValue;
-        var now = time.GetUtcNow().UtcDateTime;
-        var cutoff = now.AddDays(-settings.BlobDays);
+        var cutoff = time.GetUtcNow().UtcDateTime.AddDays(-settings.BlobDays);
 
         // One SQL statement: the `Contains` becomes a subquery over next3_outbox. The join is the
         // safety property — a document whose push is not `sent` cannot appear in this set at all.
-        var due = await db.Documents
-            // Explicit, because this query composes another one in below and a stray AsNoTracking
-            // anywhere in that tree makes the whole result untracked — see the remarks on
-            // OutboxSentQuery. These rows are edited straight after, so tracking is not optional.
-            .AsTracking()
+        var due = db.Documents
             .Where(d => d.BlobDeletedAt == null
                 && d.OutboxMessageId != null
-                && sentPushes.MessageIdsSentOnOrBefore(cutoff).Contains(d.OutboxMessageId.Value))
-            .OrderBy(d => d.CreatedAt)
-            .Take(BatchSize)
-            .ToListAsync(ct);
+                && sentPushes.MessageIdsSentOnOrBefore(cutoff).Contains(d.OutboxMessageId.Value));
 
-        var deleted = 0;
-
-        foreach (var document in due)
-        {
-            // One document per transaction, and the delete wrapped on its own.
-            //
-            // The batch-wide version of this loop was actively dangerous: a single undeletable blob
-            // threw out of the loop, CleanupRunner swallowed it, and every blob_deleted_at *and audit
-            // row* already staged in that batch was rolled back — for bytes that were physically gone.
-            // Worse, the batch is deterministic, so the same poison row aborted the identical 500
-            // deletes on every pass afterwards and retention stalled behind it for ever. Same lesson
-            // as the outbox's one-SaveChanges-per-message: a poison item must not take its neighbours
-            // down with it.
-            try
-            {
-                await blobs.Delete(document.BlobKey, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // blob_deleted_at stays null, so the row still says truthfully that the bytes are
-                // there and the next pass retries. Skipped, not fatal.
-                LogDeleteFailed(logger, document.Id, document.BlobKey, ex);
-                continue;
-            }
-
-            document.BlobDeletedAt = now;
-            audit.Append(
-                actorUserId: null, AuditActions.DocumentBlobDeleted, AuditEntityKinds.Document,
-                document.Id, new { document.BlobKey, Reason = "retention", settings.BlobDays });
-
-            // Committed before moving on, so a later failure cannot erase the record of this one.
-            // If *this* save fails the bytes are gone with the row still marked live — the next pass
-            // re-issues a delete that is idempotent by contract and sets the flag then.
-            await db.SaveChangesAsync(ct);
-            deleted++;
-        }
-
-        return deleted;
+        return sweeper.Sweep(
+            due, document => new { document.BlobKey, Reason = "retention", settings.BlobDays }, ct);
     }
 
     private async Task<int> SweepOrphanBlobs(CancellationToken ct)
@@ -132,7 +75,7 @@ public sealed partial class MediaBlobCleanupTask(
 
         var candidates = (await blobs.List(string.Empty, ct))
             .Where(blob => blob.CreatedAt <= graceCutoff)
-            .Take(BatchSize)
+            .Take(DocumentBlobSweeper.BatchSize)
             .Select(blob => blob.Key)
             .ToList();
 

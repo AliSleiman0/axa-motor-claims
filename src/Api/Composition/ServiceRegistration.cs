@@ -8,6 +8,7 @@ using Api.Integrations.Next3;
 using Api.Integrations.Push;
 using Api.Integrations.Sms;
 using Api.Modules.Audit;
+using Api.Modules.Broker;
 using Api.Modules.Claims;
 using Api.Modules.Declarations;
 using Api.Modules.Expert;
@@ -48,6 +49,15 @@ public static class ServiceRegistration
         services.Configure<RetentionOptions>(configuration.GetSection(RetentionOptions.SectionName));
         services.Configure<Next3Options>(configuration.GetSection(Next3Options.SectionName));
 
+        // §5.3's routing table (#13), type list (#14) and the BRD's upload kill-switch. **Validated in
+        // every environment**, unlike the Next3 and Push validators below: the broker placeholders are
+        // well-formed, so an always-on check passes today and turns a mistyped insurance type into a
+        // container that will not start rather than a 500 the first broker sees.
+        services.AddSingleton<IValidateOptions<BrokerOptions>, BrokerOptionsValidator>();
+        services.AddOptions<BrokerOptions>()
+            .Bind(configuration.GetSection(BrokerOptions.SectionName))
+            .ValidateOnStart();
+
         // The §6.3 queue. The writer is scoped because it joins the caller's transaction; the
         // processor is a singleton that opens its own scope per pass (NotificationLog's shape).
         services.AddScoped<OutboxWriter>();
@@ -59,12 +69,23 @@ public static class ServiceRegistration
         // row all join one SaveChanges; the cleanup runner is a singleton opening its own scope, like
         // the outbox processor, and each sweep is registered by the module that owns its data.
         services.AddScoped<MediaUploadService>();
+        // §7.1's table as configuration leaves it — every asker of "may this bucket take an uploaded
+        // file?" must go through here, or the upload's answer and /api/config/media's can drift.
+        services.AddScoped<BucketRules>();
+        services.AddScoped<IBucketRuleOverride, BrokerUploadSwitch>();
+        services.AddScoped<DocumentBlobSweeper>();
         services.AddSingleton<CleanupRunner>();
         services.AddScoped<ICleanupTask, MediaBlobCleanupTask>();
+        services.AddScoped<ICleanupTask, BrokerMediaCleanupTask>();
         services.AddScoped<ICleanupTask, OtpChallengeCleanupTask>();
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<ClaimCache>();
+
+        // §5.3's Option 1 (slice 5.2). No NEXT3 anywhere in it — that is the module's defining
+        // property, and what keeps architecture rules 3 and 4 green without a new rule.
+        services.AddScoped<BrokerRequestService>();
+        services.AddScoped<BrokerRequestEmail>();
 
         // §5.2's transitions and the transactions they own (slice 4.1).
         services.AddScoped<DeclarationService>();

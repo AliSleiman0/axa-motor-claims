@@ -133,6 +133,11 @@ namespace Api.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
 
+                    b.Property<string>("BrokerDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("broker_display_name");
+
                     b.Property<Guid>("BrokerUserId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("broker_user_id");
@@ -189,6 +194,7 @@ namespace Api.Migrations
                         .HasColumnName("option");
 
                     b.Property<string>("State")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)")
@@ -200,7 +206,7 @@ namespace Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BrokerUserId", "State");
+                    b.HasIndex("BrokerUserId", "CreatedAt");
 
                     b.ToTable("broker_request", null, t =>
                         {
@@ -530,7 +536,7 @@ namespace Api.Migrations
 
                     b.ToTable("document", null, t =>
                         {
-                            t.HasCheckConstraint("CK_document_bucket", "[bucket] IN ('approval_image', 'damage_diagram', 'discharge', 'expert_report', 'garage_car_photo', 'garage_documents', 'insured_car_photo', 'insured_documents', 'invoice', 'repair_photo', 'tp_car_photo', 'tp_documents', 'voice_note')");
+                            t.HasCheckConstraint("CK_document_bucket", "[bucket] IN ('approval_image', 'broker_document', 'damage_diagram', 'discharge', 'expert_report', 'garage_car_photo', 'garage_documents', 'insured_car_photo', 'insured_documents', 'invoice', 'repair_photo', 'tp_car_photo', 'tp_documents', 'voice_note')");
 
                             t.HasCheckConstraint("CK_document_clarity_result", "[clarity_result] IN ('passed', 'not_applicable')");
 

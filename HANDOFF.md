@@ -3,6 +3,28 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
+**Week-5 browser pass done 2026-08-24; findings in `docs/browser-pass-week5.md`, nothing fixed.** Both
+week-5 cards carried a manual Chrome pass in their DoD and neither had had one — 5.1's predated the
+extension being connected, 5.2's was substituted with an HTTP walk. Both DoD lines now walk end to end
+in a real browser: 5.1's **"Queued, will send" → "Sent to AXA" on both repair rows before anything else
+was pressed**, four outbox rows `sent` on attempt 1 under one visa, terminal panel with four
+timestamps and no controls; 5.2's routed email with both attachments by name, the two insurance types
+reaching two different desks, the failure path leaving the request filed with `emailed_at` null and
+Resend delivering it, and the **kill-switch removing the file input from the DOM live** with no
+restart. The clarity gate ran for real — the blurry gradient refused with **no request leaving the
+browser**, the sharp one at `1600×1200, sharpness 30724`.
+
+**Six defects in what week 5 shipped, four more surfaced but older, none fixed** — the diff you are
+reviewing is untouched. The two worth knowing before reading the rest: **B2 renders its attached-document
+list *below* the Submit button**, so a broker sends before seeing what is attached and two adjacent
+panels are both headed "Documents"; and **an Option 2 request nobody has touched is described as
+"filed" and offered a Send email button**, which the server refuses — leaving two contradictory
+sentences on one card. The older ones matter too: **office shells still overflow at 390 px** (measured
+562 px of header in 390, Sign out clipped — 4.4 fixed only the touch shells, and 5.2 added a fourth
+office shell), and **"Notifications are on" while the server holds no subscription**, reproduced here
+by a database reset rather than by two users in one profile, which is a wider trigger than
+`demo-fix-list.md` #16 records.
+
 **Status as of 2026-08-22 (slice 4.4 — P2, and the slice is done):** **weeks 1–3 are complete and committed, and so are 4.1–4.3** (`783f32e`). **Slice 4.4 is complete and uncommitted** — P1 and P2 together, awaiting the developer's test-diff review, so the working tree is 4.4 alone. **The box is ticked.** Only P3 remains and it is now one item, not two: the broker display-name snapshot column (pass-2 decision 3), which belongs with 5.2/5.3 rather than here. **279 web tests (+80 over the slice) and 503 xUnit (501 passed, 2 environment-skipped — Azurite and the NEXT3 sandbox).** **No existing test was edited anywhere in either half.**
 
 **The browser pass found a bug that my own testability hack had planted, and it blanked the screen.** `ConfirmDialog` rendered `<dialog open>` so that jsdom — which has no `showModal` — would still show it to a test. In a real browser `open` puts the element into the **non-modal** state, `showModal()` then throws `InvalidStateError`, and because that happens inside an effect React tears down the whole tree: pressing **Deactivate** cleared the page to bare canvas. **All seven of its tests passed.** It is `showModal` if it exists and `open` only otherwise, never both; verified in Chrome with `:modal` and with focus landing on Cancel. **Writing markup to suit the test environment is how you ship a bug the test environment cannot see** — and it is the same shape as 2.5's PDF-in-an-`<img>` and 4.2's `<img src>` that would have logged an officer out, third time in three slices that the thing no test could reach was the thing that mattered.

@@ -53,6 +53,7 @@ app.MapOfficerEndpoints();
 app.MapPushEndpoints();
 app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();
+app.MapBrokerRequestEndpoints();
 app.MapPublicEndpoints();
 
 await AdminSeeder.Seed(app.Services);

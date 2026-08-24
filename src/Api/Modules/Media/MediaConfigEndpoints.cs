@@ -46,12 +46,16 @@ public static class MediaConfigEndpoints
     {
         app.MapGet("/api/config/media", (
             IOptionsMonitor<ClarityOptions> clarityOptions,
-            IOptionsMonitor<MediaOptions> mediaOptions) =>
+            IOptionsMonitor<MediaOptions> mediaOptions,
+            BucketRules buckets) =>
         {
             var clarity = clarityOptions.CurrentValue;
             var media = mediaOptions.CurrentValue;
 
-            var buckets = MediaBuckets.AllRules
+            // Through BucketRules, not MediaBuckets: `allowUpload` here must be the *effective*
+            // value, or B2 would keep offering a file picker the server has been told to refuse
+            // (slice 5.2's Broker:AllowUpload kill-switch).
+            var rows = buckets.AllRules
                 .Select(rule => new BucketConfigDto(
                     rule.Bucket,
                     rule.AllowUpload,
@@ -65,7 +69,7 @@ public static class MediaConfigEndpoints
                     clarity.BlurVarianceThreshold,
                     clarity.BlurAnalysisMaxEdge),
                 media.MaxFileMb,
-                buckets));
+                rows));
         });
 
         return app;

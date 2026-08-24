@@ -26,6 +26,28 @@ export const DECLARATION_TONES: Record<string, Tone> = {
   'Repair documents sent': 'ink',
 }
 
+/**
+ * §5.3's seven broker states (slice 5.2).
+ *
+ * A **separate map**, and passed to `StatusChip` explicitly rather than relied on by label lookup:
+ * "Draft" means something in both machines and `DECLARATION_TONES` already owns the word, so a
+ * shared table would give a broker's draft whatever tone a garage's happened to have.
+ *
+ * Green is on **Ready to send** alone, which is the B1 artboard's rule and a deliberate one: it is the
+ * only row where something is waiting on the broker. Sent and Submitted are dark and quiet because
+ * they are done, Link issued is amber because it is waiting on somebody else, Customer in progress is
+ * live work, and Expired is the one that needs an action but is not an error.
+ */
+export const BROKER_TONES: Record<string, Tone> = {
+  Draft: 'neutral',
+  Submitted: 'ink',
+  'Link issued': 'warn',
+  'Customer in progress': 'accent',
+  'Ready to send': 'ok',
+  Sent: 'ink',
+  Expired: 'danger',
+}
+
 /** §4's `app_user.status` values, as the admin list shows them. */
 export const PROFILE_STATUS_LABELS: Record<string, string> = {
   invited: 'Invited',

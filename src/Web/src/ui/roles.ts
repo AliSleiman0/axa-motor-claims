@@ -60,13 +60,13 @@ export const ROLE_SHELLS: Record<string, RoleShell> = {
     tabs: [{ to: '/officer', label: 'Inbox' }],
     home: 'Declarations to review',
   },
-  // 5.2 builds B1. The shell exists now so the three office roles are visibly the same product.
+  // 5.2 built B1, and the tab is live. The three office roles are visibly the same product.
   broker: { name: 'Broker', touch: false, tabs: [{ to: '/broker', label: 'Requests' }], home: 'Requests' },
   admin: { name: 'Admin', touch: false, tabs: ADMIN_TABS, home: 'Experts' },
 }
 
 /** Routes that are not built yet, so their tab renders as a plain disabled item. */
-export const UNBUILT_TABS = new Set(['/admin/failed-pushes', '/broker'])
+export const UNBUILT_TABS = new Set(['/admin/failed-pushes'])
 
 export function shellFor(role: string | null): RoleShell {
   // `api/session.ts` falls back to the admin screens for a role it cannot read, and this follows it:

@@ -182,6 +182,10 @@ public sealed class Next3OptionsValidationTests
         settings["Auth:Jwt:SigningKey"] = "test-signing-key-at-least-32-bytes-long";
         settings["Auth:Jwt:AccessTokenMinutes"] = "15";
         settings["Auth:Jwt:RefreshTokenDays"] = "14";
+
+        // Slice 5.2: BrokerOptionsValidator runs in every mode, so a host with no `Broker`
+        // section no longer starts. Supplied here exactly as the Jwt block above is.
+        settings.WithBroker();
     }
 
     /// <summary>

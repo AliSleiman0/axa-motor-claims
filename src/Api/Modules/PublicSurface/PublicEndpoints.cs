@@ -52,7 +52,23 @@ public static class PublicEndpoints
                 audit.Append(
                     null, AuditActions.PublicLinkOpened, AuditEntityKinds.PublicLinkToken, link.Token.Id,
                     new { BrokerRequestId = link.Request.Id });
-                await db.SaveChangesAsync(ct);
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    // Slice 5.2 made `broker_request.state` a concurrency token for the submit path,
+                    // and this write is the one place where losing that race means **nothing at all**:
+                    // two simultaneous opens of the same link — a double tap on an SMS, a prefetch, a
+                    // pull-to-refresh — both move `link_issued` to `customer_in_progress`, and the
+                    // loser's row already says what it was trying to say. Swallowed rather than
+                    // rethrown because there is no global exception handler and §9.1 requires this
+                    // surface to answer uniformly; a 500 here would be a new way to distinguish one
+                    // token's state from another's.
+                    db.ChangeTracker.Clear();
+                }
             }
 
             var current = options.CurrentValue;

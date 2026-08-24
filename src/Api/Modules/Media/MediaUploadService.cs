@@ -87,6 +87,7 @@ public sealed class MediaUploadService(
     IBlobStore blobs,
     OutboxWriter outbox,
     AuditWriter audit,
+    BucketRules buckets,
     IOptionsMonitor<MediaOptions> mediaOptions,
     IOptionsMonitor<ClarityOptions> clarityOptions,
     IOptions<Next3Options> next3Options,
@@ -162,7 +163,7 @@ public sealed class MediaUploadService(
                 return MediaUploadOutcome.Refused(StatusCodes.Status400BadRequest, "metadata_must_precede_file");
             }
 
-            var rule = MediaBuckets.Find(bucketName);
+            var rule = buckets.Find(bucketName);
             if (rule is null || rule.OwnerKind != target.OwnerKind)
             {
                 return MediaUploadOutcome.Refused(StatusCodes.Status400BadRequest, "unknown_bucket");
@@ -303,7 +304,7 @@ public sealed class MediaUploadService(
         string contentType,
         ContentDispositionHeaderValue disposition,
         BucketRule rule,
-        string docType,
+        string? docType,
         string origin,
         string clarityResult,
         MediaUploadTarget target,
@@ -317,9 +318,14 @@ public sealed class MediaUploadService(
         // officer has by then chosen, using the same document id as the clientRef.
         var outboxMessageId = rule.Timing switch
         {
+            // `docType` and `Next3Folder` are non-null on this arm by construction: only a
+            // PushTiming.Never bucket may omit them, and Never does not reach here.
             PushTiming.Immediate => outbox.EnqueueDocument(
                 RequireVisa(target, rule),
-                new DocumentPush(rule.Next3Folder, docType, fileName, contentType, blobKey),
+                new DocumentPush(
+                    RequireNext3Fields(rule.Next3Folder, rule, nameof(BucketRule.Next3Folder)),
+                    RequireNext3Fields(docType, rule, nameof(BucketRule.DocTypeKey)),
+                    fileName, contentType, blobKey),
                 documentId.ToString()),
             PushTiming.OnApproval or PushTiming.Never => (Guid?)null,
             _ => throw new ArgumentOutOfRangeException(nameof(rule), rule.Timing, null),
@@ -374,6 +380,18 @@ public sealed class MediaUploadService(
     /// the far end of the queue 26 hours later, where the symptom would be a `failed` row on A2 for a
     /// document nobody can re-file.
     /// </summary>
+    /// <summary>
+    /// The other half of the <see cref="PushTiming.Never"/> biconditional, at the one place it matters
+    /// (slice 5.2). A pushing bucket with no document type or no folder would queue a row NEXT3 cannot
+    /// file; this makes that a startup-shaped bug here rather than a `failed` row on A2 a day later.
+    /// </summary>
+    private static string RequireNext3Fields(string? value, BucketRule rule, string field) =>
+        value is { Length: > 0 } set
+            ? set
+            : throw new InvalidOperationException(
+                $"Bucket '{rule.Bucket}' pushes to NEXT3 ({rule.Timing}) but has no {field} "
+                + "(design.md §7.1).");
+
     private static string RequireVisa(MediaUploadTarget target, BucketRule rule) =>
         target.VisaNo is { Length: > 0 } visaNo
             ? visaNo
@@ -381,11 +399,20 @@ public sealed class MediaUploadService(
                 $"Bucket '{rule.Bucket}' pushes immediately, so its upload target must carry a visa "
                 + $"(owner kind '{target.OwnerKind}', id {target.OwnerId}).");
 
-    private string ResolveDocType(BucketRule rule) =>
-        next3Options.Value.DocTypes.GetValueOrDefault(rule.DocTypeKey)
-        ?? throw new InvalidOperationException(
-            $"Next3:DocTypes is missing the key '{rule.DocTypeKey}' required by bucket "
-            + $"'{rule.Bucket}' (design.md Appendix A, #12).");
+    /// <summary>
+    /// Null for a bucket that never reaches NEXT3 (slice 5.2). A <see cref="PushTiming.Never"/> rule
+    /// carries no <see cref="BucketRule.DocTypeKey"/>, and `MediaBucketTests` pins that biconditional,
+    /// so reading the key here is the same question as reading the timing and cannot disagree with it.
+    /// The throw stays for every bucket that *does* have a key: a missing placeholder is a
+    /// configuration error and §7.3 would rather find it before the blob PUT than after.
+    /// </summary>
+    private string? ResolveDocType(BucketRule rule) =>
+        rule.DocTypeKey is not { } key
+            ? null
+            : next3Options.Value.DocTypes.GetValueOrDefault(key)
+              ?? throw new InvalidOperationException(
+                  $"Next3:DocTypes is missing the key '{key}' required by bucket "
+                  + $"'{rule.Bucket}' (design.md Appendix A, #12).");
 
     private async Task TryDelete(string blobKey, CancellationToken ct)
     {

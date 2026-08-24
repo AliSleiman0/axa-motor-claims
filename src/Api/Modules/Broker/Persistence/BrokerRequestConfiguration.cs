@@ -20,8 +20,16 @@ public sealed class BrokerRequestConfiguration : IEntityTypeConfiguration<Broker
         builder.Property(r => r.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(r => r.BrokerUserId).HasColumnName("broker_user_id");
         builder.Property(r => r.Option).HasColumnName("option");
+        // The concurrency token (slice 5.2), 4.1's idiom: `state` is what a transition changes, so a
+        // lost race is answered `409 illegal_transition` instead of two submits both committing and
+        // AXA's desk receiving the same request twice. A token on a non-rowversion column is
+        // model-only — it emits no DDL, which is why the migration beside this change carries none.
+        // See `BrokerRequest.State` for the two writes that do *not* change it and how each is
+        // handled; a Resend, which changes no state, is claimed on `emailed_at` instead.
         builder.Property(r => r.State).HasColumnName("state").HasMaxLength(25)
-            .HasConversion(s => s.ToDbValue(), v => BrokerRequestStates.FromDbValue(v));
+            .HasConversion(s => s.ToDbValue(), v => BrokerRequestStates.FromDbValue(v))
+            .IsConcurrencyToken();
+        builder.Property(r => r.BrokerDisplayName).HasColumnName("broker_display_name").HasMaxLength(200);
         builder.Property(r => r.InsuredName).HasColumnName("insured_name").HasMaxLength(200);
         builder.Property(r => r.InsuranceType).HasColumnName("insurance_type").HasMaxLength(100);
         builder.Property(r => r.InsuredAddress).HasColumnName("insured_address").HasMaxLength(500);
@@ -43,7 +51,12 @@ public sealed class BrokerRequestConfiguration : IEntityTypeConfiguration<Broker
         builder.HasOne<AppUser>().WithMany()
             .HasForeignKey(r => r.BrokerUserId)
             .OnDelete(DeleteBehavior.Restrict);
-        // B1's list: "my requests, newest first, optionally filtered by state" (slice 5.2/5.3).
-        builder.HasIndex(r => new { r.BrokerUserId, r.State });
+        // B1's list: "my requests, newest first" (slice 5.2) — literally
+        // `WHERE broker_user_id = @x ORDER BY created_at DESC`, with no state predicate anywhere in
+        // the module. So the key is `(broker_user_id, created_at)` and **not** the
+        // `(broker_user_id, state, created_at)` the slice card asked for: with `state` between the
+        // seek column and the sort column, rows inside a broker's partition are ordered by state
+        // first and SQL Server sorts the whole partition anyway. Found by the db-reviewer.
+        builder.HasIndex(r => new { r.BrokerUserId, r.CreatedAt });
     }
 }

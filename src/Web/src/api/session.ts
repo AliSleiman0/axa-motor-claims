@@ -35,12 +35,14 @@ export function currentRole(): string | null {
  * — snake case, so `claim_officer` and not `claimOfficer`. A typo here is a garage silently landing
  * on the admin screens and meeting a wall of 403s, which is what §5.2's two roles did until slice 4.2.
  *
- * `broker` still falls through: slice 5.2 builds B1.
+ * Every role has a home now: slice 5.2 built B1, so `broker` no longer falls through to the
+ * admin's screens.
  */
 const HOME_PATHS: Record<string, string> = {
   expert: '/expert',
   garage: '/garage',
   claim_officer: '/officer',
+  broker: '/broker',
 }
 
 export function homePathFor(role: string | null): string {

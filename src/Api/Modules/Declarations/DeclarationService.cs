@@ -416,8 +416,14 @@ public sealed partial class DeclarationService(
                 ?? throw new InvalidOperationException(
                     $"Document {document.Id} is deferred for NEXT3 but carries no document type.");
 
+            // Non-null for every pushing bucket by construction: only PushTiming.Never omits a folder,
+            // and a deferred document is by definition not one (slice 5.2 made the field nullable).
+            var folder = rule.Next3Folder
+                ?? throw new InvalidOperationException(
+                    $"Bucket '{rule.Bucket}' is deferred for NEXT3 but §7.1 gives it no folder.");
+
             var push = new DocumentPush(
-                rule.Next3Folder,
+                folder,
                 docType,
                 // Rows written before slice 4.1 have no stored name; nothing else can reconstruct one.
                 document.FileName ?? $"{document.Id:N}",
@@ -567,7 +573,7 @@ public sealed partial class DeclarationService(
 
             try
             {
-                await email.Send(emailAddress, subject, body, template, userId, ct);
+                await email.Send(emailAddress, subject, body, template, userId, [], ct);
             }
             catch (Exception emailFailure) when (emailFailure is not OperationCanceledException)
             {

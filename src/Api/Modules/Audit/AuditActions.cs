@@ -32,6 +32,13 @@ public static class AuditActions
     public const string DeclarationRepairDocsSubmitted = "declaration_repair_docs_submitted";
 
     // §9's "public-page submissions (actor null, token id logged)".
+    // §5.3's broker requests (slice 5.2). `Emailed` is separate from `Submitted` because the state
+    // commits before the send: a request can be submitted and not yet emailed, and a Resend emails
+    // one without transitioning it, so one action could not honestly cover both.
+    public const string BrokerRequestCreated = "broker_request_created";
+    public const string BrokerRequestSubmitted = "broker_request_submitted";
+    public const string BrokerRequestEmailed = "broker_request_emailed";
+
     public const string PublicLinkIssued = "public_link_issued";
     public const string PublicLinkOpened = "public_link_opened";
     public const string PublicLinkSubmitted = "public_link_submitted";

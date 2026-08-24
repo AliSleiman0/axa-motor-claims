@@ -36,6 +36,10 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.RepairPhoto, false, MediaKind.Image)]
     [InlineData(MediaBuckets.Discharge, true, MediaKind.Document)]
     [InlineData(MediaBuckets.Invoice, true, MediaKind.Document)]
+    // Slice 5.2's §5.3 broker bucket. Upload allowed in the *table*; the BRD's kill-switch
+    // (`Broker:AllowUpload`) is applied over this row by `BrokerUploadSwitch` and is deliberately not
+    // baked into it, because the table is the static rule and the switch is deployment configuration.
+    [InlineData(MediaBuckets.BrokerDocument, true, MediaKind.Document)]
     public void TheBucketMatrixMatchesSection71(string bucket, bool allowUpload, MediaKind kind)
     {
         var rule = MediaBuckets.Find(bucket);
@@ -114,33 +118,77 @@ public class MediaBucketTests
     }
 
     [Fact]
+    public void EveryBrokerBucketIsOutsideTheNext3PipelineEntirely()
+    {
+        // Slice 5.2's third owner kind. §5.3: "the broker module never touches NEXT3 — its terminal
+        // act is an email routed by insurance type". So there is nothing to say about a folder or a
+        // document type, and saying nothing is the assertion: a placeholder code invented for a push
+        // that cannot happen is exactly the client data CLAUDE.md forbids.
+        var brokerRules = MediaBuckets.AllRules
+            .Where(r => r.OwnerKind == DocumentOwnerKinds.BrokerRequest)
+            .ToList();
+
+        Assert.Equal(MediaBuckets.BrokerRequest.Order(StringComparer.Ordinal), Buckets(brokerRules));
+
+        Assert.All(brokerRules, rule =>
+        {
+            Assert.Equal(PushTiming.Never, rule.Timing);
+            Assert.Null(rule.DocTypeKey);
+            Assert.Null(rule.Next3Folder);
+        });
+    }
+
+    [Fact]
     public void EveryBucketIsAccountedForByOwnerKind()
     {
-        // The non-vacuity guard for the two tests above: together they must cover every rule, or a
-        // bucket added under a third owner kind would be asserted by neither and both would still
-        // read green. CLAUDE.md: "a guard that quietly stops covering new code is worse than none".
+        // The non-vacuity guard for the three tests above: together they must cover every rule, or a
+        // bucket added under a fourth owner kind would be asserted by none of them and all three would
+        // still read green. CLAUDE.md: "a guard that quietly stops covering new code is worse than
+        // none".
         //
-        // Slice 5.1 left this alone deliberately. Its three buckets are declaration rows, so the
-        // guard still covers every rule and is still non-vacuous — the assertion needed no widening,
-        // only re-reading to confirm that.
+        // Slice 5.1 left this alone deliberately and said so. **Slice 5.2 had to widen it**, which is
+        // the guard working rather than the guard being wrong: `broker_document` is the first bucket
+        // under a third owner kind, so it arrived with a test of its own above.
         Assert.Equal(
             MediaBuckets.AllRules.Count,
             MediaBuckets.AllRules.Count(r =>
-                r.OwnerKind == DocumentOwnerKinds.Assignment || r.OwnerKind == DocumentOwnerKinds.Declaration));
+                r.OwnerKind == DocumentOwnerKinds.Assignment
+                || r.OwnerKind == DocumentOwnerKinds.Declaration
+                || r.OwnerKind == DocumentOwnerKinds.BrokerRequest));
     }
 
     [Fact]
     public void EveryBucketsTimingIsOneThePipelineHandles()
     {
         // MediaUploadService.Record switches on Timing and throws on anything unrecognised, and
-        // PushStatusFor pairs each timing with the push status its check constraint expects. This is
-        // what stops PushTiming.Never rotting: it has no bucket yet (slice 5.2's broker media), so
-        // nothing else exercises the mapping.
+        // PushStatusFor pairs each timing with the push status its check constraint expects.
         Assert.All(
             MediaBuckets.AllRules,
             rule => Assert.Contains(rule.Timing, Enum.GetValues<PushTiming>()));
 
-        Assert.DoesNotContain(MediaBuckets.AllRules, r => r.Timing == PushTiming.Never);
+        // **Rewritten in slice 5.2, deliberately.** This used to assert `DoesNotContain(… Never)` —
+        // that PushTiming.Never had no bucket at all — which was the only thing stopping the mapping
+        // rotting while it was unused. `broker_document` now carries it, so the negative is simply
+        // false and keeping it would have meant either deleting the guard or the bucket.
+        //
+        // The positive form guards more than the negative one did: the Never set is pinned to
+        // `MediaBuckets.BrokerRequest` rather than to a count, so a second no-push bucket has to be
+        // classified there rather than inherit whichever timing its author typed — 5.1's lesson about
+        // the declaration split, from the other side.
+        Assert.Equal(
+            MediaBuckets.BrokerRequest.Order(StringComparer.Ordinal),
+            Buckets(MediaBuckets.AllRules, PushTiming.Never));
+
+        // And the biconditional MediaUploadService.ResolveDocType now relies on: it decides whether to
+        // demand a #12 placeholder by reading `DocTypeKey is null`, which is only the same question as
+        // "does this bucket push?" while these two agree.
+        Assert.All(
+            MediaBuckets.AllRules,
+            rule => Assert.Equal(rule.Timing == PushTiming.Never, rule.DocTypeKey is null));
+
+        Assert.All(
+            MediaBuckets.AllRules,
+            rule => Assert.Equal(rule.Timing == PushTiming.Never, rule.Next3Folder is null));
     }
 
     [Theory]
@@ -171,6 +219,7 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.GarageDocuments)]
     [InlineData(MediaBuckets.Discharge)]
     [InlineData(MediaBuckets.Invoice)]
+    [InlineData(MediaBuckets.BrokerDocument)]
     public void ADocumentBucketTakesEitherProvenance(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;
@@ -200,5 +249,8 @@ public class MediaBucketTests
     }
 
     private static IEnumerable<string> Buckets(IEnumerable<BucketRule> rules, PushTiming timing) =>
-        rules.Where(r => r.Timing == timing).Select(r => r.Bucket).Order(StringComparer.Ordinal);
+        Buckets(rules.Where(r => r.Timing == timing));
+
+    private static IEnumerable<string> Buckets(IEnumerable<BucketRule> rules) =>
+        rules.Select(r => r.Bucket).Order(StringComparer.Ordinal);
 }

@@ -1,4 +1,9 @@
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react'
 
 interface FieldShellProps {
   id: string
@@ -110,5 +115,102 @@ export function TextArea({ id, label, error, hint, className, rows = 3, ...rest 
         {...rest}
       />
     </FieldShell>
+  )
+}
+
+export interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> {
+  id: string
+  label: string
+  error?: string | null
+  hint?: ReactNode
+  /** The values the server will accept, in the order it lists them. */
+  options: readonly string[]
+  /** Shown first and worth nothing — a native select with no empty option pre-picks option one. */
+  placeholder?: string
+}
+
+/**
+ * A native `<select>` (slice 5.2, B2's insurance type).
+ *
+ * Native rather than a custom listbox: this is one of two screens where a wrong choice sends the
+ * quotation to the wrong AXA desk, and a native control is the one every browser, screen reader and
+ * phone keyboard already agrees about.
+ *
+ * **The options are always passed in, never held here.** They come from `Broker:InsuranceTypes` (#14)
+ * over the wire; a list in this file would be client data outside the placeholder config, which
+ * CLAUDE.md calls a bug wherever it appears.
+ */
+export function SelectField({
+  id,
+  label,
+  error,
+  hint,
+  options,
+  placeholder,
+  className,
+  ...rest
+}: SelectFieldProps) {
+  return (
+    <FieldShell id={id} label={label} error={error} hint={hint}>
+      <select
+        id={id}
+        className={['field__control', className ?? ''].filter(Boolean).join(' ')}
+        aria-invalid={error ? true : undefined}
+        {...rest}
+      >
+        {placeholder ? <option value="">{placeholder}</option> : null}
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </FieldShell>
+  )
+}
+
+/**
+ * A date, mono and tabular (slice 5.2, B2's effective date).
+ *
+ * `type="date"` so the value on the wire is always `yyyy-MM-dd` whatever the browser draws — the
+ * server binds a `DateOnly`, and a locale-formatted string would be 03/09 in one place and 09/03 in
+ * another on a policy's start date.
+ */
+export function DateField({ id, label, error, hint, className, ...rest }: TextFieldProps) {
+  return (
+    <TextField
+      id={id}
+      label={label}
+      error={error}
+      hint={hint}
+      type="date"
+      className={['field__control--mono', className ?? ''].filter(Boolean).join(' ')}
+      {...rest}
+    />
+  )
+}
+
+/**
+ * An amount, mono and tabular (slice 5.2, B2's car value and estimated premium).
+ *
+ * **No currency symbol, and that is a decision rather than an omission.** The BRD names both fields
+ * and names no currency; one value per deployment or one per insurance type is unanswered (#47).
+ * Drawing a symbol would put a client literal in TypeScript, and drawing the wrong one on a policy
+ * amount is worse than drawing none — so the field shows the number and the question stays open.
+ */
+export function MoneyField({ id, label, error, hint, className, ...rest }: TextFieldProps) {
+  return (
+    <TextField
+      id={id}
+      label={label}
+      error={error}
+      hint={hint}
+      type="number"
+      inputMode="decimal"
+      min={0}
+      step="0.01"
+      className={['field__control--mono', className ?? ''].filter(Boolean).join(' ')}
+      {...rest}
+    />
   )
 }

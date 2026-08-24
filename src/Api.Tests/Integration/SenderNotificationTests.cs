@@ -45,7 +45,7 @@ public sealed class SenderNotificationTests(ApiFixture fixture)
         var recipient = $"PLACEHOLDER-{Guid.NewGuid():N}@example.invalid";
         var sender = new FakeEmailSender(NullLogger<FakeEmailSender>.Instance, NotificationLog(), FakeBehavior());
 
-        await sender.Send(recipient, "PLACEHOLDER subject", "PLACEHOLDER body", "test_email", null, CancellationToken.None);
+        await sender.Send(recipient, "PLACEHOLDER subject", "PLACEHOLDER body", "test_email", null, [], CancellationToken.None);
 
         var row = await SingleRow(n => n.RecipientAddress == recipient);
         Assert.Equal(NotificationChannels.Email, row.Channel);
@@ -83,7 +83,7 @@ public sealed class SenderNotificationTests(ApiFixture fixture)
             NullLogger<FakeEmailSender>.Instance, NotificationLog(), FakeBehavior(failureRate: 1));
 
         await Assert.ThrowsAsync<FakeTransientException>(() =>
-            sender.Send(recipient, "PLACEHOLDER subject", "PLACEHOLDER body", "test_email", null, CancellationToken.None));
+            sender.Send(recipient, "PLACEHOLDER subject", "PLACEHOLDER body", "test_email", null, [], CancellationToken.None));
 
         var row = await SingleRow(n => n.RecipientAddress == recipient);
         Assert.Equal(NotificationStatuses.Failed, row.Status);
@@ -96,14 +96,17 @@ public sealed class SenderNotificationTests(ApiFixture fixture)
     public async Task OtpRequest_ThroughTheBootedApp_ResolvesAllFivePortsAsFakes()
     {
         // The DoD's "app boots fully on fakes", asserted rather than eyeballed. ISmsSender is
-        // excluded: ApiFixture deliberately replaces it with the capturing double.
+        // excluded: ApiFixture deliberately replaces it with the capturing double. IEmailSender is
+        // wrapped by one from slice 5.2, so it is asserted *through* the wrapper rather than dropped —
+        // what this test is for is that nothing real is wired up, and that is still checkable.
         var services = fixture.Services;
 
         Assert.IsType<Api.Integrations.Next3.FakeNext3Client>(
             services.GetRequiredService<Api.Integrations.Next3.INext3Client>());
         Assert.IsType<Api.Integrations.Next3.FakeAssignmentSource>(
             services.GetRequiredService<Api.Integrations.Next3.IAssignmentSource>());
-        Assert.IsType<FakeEmailSender>(services.GetRequiredService<IEmailSender>());
+        Assert.IsType<FakeEmailSender>(
+            Assert.IsType<CapturingEmailSender>(services.GetRequiredService<IEmailSender>()).Inner);
         Assert.IsType<FakePushSender>(services.GetRequiredService<IPushSender>());
         Assert.NotNull(services.GetRequiredService<ISmsSender>());
     }

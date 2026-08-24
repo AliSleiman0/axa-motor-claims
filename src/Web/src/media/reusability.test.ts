@@ -50,6 +50,7 @@ describe('the media module stays reusable', () => {
     // may this module — and the cheapest moment to say so is the moment those folders start existing.
     { pattern: /from\s+'(\.\.\/)+garage\//, what: 'the garage module' },
     { pattern: /from\s+'(\.\.\/)+officer\//, what: 'the officer module' },
+    { pattern: /from\s+'(\.\.\/)+broker\//, what: 'the broker module' },
     { pattern: /from\s+'(\.\.\/)+pages\//, what: 'a page' },
     { pattern: /from\s+'(\.\.\/)+admin\//, what: 'the admin module' },
     { pattern: /from\s+'(\.\.\/)+api\/session'/, what: 'the session helpers' },
@@ -119,6 +120,7 @@ describe('the ui layer stays role-agnostic', () => {
     { pattern: /from\s+'(\.\.\/)+expert\//, what: 'the expert module' },
     { pattern: /from\s+'(\.\.\/)+garage\//, what: 'the garage module' },
     { pattern: /from\s+'(\.\.\/)+officer\//, what: 'the officer module' },
+    { pattern: /from\s+'(\.\.\/)+broker\//, what: 'the broker module' },
     { pattern: /from\s+'(\.\.\/)+admin\//, what: 'the admin module' },
     { pattern: /from\s+'(\.\.\/)+pages\//, what: 'a page' },
   ]

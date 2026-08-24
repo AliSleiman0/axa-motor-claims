@@ -39,8 +39,9 @@ public enum PushTiming
     OnApproval,
 
     /// <summary>
-    /// Never pushed — <c>push_status = n/a</c>. §5.3's broker and public-customer media, whose
-    /// terminal act is an email; reserved here for slice 5.2, so no bucket carries it yet.
+    /// Never pushed — <c>push_status = n/a</c>, no outbox row, and therefore no document type and
+    /// no folder either. §5.3's broker and public-customer media, whose terminal act is an email.
+    /// <c>broker_document</c> is the first bucket to carry it (slice 5.2).
     /// </summary>
     Never,
 }
@@ -69,13 +70,20 @@ public enum Next3PushKind
 /// the question does not arise, not that a captured report must be refused. Refusing one would be an
 /// invented restriction, and CLAUDE.md says take the smaller interpretation.
 /// </summary>
+/// <param name="DocTypeKey">
+/// The <c>Next3:DocTypes</c> key (#12) this bucket's documents are pushed under, or **null** when the
+/// bucket never reaches NEXT3. Null exactly when <see cref="Timing"/> is <see cref="PushTiming.Never"/>
+/// — §5.3's broker and public-customer media, whose terminal act is an email. Demanding a NEXT3 code
+/// for a file NEXT3 never sees would be inventing client data (slice 5.2).
+/// </param>
+/// <param name="Next3Folder">The destination folder, null for the same reason and in the same cases.</param>
 public sealed record BucketRule(
     string Bucket,
     string OwnerKind,
     bool AllowUpload,
-    string DocTypeKey,
+    string? DocTypeKey,
     MediaKind Kind,
-    string Next3Folder,
+    string? Next3Folder,
     PushTiming Timing,
     Next3PushKind PushKind = Next3PushKind.Document);
 
@@ -90,8 +98,9 @@ public sealed record BucketRule(
 /// repair buckets below**, which is why `garage_documents` now means the survey paperwork attached
 /// before submission and nothing else.
 ///
-/// The broker and public rows (§5.3) push to NEXT3 not at all and will carry
-/// <see cref="PushTiming.Never"/> with <c>push_status = n/a</c> instead of a doc type.
+/// **The broker row landed in slice 5.2** and is the first to carry <see cref="PushTiming.Never"/>:
+/// no doc type, no folder, <c>push_status = n/a</c>. The public row (§5.3) is slice 5.3 and has the
+/// same shape.
 ///
 /// Each new bucket is a migration, because `bucket` is a check-constrained enum like every other §4
 /// state column — which makes adding one a reviewable decision rather than a string appearing.
@@ -111,6 +120,7 @@ public static class MediaBuckets
     public const string RepairPhoto = "repair_photo";
     public const string Discharge = "discharge";
     public const string Invoice = "invoice";
+    public const string BrokerDocument = "broker_document";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
@@ -202,6 +212,21 @@ public static class MediaBuckets
             [Invoice] = new(
                 Invoice, DocumentOwnerKinds.Declaration, AllowUpload: true,
                 "Invoice", MediaKind.Document, Next3Folders.Survey, PushTiming.Immediate),
+
+            // §5.3's Broker Option 1 row (slice 5.2), and the first bucket under a third owner kind.
+            // **`PushTiming.Never`, and therefore no document type and no folder**: the broker module
+            // never touches NEXT3 at all — its terminal act is an email carrying these files as
+            // attachments — so a `Next3:DocTypes` code here would be a placeholder invented for a push
+            // that cannot happen. `push_status` lands `n/a` and no outbox row is written, which is
+            // also why architecture rules 3 and 4 stay green without anything being added to them.
+            //
+            // Upload allowed, and §7.1's "kill-switch `Broker.AllowUpload`" is deliberately *not* this
+            // flag: the table is the static rule, the switch is dynamic configuration, and
+            // `BrokerUploadSwitch` applies it over this row so both the upload refusal and
+            // `GET /api/config/media` read one answer.
+            [BrokerDocument] = new(
+                BrokerDocument, DocumentOwnerKinds.BrokerRequest, AllowUpload: true,
+                DocTypeKey: null, MediaKind.Document, Next3Folder: null, PushTiming.Never),
         };
 
     /// <summary>
@@ -218,6 +243,14 @@ public static class MediaBuckets
     /// `submit-repair-docs` requires at least one document from.
     /// </summary>
     public static readonly string[] Repair = [RepairPhoto, Discharge, Invoice];
+
+    /// <summary>
+    /// §5.3's broker-owned buckets — the ones that never reach NEXT3. One today; slice 5.3's
+    /// `public_document` joins it. Named for `GarageDeclaration`'s reason: `MediaBucketTests` pins the
+    /// `PushTiming.Never` set against this list, so a second no-push bucket has to be classified here
+    /// rather than inherit whichever timing its author typed.
+    /// </summary>
+    public static readonly string[] BrokerRequest = [BrokerDocument];
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>
     public static IReadOnlyCollection<string> All => Rules.Keys;

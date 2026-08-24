@@ -76,7 +76,7 @@ public sealed class PublicLinkTokenService(
             return false;
         }
 
-        link.Request.State = BrokerRequestState.CustomerInProgress;
+        link.Request.OpenByCustomer();
         return true;
     }
 
@@ -90,8 +90,7 @@ public sealed class PublicLinkTokenService(
 
         var now = Now();
         link.Token.LockedAt = now;
-        link.Request.State = BrokerRequestState.ReadyToSend;
-        link.Request.SubmittedAt = now;
+        link.Request.ReadyToSend(now);
     }
 
     private DateTime Now() => time.GetUtcNow().UtcDateTime;
