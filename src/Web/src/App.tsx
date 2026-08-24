@@ -8,6 +8,7 @@ import { PushPanel } from './push/PushPanel'
 import { AppShell } from './ui/AppShell'
 import LoginPage from './pages/LoginPage'
 import InvitePage from './pages/InvitePage'
+import PublicRequestPage from './public/PublicRequestPage'
 import ProfileListPage from './pages/ProfileListPage'
 import ProfileFormPage from './pages/ProfileFormPage'
 import ExpertAssignmentsPage from './pages/ExpertAssignmentsPage'
@@ -115,6 +116,18 @@ function App() {
           */}
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
+          {/*
+            P1 (§5.3), and the **third** unauthenticated route — deliberately outside every layout
+            element, so no token guard runs and no `AppShell` is mounted. `AppHeader` calls `useMe`
+            and `useSignOut`; a member of the public has neither, and a sign-out control on a page
+            with no account is nonsense before it is a bug.
+
+            `/p/:token` is a contract with `BrokerLinkEndpoints` in the way `/invite/:token` is one
+            with `InviteService`: B3 renders `{Auth:AppBaseUrl}/p/{token}` and a broker hands that
+            string to a customer, so renaming it breaks every link already issued — up to
+            `PublicLink:ValidityDays` worth. Short on purpose: it is typed off a phone screen.
+          */}
+          <Route path="/p/:token" element={<PublicRequestPage />} />
           {/* Role decides the landing screen; the server decides what each screen may read (§9). */}
           <Route path="/" element={<Navigate to={homePathFor(currentRole())} replace />} />
           <Route element={<ExpertLayout />}>

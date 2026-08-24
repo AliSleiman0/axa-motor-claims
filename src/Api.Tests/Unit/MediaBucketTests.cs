@@ -40,6 +40,10 @@ public class MediaBucketTests
     // (`Broker:AllowUpload`) is applied over this row by `BrokerUploadSwitch` and is deliberately not
     // baked into it, because the table is the static rule and the switch is deployment configuration.
     [InlineData(MediaBuckets.BrokerDocument, true, MediaKind.Document)]
+    // Slice 5.3's §5.3 public bucket — the supporting documents a member of the public attaches from
+    // an Option 2 link. Upload allowed, and unlike the row above **no kill-switch applies**: §7.1's
+    // `Broker.AllowUpload` is written against the Broker Option 1 row and the public rows carry none.
+    [InlineData(MediaBuckets.PublicDocument, true, MediaKind.Document)]
     public void TheBucketMatrixMatchesSection71(string bucket, bool allowUpload, MediaKind kind)
     {
         var rule = MediaBuckets.Find(bucket);
@@ -120,10 +124,12 @@ public class MediaBucketTests
     [Fact]
     public void EveryBrokerBucketIsOutsideTheNext3PipelineEntirely()
     {
-        // Slice 5.2's third owner kind. §5.3: "the broker module never touches NEXT3 — its terminal
-        // act is an email routed by insurance type". So there is nothing to say about a folder or a
-        // document type, and saying nothing is the assertion: a placeholder code invented for a push
-        // that cannot happen is exactly the client data CLAUDE.md forbids.
+        // Slice 5.2's third owner kind, and **two rows since slice 5.3** — the broker's own documents
+        // and the ones a public customer attaches, which share this owner kind precisely so that B4's
+        // review and the Option 2 email reach both with one query. §5.3: "the broker module never
+        // touches NEXT3 — its terminal act is an email routed by insurance type". So there is nothing
+        // to say about a folder or a document type, and saying nothing is the assertion: a placeholder
+        // code invented for a push that cannot happen is exactly the client data CLAUDE.md forbids.
         var brokerRules = MediaBuckets.AllRules
             .Where(r => r.OwnerKind == DocumentOwnerKinds.BrokerRequest)
             .ToList();
@@ -148,7 +154,9 @@ public class MediaBucketTests
         //
         // Slice 5.1 left this alone deliberately and said so. **Slice 5.2 had to widen it**, which is
         // the guard working rather than the guard being wrong: `broker_document` is the first bucket
-        // under a third owner kind, so it arrived with a test of its own above.
+        // under a third owner kind, so it arrived with a test of its own above. Slice 5.3 needed no
+        // change here — `public_document` reuses that same owner kind — and that was checked rather
+        // than assumed.
         Assert.Equal(
             MediaBuckets.AllRules.Count,
             MediaBuckets.AllRules.Count(r =>
@@ -220,6 +228,7 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.Discharge)]
     [InlineData(MediaBuckets.Invoice)]
     [InlineData(MediaBuckets.BrokerDocument)]
+    [InlineData(MediaBuckets.PublicDocument)]
     public void ADocumentBucketTakesEitherProvenance(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;

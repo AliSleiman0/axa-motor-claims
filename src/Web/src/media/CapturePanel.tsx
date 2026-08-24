@@ -11,6 +11,8 @@ interface CapturePanelProps {
   label: string
   config: MediaConfig | undefined
   count?: number
+  /** Passed through to `useCapture` — `'none'` for §5.3's public page (slice 5.3). */
+  auth?: 'bearer' | 'none'
   onUploaded?: () => void
   /**
    * What this bucket holds, in the words that finish the control's accessible name — "insured car"
@@ -42,10 +44,11 @@ export function CapturePanel({
   label,
   config,
   count,
+  auth,
   onUploaded,
   qualifier,
 }: CapturePanelProps) {
-  const capture = useCapture({ path, bucket, config, onUploaded })
+  const capture = useCapture({ path, bucket, config, auth, onUploaded })
 
   function onPick(origin: MediaOrigin) {
     return (event: ChangeEvent<HTMLInputElement>) => {

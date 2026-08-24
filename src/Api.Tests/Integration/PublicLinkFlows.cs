@@ -1,11 +1,22 @@
 using System.Net.Http.Json;
+using Api.Modules.Media;
 using Api.Modules.Users;
+using Api.Tests.Media;
 
 namespace Api.Tests.Integration;
 
 internal sealed record CreateLinkResponse(Guid RequestId, string Token, string Url, DateTime ExpiresAt);
 
-internal sealed record PublicLinkViewDto(string State, DateTime ExpiresAt, int MaxFiles, int MaxFileMb);
+internal sealed record PublicLinkViewDto(
+    string State,
+    DateTime ExpiresAt,
+    int MaxFiles,
+    int MaxFileMb,
+    string? BrokerDisplayName,
+    IReadOnlyList<string> InsuranceTypes);
+
+/// <summary>Mirror of the API's PublicDocumentDto — names, buckets and sizes and nothing else.</summary>
+internal sealed record PublicDocumentBodyDto(Guid Id, string Bucket, string? FileName, long SizeBytes);
 
 internal static class PublicLinkFlows
 {
@@ -70,4 +81,39 @@ internal static class PublicLinkFlows
     /// <summary>A public client on its own IP — the default for anything touching /public.</summary>
     public static HttpClient CreatePublicClient(this ApiFixture fixture) =>
         fixture.CreateClient().WithTestIp(NextTestIp());
+
+    public static string DocumentsPath(string token) => $"/public/{token}/documents";
+
+    /// <summary>
+    /// A supporting document from the customer's phone (slice 5.3). A PDF by default, because a
+    /// scanned car-papers document is the case §7.1's public row exists for; pass
+    /// <see cref="DocumentOrigins.Captured"/> for the photographed one.
+    /// </summary>
+    public static Task<HttpResponseMessage> UploadPublicDocument(
+        HttpClient customer,
+        string token,
+        string origin = DocumentOrigins.Uploaded,
+        string fileName = "PLACEHOLDER-car-papers.pdf") =>
+        MediaFlows.Upload(
+            customer,
+            DocumentsPath(token),
+            origin == DocumentOrigins.Captured
+                ? MediaFlows.Multipart(
+                    MediaBuckets.PublicDocument, origin, TestImages.Jpeg(1600, 1200),
+                    ImageHeader.Jpeg, fileName)
+                : MediaFlows.Multipart(
+                    MediaBuckets.PublicDocument, origin, TestImages.Pdf(4_000),
+                    ImageHeader.Pdf, fileName));
+
+    /// <summary>
+    /// The whole customer journey up to but not including the submit: open the link, attach one
+    /// supporting document. Since slice 5.3 a submission without one is refused
+    /// <c>400 documents_required</c>, so **every** test that submits needs this first — which is the
+    /// new precondition being enforced, not an assertion being relaxed.
+    /// </summary>
+    public static async Task OpenAndAttach(HttpClient customer, string token)
+    {
+        (await customer.GetAsync($"/public/{token}")).EnsureSuccessStatusCode();
+        (await UploadPublicDocument(customer, token)).EnsureSuccessStatusCode();
+    }
 }

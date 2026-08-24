@@ -165,6 +165,28 @@ public sealed class BrokerRequest
     }
 
     /// <summary>
+    /// Option 2's terminal transition (§5.3's B4): ReadyToSend -> Sent, set **before** the email is
+    /// sent, exactly as <see cref="Submit"/> is on Option 1 and for the identical reason — a broker
+    /// who pressed Send email must not have that press rolled back because a mail server was
+    /// unreachable, with the customer's submission left looking un-actioned.
+    ///
+    /// The consequence is the same too: a failed send leaves this row `sent` with `emailed_at` null,
+    /// which is the state <see cref="BrokerRequestService.Resend"/> was widened to cover in slice 5.3.
+    /// The BrokerStates artboard's "no resend" is about a request that genuinely *did* send, and this
+    /// is not that case.
+    ///
+    /// **No timestamp of its own**, deliberately: §4's `broker_request` has `submitted_at` (stamped by
+    /// <see cref="ReadyToSend"/>, when the customer pressed Send) and `emailed_at` (stamped when the
+    /// mail actually left), and a third column would only ever hold a value between them that nothing
+    /// asks for. The BrokerStates artboard's date on the sent card is `emailed_at`.
+    /// </summary>
+    public void Send()
+    {
+        Require(BrokerRequestState.ReadyToSend, nameof(Send));
+        State = BrokerRequestState.Sent;
+    }
+
+    /// <summary>
     /// Records a delivered email. **Not a state transition** — it is called on the same request both
     /// at submit time and by a later Resend, and a Resend must not move a request that has already
     /// reached its terminal state.

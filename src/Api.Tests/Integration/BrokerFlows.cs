@@ -128,6 +128,35 @@ internal static class BrokerFlows
     public static Task<HttpResponseMessage> ResendRequest(this Actor broker, Guid requestId) =>
         broker.Client.PostAsync(new Uri($"{RequestPath(requestId)}/resend", UriKind.Relative), null);
 
+    /// <summary>B4's Send email (slice 5.3) — Option 2's `ready_to_send` -> `sent`.</summary>
+    public static Task<HttpResponseMessage> SendRequest(this Actor broker, Guid requestId) =>
+        broker.Client.PostAsync(new Uri($"{RequestPath(requestId)}/send", UriKind.Relative), null);
+
+    /// <summary>
+    /// The whole Option 2 journey up to B4: this broker issues a link, a customer opens it, attaches
+    /// one supporting document and submits. Returns the request and the (now locked) token.
+    ///
+    /// Driven through the **real** public endpoints rather than by writing `ready_to_send` into the
+    /// row, because half of what B4's tests are asserting is that the customer's documents survive the
+    /// crossing into the broker's email — and a seeded state would prove that of a request no customer
+    /// ever touched.
+    /// </summary>
+    public static async Task<(Guid RequestId, string Token)> ReadyToSendRequest(
+        this Actor broker, ApiFixture fixture, string insuranceType = InsuranceType)
+    {
+        ArgumentNullException.ThrowIfNull(fixture);
+
+        var link = await fixture.IssueLink(broker.Client);
+        using var customer = fixture.CreatePublicClient();
+
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
+        (await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission(insuranceType)))
+            .EnsureSuccessStatusCode();
+
+        return (link.RequestId, link.Token);
+    }
+
     public static async Task<IReadOnlyList<BrokerListBodyDto>> ListRequests(this Actor broker)
     {
         var response = await broker.Client.GetAsync(new Uri("/api/broker/requests", UriKind.Relative));
@@ -187,6 +216,39 @@ internal static class BrokerFlows
     {
         await using var db = fixture.CreateDbContext();
         return await db.BrokerRequests.AsNoTracking().SingleAsync(r => r.Id == requestId);
+    }
+
+    /// <summary>
+    /// A `broker_document` row written straight to the table (slice 5.3).
+    ///
+    /// Deliberately not through B2's upload endpoint: the tests that need this are asking what happens
+    /// when a request carries a broker's file *and* a customer's, and B2's gate is draft-only, so an
+    /// Option 2 request could not legitimately acquire one. Writing the row directly asks the question
+    /// the assertion is about — does the public surface distinguish the two buckets — rather than
+    /// whether some other endpoint would have allowed it.
+    /// </summary>
+    public static async Task SeedBrokerDocument(
+        this ApiFixture fixture, Guid requestId, string fileName = "PLACEHOLDER-brokers-own.pdf")
+    {
+        await using var db = fixture.CreateDbContext();
+        db.Documents.Add(new Document
+        {
+            Id = Guid.CreateVersion7(),
+            OwnerKind = DocumentOwnerKinds.BrokerRequest,
+            OwnerId = requestId,
+            Bucket = MediaBuckets.BrokerDocument,
+            DocType = null,
+            Origin = DocumentOrigins.Uploaded,
+            ClarityResult = ClarityResults.NotApplicable,
+            BlobKey = $"broker_request/{requestId}/{Guid.CreateVersion7():N}.pdf",
+            ContentType = "application/pdf",
+            FileName = fileName,
+            SizeBytes = 1_024,
+            PushStatus = DocumentPushStatuses.NotApplicable,
+            CreatedAt = fixture.Time.GetUtcNow().UtcDateTime,
+        });
+
+        await db.SaveChangesAsync();
     }
 
     public static async Task<List<Document>> BrokerDocumentRows(this ApiFixture fixture, Guid requestId)

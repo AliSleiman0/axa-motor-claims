@@ -18,6 +18,15 @@ const sources = import.meta.glob('./**/*.{ts,tsx}', {
 
 const sourceFiles = Object.entries(sources).filter(([name]) => !name.includes('.test.'))
 
+/** The public page, added in slice 5.3 — see the third `describe` below. */
+const publicSources = import.meta.glob('../public/**/*.{ts,tsx}', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+const publicFiles = Object.entries(publicSources).filter(([name]) => !name.includes('.test.'))
+
 /** The shared component layer, added in slice 4.4 — see the second `describe` below. */
 const uiSources = import.meta.glob('../ui/**/*.{ts,tsx}', {
   query: '?raw',
@@ -138,5 +147,72 @@ describe('the ui layer stays role-agnostic', () => {
         `${name} imports ${what}; every role shares these components`,
       ).toBe(false)
     }
+  })
+})
+
+/**
+ * design.md §3's public surface, on the browser side (slice 5.3).
+ *
+ * The server half of this boundary is architecture rule 2, and it is enforced by a build failure.
+ * The browser half had nothing until now, and it is the half a customer actually meets: `api()`
+ * attaches a bearer whenever `localStorage` holds one and **hard-navigates to `/login` on a 401**, so
+ * a single convenient import here would send a member of the public — mid-form, holding their
+ * identity documents — to a staff sign-in screen they have no account for. On a broker's own machine,
+ * which is where anyone would first click the link to check it, it would also quietly attach that
+ * broker's session to an anonymous request.
+ *
+ * So this module carries no credentials at all: not the token store, not the session helpers, and
+ * not `api/client`'s request functions. `ApiError` is deliberately still allowed — it is a plain
+ * error type carrying a status, with no fetch behaviour attached, and sharing it is what lets the
+ * public page's error branches read like everybody else's.
+ *
+ * The role modules are banned for the reuse argument the first block makes, in reverse: this page
+ * must not grow its own copy of anything, and it must not reach into a screen it can never render.
+ */
+describe('the public page carries no session', () => {
+  const forbidden = [
+    { pattern: /from\s+'(\.\.\/)+api\/tokens'/, what: 'the token store' },
+    { pattern: /from\s+'(\.\.\/)+api\/session'/, what: 'the session helpers' },
+    // Named imports from `api/client` other than the shared `ApiError` type — `api`, `apiBlob` and
+    // anything else that fetches. Written as a lookahead so the allowed import stays allowed and a
+    // second one added later is caught.
+    {
+      pattern: /from\s+'(\.\.\/)+api\/client'/,
+      what: "api/client's request helpers",
+      allow: /import\s*\{\s*ApiError\s*\}\s*from\s+'(\.\.\/)+api\/client'/,
+    },
+    { pattern: /from\s+'(\.\.\/)+expert\//, what: 'the expert module' },
+    { pattern: /from\s+'(\.\.\/)+garage\//, what: 'the garage module' },
+    { pattern: /from\s+'(\.\.\/)+officer\//, what: 'the officer module' },
+    { pattern: /from\s+'(\.\.\/)+broker\//, what: 'the broker module' },
+    { pattern: /from\s+'(\.\.\/)+admin\//, what: 'the admin module' },
+    { pattern: /from\s+'(\.\.\/)+pages\//, what: 'a page' },
+    { pattern: /from\s+'(\.\.\/)+push\//, what: 'the push module' },
+  ]
+
+  it('has source files to check', () => {
+    // Non-vacuity, the same guard the two blocks above carry and the same one `Rule2_IsNotVacuous`
+    // gives the server rules. Without it this whole block reads green on a renamed folder.
+    expect(publicFiles.length).toBeGreaterThan(1)
+  })
+
+  it.each(publicFiles)('%s imports nothing that carries a session', (name, source) => {
+    for (const { pattern, what, allow } of forbidden) {
+      if (allow && allow.test(source)) continue
+      expect(
+        pattern.test(source),
+        `${name} imports ${what}; the public page is unauthenticated (design.md §3) and must ` +
+          'never attach a bearer or be redirected to /login',
+      ).toBe(false)
+    }
+  })
+
+  /**
+   * The rule the ban above cannot express. `getTokens` is what `withBearer` calls, so naming it
+   * directly catches a re-export or a relative path the patterns did not anticipate — the card asked
+   * for this assertion specifically, and it is the one a reader will look for.
+   */
+  it.each(publicFiles)('%s never reads a stored token', (name, source) => {
+    expect(source.includes('getTokens'), `${name} reads the token store`).toBe(false)
   })
 })

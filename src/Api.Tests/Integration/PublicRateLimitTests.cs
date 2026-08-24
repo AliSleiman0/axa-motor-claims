@@ -42,6 +42,59 @@ public sealed class PublicRateLimitTests(ApiFixture fixture) : IDisposable
         fixture.PublicLink.CurrentValue = options;
     }
 
+    /// <summary>
+    /// Slice 5.3's upload route is covered by §9.1's limiter **for free**, and "for free" is exactly
+    /// the kind of claim that is worth proving rather than asserting in a comment.
+    ///
+    /// The mechanism is that <c>PartitionByToken</c> reads the token out of the raw path rather than
+    /// from route values, so <c>/public/{token}/documents</c> lands in the same partition as
+    /// <c>/public/{token}</c> — one budget per link across every route it has. This test spends that
+    /// budget on the *view* and then finds the *upload* throttled, which no per-endpoint policy would
+    /// produce: a customer cannot escape the cap by switching to the route that actually stores bytes.
+    /// </summary>
+    [Fact]
+    public async Task TheUploadRouteSharesOneTokenBudgetWithTheRestOfTheLink()
+    {
+        const int PerToken = 2;
+        SetLimits(perIp: 1000, perToken: PerToken);
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+
+        for (var i = 0; i < PerToken; i++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await customer.GetAsync($"/public/{link.Token}")).StatusCode);
+        }
+
+        var throttled = await PublicLinkFlows.UploadPublicDocument(customer, link.Token);
+        Assert.Equal(HttpStatusCode.TooManyRequests, throttled.StatusCode);
+    }
+
+    /// <summary>
+    /// And the other half of "partitions": one customer exhausting their own link must not throttle
+    /// another customer's. The partition key is the token's *hash*, so this also holds for a token
+    /// that was never valid — which is what stops the limiter being used to probe which links exist.
+    /// </summary>
+    [Fact]
+    public async Task TheUploadRouteIsPartitionedPerToken()
+    {
+        const int PerToken = 1;
+        SetLimits(perIp: 1000, perToken: PerToken);
+
+        var exhausted = await fixture.IssueLink();
+        var fresh = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+
+        Assert.Equal(
+            HttpStatusCode.OK, (await customer.GetAsync($"/public/{exhausted.Token}")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.TooManyRequests,
+            (await PublicLinkFlows.UploadPublicDocument(customer, exhausted.Token)).StatusCode);
+
+        // Same client, same IP, a different link: its own budget, untouched.
+        var other = await PublicLinkFlows.UploadPublicDocument(customer, fresh.Token);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, other.StatusCode);
+    }
+
     [Fact]
     public async Task PerToken_ThrottlesAtTheConfiguredPermitCount_WithRetryAfter()
     {
@@ -180,6 +233,11 @@ public sealed class PublicRateLimitTests(ApiFixture fixture) : IDisposable
 
         var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
+
+        // The attach is within the cap too, and it has to happen: since slice 5.3 a submission needs a
+        // supporting document, so without it this would answer 400 and pass the filter for the wrong
+        // reason — the assertion below would no longer be about the body size at all.
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
 
         var response = await customer.PostAsJsonAsync(
             $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());

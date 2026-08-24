@@ -36,6 +36,11 @@ export interface UseCaptureOptions {
   path: string
   bucket: string
   config: MediaConfig | undefined
+  /**
+   * Which client posts the file (slice 5.3). `'none'` for §5.3's public page, which holds no session
+   * and must never be redirected to `/login` — see `UploadRequest.auth`. Defaults to `'bearer'`.
+   */
+  auth?: 'bearer' | 'none'
   /** Called after a successful upload — the caller owns cache invalidation, not this module. */
   onUploaded?: () => void
   decode?: ImageDecoder
@@ -89,6 +94,7 @@ export function useCapture({
   path,
   bucket,
   config,
+  auth = 'bearer',
   onUploaded,
   decode,
   makePreviewUrl = URL.createObjectURL,
@@ -134,7 +140,7 @@ export function useCapture({
 
   const mutation = useMutation({
     mutationFn: (accepted: CaptureCandidate) =>
-      uploadDocument({ path, bucket, origin: accepted.origin, file: accepted.file }),
+      uploadDocument({ path, bucket, origin: accepted.origin, file: accepted.file, auth }),
   })
 
   function reset() {

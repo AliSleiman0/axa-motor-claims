@@ -12,6 +12,18 @@ export interface UploadRequest {
   bucket: string
   origin: MediaOrigin
   file: File
+  /**
+   * Which client sends it (slice 5.3). Defaults to `'bearer'`, so every caller written before this
+   * option existed behaves exactly as it did.
+   *
+   * `'none'` is for §5.3's public page, and it is not merely an optimisation. `api()` attaches an
+   * `Authorization` header whenever `localStorage` happens to hold tokens — which it does whenever a
+   * broker opens their own customer's link to check it — and its 401 branch **hard-navigates to
+   * `/login`**. A member of the public bounced to a staff sign-in screen is the worst failure this
+   * page has, and it would only ever reproduce on a machine that had signed in. So the public path
+   * skips `send()` entirely rather than relying on "there are no tokens" staying true.
+   */
+  auth?: 'bearer' | 'none'
 }
 
 /** The server's 201 body (`DocumentDto`). */
@@ -48,16 +60,26 @@ export function buildUploadBody(bucket: string, origin: MediaOrigin, file: File)
   return body
 }
 
-export function uploadDocument({
+export async function uploadDocument({
   path,
   bucket,
   origin,
   file,
+  auth = 'bearer',
 }: UploadRequest): Promise<UploadedDocument> {
-  return api<UploadedDocument>(path, {
-    method: 'POST',
-    body: buildUploadBody(bucket, origin, file),
-  })
+  const body = buildUploadBody(bucket, origin, file)
+
+  if (auth === 'bearer') {
+    return api<UploadedDocument>(path, { method: 'POST', body })
+  }
+
+  // A plain fetch: no bearer, no refresh-and-retry, no redirect. `ApiError` is still what a refusal
+  // throws, so `describeUploadError` and every caller's error branch behave identically either way —
+  // the difference is confined to who is asking, which is the only thing that differs.
+  const response = await fetch(path, { method: 'POST', body })
+  const text = await response.text()
+  if (!response.ok) throw new ApiError(response.status, text)
+  return JSON.parse(text) as UploadedDocument
 }
 
 /**
@@ -93,6 +115,12 @@ const UPLOAD_EXPLANATIONS: Record<string, string> = {
     'Repair documents can only be added once the repair has been started, and before it is finished.',
   declaration_changed:
     'This declaration moved on while the file was uploading. Reopen it to see where it is now.',
+  // Slice 5.3's two, for §9.1's caps. Added in the same commit as the server that returns them —
+  // 4.2's note (7) and 5.1's note (8) were both this omission, a bare "(400)" for a week.
+  too_many_files:
+    'That is as many files as this form accepts. Remove one before adding another.',
+  request_already_submitted:
+    'This has already been sent, so nothing more can be added to it.',
 }
 
 /** Pulls the `{ "error": "code" }` body the media endpoint returns on a refusal. */

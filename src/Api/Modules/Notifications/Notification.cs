@@ -63,6 +63,15 @@ public static class NotificationTemplates
     /// </summary>
     public const string BrokerRequestSubmitted = "broker_request_submitted";
 
+    /// <summary>
+    /// §8's "Option 2 file ready to send" row (slice 5.3): the customer has completed the public form
+    /// and the broker is told. Unlike <see cref="BrokerRequestSubmitted"/> the recipient here *is* an
+    /// app user, so the row carries their id and the send is a push with §8's email fallback beneath
+    /// it — the notification the BrokerStates artboard promises ("You will get a notification the
+    /// moment they send it").
+    /// </summary>
+    public const string BrokerRequestReady = "broker_request_ready";
+
     public const string DeclarationApproved = "declaration_approved";
 
     public const string DeclarationRejected = "declaration_rejected";

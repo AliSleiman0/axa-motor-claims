@@ -3,6 +3,67 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
+**Status as of 2026-08-24 (slice 5.3) — start here.** **Week 5 is complete.** 5.1 and 5.2 are on
+`main` (`1013727`); **slice 5.3 is complete and UNCOMMITTED**, awaiting the developer's test-diff
+review — so the working tree is 5.3 plus the three doc files that were already modified. **588 xUnit
+(+25, 1 environment-skipped — the NEXT3 sandbox; Azurite was up) and 337 web (+27).** One migration
+(`20260824181124_AddPublicDocumentBucket`, applied locally and db-reviewed). 5.3 is §5.3's Option 2
+end to end: a member of the public completes a form from a link with no account, attaches documents,
+and the broker reviews and sends. **Two of the week-5 browser-pass findings are closed** (2, and the
+route half of 9); the other eight are untouched and still recorded in `docs/browser-pass-week5.md`.
+
+**The 5.2 "flake" was a real 500, and finding its mechanism is the thing to read first.** 5.2's note
+10 recorded `ConcurrentSubmits_OnlyOneIsAccepted` failing once in eighteen runs and guessed at a
+database deadlock. It reproduced **five times in ten** here, and it was not a deadlock:
+`PublicLinkTokenService.Resolve` read the token and then the request in **two statements**, so a
+concurrent submission committing between them left the loser holding an unlocked token and an
+already-submitted request — `Lock` called a transition the entity forbids, unhandled, **answered 500
+on §9.1's uniform-404 surface**, which is a new way to tell one token's state from another's. One
+joined statement now; twelve consecutive green runs where it had been failing half the time. **A torn
+read across two statements is invisible in either one.**
+
+**The browser pass found the slice's real bug, eighth slice running.** P1's success page counted the
+documents query — and the submit had just locked the token, so the refetch was the uniform 404 and a
+customer who had watched two files upload was told their broker had **0 documents**, on the one screen
+whose whole job is to say what left, to somebody with no account and no receipt. The count is captured
+at the moment of sending now. **The first test written for it passed against the bug**: the fetch stub
+kept serving documents after the submit, so the count could not be wrong in jsdom. The stub models the
+token dying now and the plant goes red. *A test whose fake is kinder than the server cannot see the
+bug the server causes.* The same pass measured a second one: **36 px controls** on the most phone-only
+screen in the product, because `app-shell--touch` is assigned by *role* and this page has none.
+
+**Three decisions worth knowing before reviewing.** `Resend` is **widened to Option 2 `sent`** while
+`emailed_at` is null — §5.3 commits B4's transition before the send, so a mail server being down would
+otherwise strand a completed submission with a locked link and a customer who has gone home; 5.2's
+narrowing argument survives because `ready_to_send` is still refused. **#13's routing table joins
+`/api/broker/config`**, because `email_recipient` is written *by* the send and B4's artboard requires
+the address to be visible before the press. And **`public_document` shares the `broker_request` owner
+kind**, which is what puts the customer's files in the email and B4's list with no new code — and is
+why the `BucketGate` is the only thing stopping the public page filing a document as the broker's own
+(verified by removing it: `201 Created`).
+
+**One gap grew rather than closed, and it is now a 7.2 ticket with weight.** An **abandoned** Option 2
+request retains a member of the public's identity documents for ever: sweep 1 needs an outbox row a
+`PushTiming.Never` bucket never has, sweep 2 spares any blob a live row claims, and sweep 3 needs
+`emailed_at`, which only B4's Send writes. 5.2 could say the case "carries no documents at all today";
+this commit makes that false. The sweep needs no change — it keys on the owner kind — what is missing
+is a rule for the requests where `emailed_at` never lands, and that is a client answer (#4/#22), not a
+sweep to add quietly. Corrected in `BrokerMediaCleanupTask` and design.md §7.3.
+
+**Previous status (2026-08-24, before 5.3):** **Weeks 1–4 and slice 5.1 are complete and committed** (`32dc286`).
+**Slice 5.2 (Broker Option 1 — B1/B2/B3) is complete and UNCOMMITTED**, awaiting the developer's
+test-diff review: 67 changed paths, one migration (`20260824132242_AddBrokerRequestFields`, applied
+locally and db-reviewed), **564 xUnit (562 pass, 2 environment-skipped) and 310 web**. The week-5
+**browser pass is done** and its ten findings are **recorded and unfixed** in
+`docs/browser-pass-week5.md`. **Next slice: 5.3** (Option 2 public form — P1 + B4), card at
+`docs/build-playbook.md` §5.3, unticked.
+
+**Three things to settle before 5.3 starts.** (1) Review and commit 5.2 — 5.3 builds directly on its
+bucket, options and `BrokerRequestService`, so starting first would grow an already-large unreviewed
+diff. (2) Decide which of the six week-5 defects to fix now and which become 7.2 tickets — two of
+them live in files 5.3 touches anyway. (3) The client gate is still open (scope letter, status
+report and `docs/next3-openapi.yaml` unsent; all 47 questions TBC).
+
 **Week-5 browser pass done 2026-08-24; findings in `docs/browser-pass-week5.md`, nothing fixed.** Both
 week-5 cards carried a manual Chrome pass in their DoD and neither had had one — 5.1's predated the
 extension being connected, 5.2's was substituted with an HTTP walk. Both DoD lines now walk end to end

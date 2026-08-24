@@ -9,6 +9,11 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:5180',
       '/auth': 'http://localhost:5180',
+      // Slice 5.3. `/public/*` is its own top-level group on the API (design.md §3's hard boundary,
+      // and the prefix §9.1's rate limiter keys on), so it is not covered by `/api` — without this
+      // entry the customer page a broker hands out 404s in dev and the blank screen looks like a
+      // routing bug in the app.
+      '/public': 'http://localhost:5180',
     },
   },
   test: {

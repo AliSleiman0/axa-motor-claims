@@ -164,6 +164,121 @@ describe('B2 — one request', () => {
   })
 })
 
+/**
+ * B4 (design.md §5.3) — the broker's review of what their Option 2 customer submitted.
+ *
+ * The first three tests are the week-5 browser pass's finding 2, turned into a guard: an Option 2
+ * request in `link_issued` used to render `OutcomePanel`'s not-yet-sent branch, so a request nobody
+ * had touched read "This request is filed, but the email has not gone yet" over a **Send email**
+ * button the server refused with `409 not_submitted`. `emailedAt` is null in both cases and cannot
+ * tell them apart; only the state can.
+ */
+describe('B4 — the customer\'s submission', () => {
+  beforeEach(() => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:PLACEHOLDER',
+      revokeObjectURL: vi.fn(),
+    })
+  })
+
+  const OPTION_2 = {
+    option: 2,
+    customerMobile: '+999000000123',
+    linkExpiresAt: '2026-08-29T15:00:00',
+  } satisfies Partial<BrokerRequestDetail>
+
+  it.each(['link_issued', 'customer_in_progress'] as const)(
+    'offers no send on a %s request, and does not call it filed',
+    async (state) => {
+      show(detail({ ...OPTION_2, state }), [], true)
+
+      expect(await screen.findByText('Nothing to review yet')).toBeTruthy()
+
+      // The two sentences that used to appear together on one card.
+      expect(screen.queryByRole('button', { name: 'Send email' })).toBeNull()
+      expect(screen.queryByText(/This request is filed/)).toBeNull()
+    },
+  )
+
+  it('does not show what the customer has typed so far', async () => {
+    // "Half a form is not information, it is a person mid-sentence" — and until they press Send there
+    // is nothing on the row anyway, which is why the fields are null rather than partial.
+    show(
+      detail({
+        ...OPTION_2,
+        state: 'customer_in_progress',
+        insuredName: null,
+        insuranceType: null,
+        insuredAddress: null,
+        carValue: null,
+        estimatedPremium: null,
+        effectiveDate: null,
+      }),
+      [],
+      true,
+    )
+
+    expect(await screen.findByText('Nothing to review yet')).toBeTruthy()
+    expect(screen.queryByText('25000.00')).toBeNull()
+  })
+
+  it('names the desk before the send, not after it', async () => {
+    show(
+      detail({ ...OPTION_2, state: 'ready_to_send', submittedAt: '2026-08-24T09:00:00' }),
+      [CAPTURED],
+      true,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Send email' })).toBeTruthy()
+
+    // `emailRecipient` is still null here — the send writes it — so this address can only have come
+    // from the routing table. That is the B4 artboard's rule: "if the routing table is wrong, this is
+    // the screen where somebody notices", and noticing has to be possible *before* pressing.
+    expect(await screen.findByText(RECIPIENT)).toBeTruthy()
+  })
+
+  it('sends once for three clicks in the same tick', async () => {
+    show(detail({ ...OPTION_2, state: 'ready_to_send' }), [CAPTURED], true)
+
+    const send = await screen.findByRole('button', { name: 'Send email' })
+
+    // Three raw clicks inside one `act`: `fireEvent` flushes React between events, so by the second
+    // the `disabled` attribute would swallow the rest and the test would pass with the latch deleted
+    // (4.3's finding).
+    await act(async () => {
+      send.click()
+      send.click()
+      send.click()
+    })
+
+    await waitFor(() => {
+      expect(postsTo('/send')).toBe(1)
+    })
+  })
+
+  it('offers a new link, and no send, once the link has expired', async () => {
+    show(detail({ ...OPTION_2, state: 'expired' }), [], true)
+
+    expect(await screen.findByText('This link has run out')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Send email' })).toBeNull()
+  })
+
+  it('offers Resend when B4 sent it and the email did not go', async () => {
+    // §5.3's ordering on Option 2: the transition committed, the send did not. Slice 5.3 widened
+    // `Resend` to cover exactly this, because the customer's link is locked and they are gone.
+    show(
+      detail({ ...OPTION_2, state: 'sent', submittedAt: '2026-08-24T09:00:00', emailedAt: null }),
+      [CAPTURED],
+      true,
+    )
+
+    expect(await screen.findByText('Not sent yet')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Send email' })).toBeTruthy()
+    expect(screen.queryByText('Sent to AXA')).toBeNull()
+  })
+})
+
 function postsTo(suffix: string): number {
   return fetchMock.mock.calls.filter(([url, init]) => {
     const request = init as RequestInit | undefined
@@ -175,7 +290,14 @@ function show(body: BrokerRequestDetail, documents: BrokerDocument[], allowUploa
   fetchMock = vi.fn((url: string) => {
     const path = String(url)
     if (path.endsWith('/api/config/media')) return Promise.resolve(json(mediaConfig(allowUpload)))
-    if (path.endsWith('/submit') || path.endsWith('/resend')) {
+    // #14's types and #13's routing, as `/api/broker/config` serves them. B4 reads the routing to
+    // name the desk **before** the send, because `emailRecipient` is written by the send itself.
+    if (path.endsWith('/api/broker/config')) {
+      return Promise.resolve(
+        json({ insuranceTypes: ['MOTOR ALL RISK'], emailRouting: { 'MOTOR ALL RISK': RECIPIENT } }),
+      )
+    }
+    if (path.endsWith('/submit') || path.endsWith('/resend') || path.endsWith('/send')) {
       return Promise.resolve(json({ state: 'submitted', emailFailed: false, recipient: RECIPIENT }))
     }
     if (path.endsWith('/documents')) return Promise.resolve(json(documents))

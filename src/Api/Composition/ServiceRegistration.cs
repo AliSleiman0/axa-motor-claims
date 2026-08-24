@@ -87,6 +87,11 @@ public static class ServiceRegistration
         services.AddScoped<BrokerRequestService>();
         services.AddScoped<BrokerRequestEmail>();
 
+        // Slice 5.3. Registered with the broker module rather than the public one because that is
+        // where it lives: §9.1's public endpoint calls it with a request id so no user type crosses
+        // architecture rule 2's boundary.
+        services.AddScoped<BrokerRequestNotifier>();
+
         // §5.2's transitions and the transactions they own (slice 4.1).
         services.AddScoped<DeclarationService>();
         services.AddScoped<AssignmentHandler>();

@@ -47,20 +47,49 @@ public sealed class PublicLinkTokenService(
     /// Resolves a raw token, or returns why it cannot be used. Callers must render every
     /// non-<c>Valid</c> status as the same 404 — the status exists for the audit trail, not the wire.
     /// </summary>
+    /// <remarks>
+    /// **One statement, and that is a correctness property rather than a round-trip saving** (fixed
+    /// slice 5.3). This used to read the token, decide, and *then* read the request — two queries, two
+    /// snapshots, and a window between them wide enough for a concurrent submission to commit. The
+    /// loser would see an unlocked token from before that commit and a `ready_to_send` request from
+    /// after it, and <c>Lock</c> would call <see cref="BrokerRequest.ReadyToSend"/> on a row that had
+    /// already made that transition: an <c>InvalidOperationException</c>, unhandled, answered as a
+    /// **500 on §9.1's uniform-404 surface** — a new way to tell one token's state from another's, and
+    /// the one thing this module exists to prevent.
+    ///
+    /// A single query is a single snapshot, so "unlocked" and "already submitted" can no longer be
+    /// observed together. Anything that commits after this read is still caught, by the concurrency
+    /// token on the way out, and leaves through the same 404 as every other dead token.
+    ///
+    /// Slice 5.2 recorded this as an unexplained flake in `ConcurrentSubmits_OnlyOneIsAccepted` and
+    /// guessed at a database deadlock surfacing as `DbUpdateException`. That guess was wrong, and the
+    /// reason it stayed a guess is that the failure is a torn read across two statements — invisible
+    /// in either one. **Read the producer against the consumer**, 3.3's lesson, in a new place.
+    ///
+    /// The entities stay tracked: EF tracks entity instances returned inside a projection, and both
+    /// <c>Lock</c> and the upload route mutate them.
+    /// </remarks>
     public async Task<(PublicLinkTokenStatus Status, ResolvedPublicLink? Link)> Resolve(
         string rawToken, CancellationToken ct)
     {
         var hash = TokenHashing.Hash(rawToken);
-        var token = await db.PublicLinkTokens.SingleOrDefaultAsync(t => t.TokenHash == hash, ct);
 
-        var status = PublicLinkLifecycle.Evaluate(token, Now());
-        if (status != PublicLinkTokenStatus.Valid || token is null)
+        var pair = await db.PublicLinkTokens
+            .Where(t => t.TokenHash == hash)
+            .Join(
+                db.BrokerRequests,
+                t => t.BrokerRequestId,
+                r => r.Id,
+                (t, r) => new { Token = t, Request = r })
+            .SingleOrDefaultAsync(ct);
+
+        var status = PublicLinkLifecycle.Evaluate(pair?.Token, Now());
+        if (status != PublicLinkTokenStatus.Valid || pair is null)
         {
             return (status, null);
         }
 
-        var request = await db.BrokerRequests.SingleAsync(r => r.Id == token.BrokerRequestId, ct);
-        return (status, new ResolvedPublicLink(token, request));
+        return (status, new ResolvedPublicLink(pair.Token, pair.Request));
     }
 
     /// <summary>

@@ -9,6 +9,7 @@ import {
   listRequestDocuments,
   listRequests,
   resendRequest,
+  sendRequest,
   submitRequest,
 } from './api'
 
@@ -60,7 +61,7 @@ export function useRefreshAfterCapture(requestId: string) {
   }
 }
 
-export type BrokerAction = 'submit' | 'resend'
+export type BrokerAction = 'submit' | 'resend' | 'send'
 
 export interface UseBrokerActionResult {
   run: () => void
@@ -114,11 +115,13 @@ export function useBrokerAction(requestId: string, action: BrokerAction): UseBro
 const RUNNERS: Record<BrokerAction, (requestId: string) => Promise<BrokerActionResult>> = {
   submit: submitRequest,
   resend: resendRequest,
+  send: sendRequest,
 }
 
 const VERBS: Record<BrokerAction, string> = {
   submit: 'submitted',
   resend: 'sent',
+  send: 'sent',
 }
 
 /**

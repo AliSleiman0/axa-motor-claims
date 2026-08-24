@@ -87,7 +87,10 @@ public sealed class PublicLinkFlowTests(ApiFixture fixture)
     {
         var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
-        await customer.GetAsync($"/public/{link.Token}");
+
+        // Since slice 5.3 a submission carries at least one supporting document (§5.3), so the
+        // journey opens the link and attaches one before pressing Send.
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
 
         var submit = await customer.PostAsJsonAsync(
             $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
@@ -119,6 +122,7 @@ public sealed class PublicLinkFlowTests(ApiFixture fixture)
     {
         var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
 
         // §9.1: "each link accepts exactly one submission". Checking LockedAt and then writing it is
         // two steps, so simultaneous submissions can both pass the check — the rowversion on
@@ -152,6 +156,7 @@ public sealed class PublicLinkFlowTests(ApiFixture fixture)
     {
         var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
 
         var incomplete = await customer.PostAsJsonAsync(
             $"/public/{link.Token}/submit", new { insuredName = "PLACEHOLDER Insured" });
@@ -189,7 +194,7 @@ public sealed class PublicLinkFlowTests(ApiFixture fixture)
     {
         var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
-        await customer.GetAsync($"/public/{link.Token}");
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
         await customer.PostAsJsonAsync($"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
 
         await using var db = fixture.CreateDbContext();
@@ -207,18 +212,92 @@ public sealed class PublicLinkFlowTests(ApiFixture fixture)
         }
     }
 
+    /// <summary>
+    /// **Amended deliberately in slice 5.3, and the rename is the point of the diff.** Slice 1.5 wrote
+    /// this as `PublicSurface_NeverRevealsTheBrokerOrTheCustomerMobile` and asserted that the string
+    /// "broker" appeared nowhere in the response, because the answer then was "the page exposes
+    /// nothing" and the broker's name lived on `app_user`, out of the public module's reach.
+    ///
+    /// The answer changed, on purpose. design.md §9.1's "what the page exposes" always named the
+    /// broker's display name, and pass-2 review decision 3 is the argument: **an anonymous page asking
+    /// a member of the public to photograph their identity card is the shape of a phishing page.** A
+    /// customer who cannot tell whose form this is has nothing to judge it by. So the name is revealed
+    /// — from slice 5.2's snapshot column, never from `Users`, which is what keeps architecture rule 2
+    /// green — and the mobile number the broker typed is still not.
+    ///
+    /// The half that did not move is the half that matters most: the customer's own number is still
+    /// absent, so a scraper holding a stolen link learns nothing about who it was meant for.
+    /// </summary>
     [Fact]
-    public async Task PublicSurface_NeverRevealsTheBrokerOrTheCustomerMobile()
+    public async Task PublicSurface_RevealsTheBrokersDisplayNameAndNeverTheCustomerMobile()
     {
         var mobile = TestPhones.Next();
-        var link = await fixture.IssueLink(mobile);
+        using var broker = await fixture.CreateBrokerClient();
+        var link = await fixture.IssueLink(broker, mobile);
+
+        using var customer = fixture.CreatePublicClient();
+        var response = await customer.GetAsync($"/public/{link.Token}");
+        var body = await response.Content.ReadAsStringAsync();
+        var view = await response.Content.ReadFromJsonAsync<PublicLinkViewDto>();
+        Assert.NotNull(view);
+
+        // The broker who issued this link, by name, from `broker_request.broker_display_name`.
+        string? displayName;
+        await using (var db = fixture.CreateDbContext())
+        {
+            displayName = (await db.BrokerRequests.AsNoTracking()
+                .SingleAsync(r => r.Id == link.RequestId)).BrokerDisplayName;
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(displayName));
+        Assert.Equal(displayName, view.BrokerDisplayName);
+
+        // And nothing else identifying. Asserted over the raw body rather than the DTO, so a field
+        // added later without thought is caught by this test rather than by a customer.
+        Assert.DoesNotContain(mobile, body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A link issued before slice 5.2 has no snapshot to read, and the page must cope rather than
+    /// invent a name. Simulated by clearing the column, which is exactly the state those rows are in.
+    /// </summary>
+    [Fact]
+    public async Task ALinkWithNoSnapshottedName_ReturnsNull_RatherThanAPlaceholder()
+    {
+        var link = await fixture.IssueLink();
+
+        await using (var db = fixture.CreateDbContext())
+        {
+            var request = await db.BrokerRequests.SingleAsync(r => r.Id == link.RequestId);
+            request.BrokerDisplayName = null;
+            await db.SaveChangesAsync();
+        }
+
+        using var customer = fixture.CreatePublicClient();
+        var view = await (await customer.GetAsync($"/public/{link.Token}"))
+            .Content.ReadFromJsonAsync<PublicLinkViewDto>();
+
+        Assert.NotNull(view);
+        Assert.Null(view.BrokerDisplayName);
+    }
+
+    /// <summary>
+    /// P1's insurance-type select has to offer the list the server validates against, or a customer
+    /// picks a value their own submission is then refused for. #14's list is placeholder config, so it
+    /// cannot be written into TypeScript — it rides on the view instead of on `/api/broker/config`,
+    /// which sits behind the broker policy that P1 has no session for.
+    /// </summary>
+    [Fact]
+    public async Task TheView_CarriesTheInsuranceTypesTheSubmitValidatesAgainst()
+    {
+        var link = await fixture.IssueLink();
         using var customer = fixture.CreatePublicClient();
 
-        var body = await (await customer.GetAsync($"/public/{link.Token}")).Content.ReadAsStringAsync();
+        var view = await (await customer.GetAsync($"/public/{link.Token}"))
+            .Content.ReadFromJsonAsync<PublicLinkViewDto>();
 
-        // §9.1: the page exposes nothing before submission. Broker identity is deferred to 5.3
-        // (it lives on app_user, which arch rule 2 puts out of this module's reach).
-        Assert.DoesNotContain(mobile, body, StringComparison.Ordinal);
-        Assert.DoesNotContain("broker", body, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(view);
+        Assert.NotEmpty(view.InsuranceTypes);
+        Assert.Equal(fixture.Broker.CurrentValue.InsuranceTypes, view.InsuranceTypes);
     }
 }

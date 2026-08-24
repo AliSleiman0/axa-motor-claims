@@ -147,6 +147,17 @@ export function resendRequest(requestId: string): Promise<BrokerActionResult> {
 }
 
 /**
+ * B4's Send email (slice 5.3) — Option 2's `ready_to_send` -> `sent`.
+ *
+ * Its own route rather than `submit`: the broker is releasing a submission somebody else filled in,
+ * and the server walks a different edge for it. `resend` is not it either — that one refuses
+ * `ready_to_send` outright, on purpose, so a customer's file cannot be mailed past this review.
+ */
+export function sendRequest(requestId: string): Promise<BrokerActionResult> {
+  return api<BrokerActionResult>(`/api/broker/requests/${requestId}/send`, { method: 'POST' })
+}
+
+/**
  * Appendix A's `Broker:InsuranceTypes` (#14), over the wire.
  *
  * Never a list in this file: the real types are a client answer, and CLAUDE.md's placeholder rule
@@ -156,6 +167,12 @@ export function resendRequest(requestId: string): Promise<BrokerActionResult> {
  */
 export interface BrokerConfig {
   insuranceTypes: string[]
+  /**
+   * #13's routing table (slice 5.3). B4 names the desk a submission will reach **before** the broker
+   * presses Send — `emailRecipient` is written *by* the send, so it is null on the one screen where
+   * seeing the address would let somebody notice a wrong route.
+   */
+  emailRouting: Record<string, string>
 }
 
 export function fetchBrokerConfig(signal?: AbortSignal): Promise<BrokerConfig> {

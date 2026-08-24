@@ -13,10 +13,21 @@ public enum UploadCapResult
 /// tested exactly rather than approximately.
 /// </summary>
 /// <remarks>
-/// There is nowhere to store a file until the media pipeline lands (slice 2.3), so this guard is
-/// wired to the <c>/public/*</c> body-size filter today and called for real by the Option 2 form
-/// in slice 5.3. It exists now because a cap added after the upload path is written is a cap that
-/// gets forgotten on one branch.
+/// <para>
+/// Written in slice 1.5 with nowhere to store a file, on the reasoning that a cap added after the
+/// upload path exists is a cap that gets forgotten on one branch. **Slice 5.3 is its first production
+/// caller** — <c>POST /public/{token}/documents</c> — and the wiring is worth being precise about,
+/// because the two branches are not equally load-bearing.
+/// </para>
+/// <para>
+/// <see cref="UploadCapResult.TooManyFiles"/> is the half only that call can make: §9.1's `MaxFiles`
+/// is a cap *per submission*, and since each request carries exactly one file, nothing but a count of
+/// the rows already stored can enforce it. <see cref="UploadCapResult.FileTooLarge"/> is a second
+/// layer behind <see cref="PublicBodySizeMiddleware"/>, which rejects the same predicate before the
+/// handler runs and additionally lowers <c>IHttpMaxRequestBodySizeFeature</c> so a caller who lies
+/// about <c>Content-Length</c> is cut off by the server. Kept anyway — one place owns both codes, and
+/// the endpoint should not depend on middleware ordering for a rule it can state itself.
+/// </para>
 /// </remarks>
 public static class PublicUploadCaps
 {

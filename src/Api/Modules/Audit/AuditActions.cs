@@ -39,6 +39,13 @@ public static class AuditActions
     public const string BrokerRequestSubmitted = "broker_request_submitted";
     public const string BrokerRequestEmailed = "broker_request_emailed";
 
+    // Slice 5.3: Option 2's terminal transition. Distinct from `BrokerRequestSubmitted` because the
+    // two options are submitted by different people — the broker in Option 1, the customer in Option 2
+    // (whose act is already logged as `public_link_submitted` with a null actor). This row is the
+    // broker's decision to release that submission to AXA, and `BrokerRequestEmailed` beside it is
+    // whether the mail actually left.
+    public const string BrokerRequestSent = "broker_request_sent";
+
     public const string PublicLinkIssued = "public_link_issued";
     public const string PublicLinkOpened = "public_link_opened";
     public const string PublicLinkSubmitted = "public_link_submitted";

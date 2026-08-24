@@ -53,7 +53,19 @@ public sealed record BrokerRequestListItemDto(
 /// Behind the broker policy rather than anonymous: unlike the media thresholds, which §5.3's public
 /// page needs with no token, nothing unauthenticated needs this today. 5.3 decides what P1 sees.
 /// </summary>
-public sealed record BrokerConfigDto(IReadOnlyList<string> InsuranceTypes);
+/// <param name="EmailRouting">
+/// #13's routing table (slice 5.3). B4 has to name the desk a submission will go to **before** the
+/// broker presses Send, which is the B4 artboard's own argument: "the address is shown, not hidden
+/// behind 'sent successfully' — if the routing table is wrong, this is the screen where somebody
+/// notices". `broker_request.email_recipient` cannot answer it, because the send is what writes it.
+///
+/// Behind the broker policy, like the type list beside it. These are placeholder addresses today
+/// (#13) and the server remains the only thing that resolves a recipient for real — this is what the
+/// screen displays, never what it sends to.
+/// </param>
+public sealed record BrokerConfigDto(
+    IReadOnlyList<string> InsuranceTypes,
+    IReadOnlyDictionary<string, string> EmailRouting);
 
 /// <summary>B2's detail, and B3's "Afterwards" card. The raw link is never here — only its expiry.</summary>
 public sealed record BrokerRequestDetailDto(
@@ -87,7 +99,9 @@ public static class BrokerRequestEndpoints
     public static IEndpointRouteBuilder MapBrokerRequestEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/broker/config", (IOptionsMonitor<BrokerOptions> options) =>
-                Results.Ok(new BrokerConfigDto([.. options.CurrentValue.InsuranceTypes])))
+                Results.Ok(new BrokerConfigDto(
+                    [.. options.CurrentValue.InsuranceTypes],
+                    options.CurrentValue.EmailRouting.AsReadOnly())))
             .RequireAuthorization(AuthPolicies.Broker);
 
         var group = app.MapGroup("/api/broker/requests").RequireAuthorization(AuthPolicies.Broker);
@@ -191,6 +205,18 @@ public static class BrokerRequestEndpoints
             return brokerUserId is null
                 ? Results.Unauthorized()
                 : Answer(await requests.Submit(id, brokerUserId.Value, ct));
+        });
+
+        // §5.3's B4 (slice 5.3). Its own route rather than an argument to submit: Option 2 walks a
+        // different edge (`ready_to_send -> sent`) on fields somebody else filled in, and a broker
+        // pressing this button is releasing a customer's submission, not filing their own.
+        group.MapPost("/{id:guid}/send", async (
+            Guid id, ClaimsPrincipal principal, BrokerRequestService requests, CancellationToken ct) =>
+        {
+            var brokerUserId = principal.GetUserId();
+            return brokerUserId is null
+                ? Results.Unauthorized()
+                : Answer(await requests.Send(id, brokerUserId.Value, ct));
         });
 
         group.MapPost("/{id:guid}/resend", async (

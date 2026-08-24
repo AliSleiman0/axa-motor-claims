@@ -147,10 +147,88 @@ public sealed partial class BrokerRequestService(
     }
 
     /// <summary>
+    /// B4's Send email (§5.3) — Option 2's terminal act, and the mirror image of <see cref="Submit"/>.
+    ///
+    /// A separate path rather than a widened <see cref="Submit"/> or <see cref="Resend"/>, because the
+    /// two options genuinely differ in who filled the form in: Option 1 goes `draft -> submitted` on
+    /// the broker's own six fields, Option 2 goes `ready_to_send -> sent` on the customer's, after the
+    /// public surface has already locked the token. Everything downstream of the transition is shared
+    /// — the routing table, the attachment composition, `TrySend`'s claim on `emailed_at` — so the
+    /// only thing this method owns is which edge it walks.
+    ///
+    /// **The attachments come out the same query as Option 1's**, which is why the customer's
+    /// documents need no special handling: `BrokerRequestEmail.Attachments` selects on the owner alone,
+    /// and `public_document` shares `broker_request` as its owner kind precisely so that it does.
+    /// </summary>
+    public async Task<BrokerOutcome> Send(Guid id, Guid brokerUserId, CancellationToken ct)
+    {
+        var request = await Owned(id, brokerUserId, ct);
+        if (request is null)
+        {
+            return BrokerOutcome.NotFound();
+        }
+
+        // `Option != 2` as well as the state, for `Resend`'s reason in reverse: nothing else can reach
+        // `ready_to_send`, but a guard that says what it means survives the next state being added.
+        if (request.Option != 2 || request.State != BrokerRequestState.ReadyToSend)
+        {
+            return BrokerOutcome.Refused(StatusCodes.Status409Conflict, "illegal_transition");
+        }
+
+        // Re-validated here as well as at the public submit, for the reason `Submit` re-validates a
+        // draft: #14's list is configuration and may have changed since the customer filled the form
+        // in, and the recipient is resolved from the table keyed on it.
+        if (Validate(Fields(request)) is { } invalid)
+        {
+            return invalid;
+        }
+
+        if (Recipient(request.InsuranceType) is not { } recipient)
+        {
+            return BrokerOutcome.Refused(StatusCodes.Status400BadRequest, "unknown_insurance_type");
+        }
+
+        // Before the transition, so a request whose bytes are gone is refused rather than left sent
+        // and unsendable — and here that matters more than on Option 1, because these bytes are a
+        // member of the public's identity documents and there is no second copy anywhere.
+        var (attachments, refusal) = await compose.Attachments(id, ct);
+        if (refusal is not null)
+        {
+            return BrokerOutcome.Refused(refusal.StatusCode, refusal.ErrorCode);
+        }
+
+        request.Send();
+        audit.Append(
+            brokerUserId, AuditActions.BrokerRequestSent, AuditEntityKinds.BrokerRequest, id,
+            new { request.InsuranceType, Documents = attachments.Count });
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // `state` is the concurrency token, so another press of Send email won this race. Nothing
+            // has been sent yet — the send is deliberately after this commit — so the loser answers
+            // the same 409 an out-of-order request gets, and AXA's desk sees one email rather than
+            // four. The four-parallel-presses test is what holds this.
+            db.ChangeTracker.Clear();
+            return BrokerOutcome.Refused(StatusCodes.Status409Conflict, "illegal_transition");
+        }
+
+        var sent = await TrySend(request, recipient, attachments, brokerUserId, ct);
+        return BrokerOutcome.Ok(request, emailFailed: !sent);
+    }
+
+    /// <summary>
     /// B1's Resend: **sends only**. No transition and no second `submitted_at`; the once-only guard
     /// is <see cref="TrySend"/>'s claim on <c>emailed_at</c>, not the check below, which is only the
     /// early exit that gives a tidy 409. (The artboard's "no resend" is about a request that *did*
     /// send — a delivered request is refused here, and that case is not this one.)
+    ///
+    /// **Both options since slice 5.3**: Option 1 in `submitted` and Option 2 in `sent`, each only
+    /// while `emailed_at` is null. See the guard below for why widening it does not reopen the hole
+    /// 5.2 narrowed it to close.
     /// </summary>
     public async Task<BrokerOutcome> Resend(Guid id, Guid brokerUserId, CancellationToken ct)
     {
@@ -160,12 +238,28 @@ public sealed partial class BrokerRequestService(
             return BrokerOutcome.NotFound();
         }
 
-        // `Submitted`, not merely "has a submitted_at". Option 2's `ReadyToSend` also stamps
-        // `submitted_at`, and a looser guard would let a broker mail a customer's submission to AXA
-        // straight past §5.3's B4 review — with `emailed_at` set while the state still says
-        // `ready_to_send`, which would also start this request's retention clock on documents B4 has
-        // not sent yet.
-        if (request.Option != 1 || request.State != BrokerRequestState.Submitted)
+        // **Widened in slice 5.3, and the original argument is untouched.** 5.2 wrote this as
+        // `Option 1 && Submitted` to stop a broker mailing a customer's submission to AXA straight
+        // past §5.3's B4 review — `emailed_at` set while the state still said `ready_to_send`, which
+        // would also have started the retention clock on documents B4 had not sent yet. That is
+        // exactly why `ready_to_send` is still refused below.
+        //
+        // `sent` is the different case. It means B4's review has happened and `Send` has committed,
+        // and the only way to be *in* it with `emailed_at` null is a send that failed after the
+        // transition — §5.3's commit-then-send ordering, the same visible failure Option 1 leaves
+        // behind. Without this arm, a mail server being briefly down would strand a member of the
+        // public's completed submission with no way to deliver it and no way to redo it: the customer
+        // is gone, their link is locked, and the broker would have to ask them to start again.
+        // "No resend" on the BrokerStates artboard is about a request that genuinely *did* send, and
+        // the `EmailedAt` check immediately below is what enforces that reading.
+        var resendable = request.State switch
+        {
+            BrokerRequestState.Submitted => request.Option == 1,
+            BrokerRequestState.Sent => request.Option == 2,
+            _ => false,
+        };
+
+        if (!resendable)
         {
             return BrokerOutcome.Refused(StatusCodes.Status409Conflict, "not_submitted");
         }

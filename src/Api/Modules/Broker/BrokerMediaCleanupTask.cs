@@ -31,11 +31,20 @@ namespace Api.Modules.Broker;
 /// B1's Resend needs.</item>
 /// </list>
 ///
-/// **What this deliberately does not cover:** an abandoned or expired Option 2 request. It carries no
-/// documents at all today — uploads are refused outside `draft`, and 5.3's `public_document` bucket
-/// does not exist yet — and deciding how long a member of the public's identity documents are kept
-/// after they never finished is a client answer (#4/#22), the same shape as §7.3's carried
-/// rejected-declaration gap. Recorded, not quietly built.
+/// **What this deliberately does not cover:** an abandoned or expired Option 2 request. **Slice 5.3
+/// turned that from hypothetical into real and the sentence here has to change with it.** 5.2 could
+/// say the case "carries no documents at all today", because `public_document` did not exist; it does
+/// now, and a customer who photographs their identity card and then never presses Send leaves those
+/// bytes in the transit container with nothing to move them on. Sweep 1 needs an outbox row a
+/// `PushTiming.Never` bucket never has; sweep 2 spares any blob a live `document` row claims; and this
+/// sweep needs `emailed_at`, which only B4's Send writes.
+///
+/// The delete itself is not the hard part — this query is keyed on the owner kind, so those rows are
+/// already in its set the moment `emailed_at` lands. What is missing is a rule for the requests where
+/// it never will, and deciding how long a member of the public's identity documents are kept after
+/// they never finished is a **client answer (#4/#22)**, not a sweep to add quietly. Same shape, and
+/// now the same weight, as §7.3's carried rejected-declaration gap: both are tickets for 7.2, and both
+/// are written down here rather than left as an absence somebody has to notice.
 /// </summary>
 public sealed class BrokerMediaCleanupTask(
     AppDbContext db,

@@ -99,8 +99,8 @@ public sealed record BucketRule(
 /// before submission and nothing else.
 ///
 /// **The broker row landed in slice 5.2** and is the first to carry <see cref="PushTiming.Never"/>:
-/// no doc type, no folder, <c>push_status = n/a</c>. The public row (§5.3) is slice 5.3 and has the
-/// same shape.
+/// no doc type, no folder, <c>push_status = n/a</c>. **The public row (§5.3) joined it in slice 5.3**
+/// with the same shape and the same owner kind.
 ///
 /// Each new bucket is a migration, because `bucket` is a check-constrained enum like every other §4
 /// state column — which makes adding one a reviewable decision rather than a string appearing.
@@ -121,6 +121,7 @@ public static class MediaBuckets
     public const string Discharge = "discharge";
     public const string Invoice = "invoice";
     public const string BrokerDocument = "broker_document";
+    public const string PublicDocument = "public_document";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
@@ -227,6 +228,26 @@ public static class MediaBuckets
             [BrokerDocument] = new(
                 BrokerDocument, DocumentOwnerKinds.BrokerRequest, AllowUpload: true,
                 DocTypeKey: null, MediaKind.Document, Next3Folder: null, PushTiming.Never),
+
+            // §5.3's Option 2 row (slice 5.3): the supporting documents a member of the public
+            // attaches from the link — identity card, car papers. Identical in shape to the broker's
+            // own row above and for the identical reason: the broker module never touches NEXT3, so
+            // there is no document-type code and no folder to give a file NEXT3 never sees.
+            //
+            // Same owner kind as `broker_document`, which is what makes B4's review and the Option 2
+            // email work without a second query: `BrokerRequestEmail.Attachments` and the broker's
+            // document list both select on the owner alone, so the customer's files are already
+            // theirs. It is also why the caller allow-list matters — the two buckets share an owner,
+            // so the bucket rules alone would let a broker post a `public_document` or the public
+            // page post a `broker_document`. Both endpoints narrow to one bucket with a `BucketGate`.
+            //
+            // Upload **and** capture, per §7.1's public row: a customer photographs an ID card as
+            // readily as they pick a scan of it, and `origin` records which it was. §7.1's
+            // `Broker.AllowUpload` kill-switch is deliberately *not* applied here — it is written
+            // against the Broker Option 1 row, and the public rows carry no switch.
+            [PublicDocument] = new(
+                PublicDocument, DocumentOwnerKinds.BrokerRequest, AllowUpload: true,
+                DocTypeKey: null, MediaKind.Document, Next3Folder: null, PushTiming.Never),
         };
 
     /// <summary>
@@ -245,12 +266,13 @@ public static class MediaBuckets
     public static readonly string[] Repair = [RepairPhoto, Discharge, Invoice];
 
     /// <summary>
-    /// §5.3's broker-owned buckets — the ones that never reach NEXT3. One today; slice 5.3's
-    /// `public_document` joins it. Named for `GarageDeclaration`'s reason: `MediaBucketTests` pins the
-    /// `PushTiming.Never` set against this list, so a second no-push bucket has to be classified here
-    /// rather than inherit whichever timing its author typed.
+    /// §5.3's broker-owned buckets — the ones that never reach NEXT3. Two since slice 5.3: the
+    /// broker's own documents and the ones a public customer attaches, both under the same owner kind.
+    /// Named for `GarageDeclaration`'s reason: `MediaBucketTests` pins the `PushTiming.Never` set
+    /// against this list, so a third no-push bucket has to be classified here rather than inherit
+    /// whichever timing its author typed.
     /// </summary>
-    public static readonly string[] BrokerRequest = [BrokerDocument];
+    public static readonly string[] BrokerRequest = [BrokerDocument, PublicDocument];
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>
     public static IReadOnlyCollection<string> All => Rules.Keys;

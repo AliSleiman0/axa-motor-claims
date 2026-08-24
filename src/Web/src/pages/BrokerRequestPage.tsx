@@ -5,6 +5,7 @@ import { requestDocumentsPath } from '../broker/api'
 import { BROKER_STATE_LABELS } from '../broker/labels'
 import {
   useBrokerAction,
+  useBrokerConfig,
   useRefreshAfterCapture,
   useRequest,
   useRequestDocuments,
@@ -112,12 +113,139 @@ function DraftPanel({ requestId }: { requestId: string }) {
 }
 
 /**
- * Every state after `draft`. Two of them, and the difference matters more than it looks:
- * `emailedAt` null on a submitted request means the request is filed and the email is **not** gone —
- * §5.3 commits the state before the send so exactly this can be seen and acted on, rather than a
- * submission being rolled back because a mail server was unreachable.
+ * Every state after `draft`, and **it branches on the state, which it did not before slice 5.3.**
+ *
+ * The week-5 browser pass caught the cost of that: `link_issued` has `emailedAt` null like a failed
+ * Option 1 send does, so a request nobody had touched read *"This request is filed, but the email has
+ * not gone yet"* over a **Send email** button — which the server then refused with `409
+ * not_submitted`, leaving two contradictory sentences on one card. `emailedAt` alone cannot tell
+ * "never sent because it failed" from "never sent because there is nothing to send yet", and those
+ * are opposite screens.
  */
 function OutcomePanel({ request }: { request: BrokerRequestDetail }) {
+  switch (request.state) {
+    case 'link_issued':
+    case 'customer_in_progress':
+      return <NothingToReview request={request} />
+    case 'expired':
+      return <ExpiredLink />
+    case 'ready_to_send':
+      return <ReviewPanel request={request} />
+    default:
+      return <SentPanel request={request} />
+  }
+}
+
+/**
+ * B4's "nothing to review yet" (the BrokerStates artboard). **Deliberately does not show what the
+ * customer has typed so far**: the submission is one act, and half a form is not information, it is a
+ * person mid-sentence. No send control either — there is nothing to send.
+ */
+function NothingToReview({ request }: { request: BrokerRequestDetail }) {
+  const opened = request.state === 'customer_in_progress'
+
+  return (
+    <section className="panel">
+      <h3 className="panel__title">Nothing to review yet</h3>
+      <StatusBanner>
+        {opened
+          ? 'The customer has opened the link. You will get a notification the moment they send it.'
+          : 'The link has been issued. You will get a notification the moment the customer sends it.'}
+      </StatusBanner>
+      <DetailTable
+        rows={[
+          { label: 'Sent to', value: request.customerMobile, mono: true },
+          {
+            label: 'Link expires',
+            value: request.linkExpiresAt ? formatDateTime(request.linkExpiresAt) : null,
+          },
+        ]}
+      />
+    </section>
+  )
+}
+
+/** A link that ran out before the customer finished. The way forward is a new one — §9.1: a locked
+ * or expired token cannot be reopened, by design. */
+function ExpiredLink() {
+  return (
+    <section className="panel">
+      <h3 className="panel__title">This link has run out</h3>
+      <StatusBanner>
+        The customer did not send it in time. Issue a new link — this one cannot be reopened.
+      </StatusBanner>
+      <Link className="btn btn--secondary" to="/broker/link">
+        Create a new link
+      </Link>
+    </section>
+  )
+}
+
+/**
+ * B4 (design.md §5.3). The customer has sent it; the broker reads it and releases it to AXA.
+ *
+ * **Read-only by rule**, and the rule is pass 3's: editing here would put the broker's words in the
+ * customer's submission. A wrong submission means a new link, not a correction. The six fields are
+ * already above in `Details`, so this panel is the decision and its consequence — one press, no
+ * confirmation dialog, because the customer has already committed and the recipient is decided by
+ * config rather than by the broker.
+ */
+function ReviewPanel({ request }: { request: BrokerRequestDetail }) {
+  const send = useBrokerAction(request.id, 'send')
+  const { data: config } = useBrokerConfig()
+
+  return (
+    <>
+      {/*
+        §5.3's five mandatory car shots are slice 6.1. Drawn as absent rather than omitted: a review
+        screen that silently showed no photographs would read as a customer who sent none.
+      */}
+      <section className="panel">
+        <h3 className="panel__title">The car</h3>
+        <StatusBanner>
+          Photographs are not collected on the customer's form yet, so there are none to review.
+        </StatusBanner>
+      </section>
+
+      <section className="panel">
+        <h3 className="panel__title">Send to AXA</h3>
+        <p>
+          Sent by the customer
+          {request.submittedAt ? ` on ${formatDateTime(request.submittedAt)}` : ''}. Read it through,
+          then send it to AXA.
+        </p>
+        <DetailTable
+          rows={[
+            {
+              label: 'Goes to',
+              value: request.insuranceType
+                ? (config?.emailRouting[request.insuranceType] ?? null)
+                : null,
+              mono: true,
+            },
+          ]}
+        />
+        <span className="caption">
+          Chosen by the insurance type, not by you. This sends the details and every document to AXA,
+          in one email.
+        </span>
+        {send.failed ? <AlertBanner>{send.failed}</AlertBanner> : null}
+        <Button variant="primary" onClick={send.run} disabled={send.pending}>
+          {send.pending ? 'Sending…' : 'Send email'}
+        </Button>
+      </section>
+    </>
+  )
+}
+
+/**
+ * The terminal state for both options — and the one place `emailedAt` is still the right question.
+ *
+ * Null here means the state committed and the send did not: §5.3 commits before it sends, precisely
+ * so this is visible and actionable rather than a submission rolled back because a mail server was
+ * unreachable. Resend covers both options since slice 5.3, which is why one panel serves them.
+ */
+function SentPanel({ request }: { request: BrokerRequestDetail }) {
   const resend = useBrokerAction(request.id, 'resend')
   const unsent = request.emailedAt === null
 
@@ -156,6 +284,8 @@ function OutcomePanel({ request }: { request: BrokerRequestDetail }) {
     </section>
   )
 }
+
+
 
 /**
  * The attached documents, with **the provenance flag on every row** — "AXA asked for that flag and it
