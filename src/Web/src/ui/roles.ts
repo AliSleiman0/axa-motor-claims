@@ -43,10 +43,9 @@ const ADMIN_TABS: NavTab[] = [
   { to: '/admin/claim-officers', label: 'Claim officers' },
   { to: '/admin/brokers', label: 'Brokers' },
   /*
-   * A2 is slice 6.2 and its route does not exist yet, so this tab is rendered **disabled with no
-   * count** — see `DesktopNav`. It is in the shell now because pass 3 makes the count the only number
-   * in the chrome and argues it earns its place: nobody opens that screen on a hunch, so if it never
-   * announces itself it is never read, and a failed push is a photograph AXA does not have.
+   * Live since slice 6.2, and it carries the one count in the chrome. Pass 3 argued that place: nobody
+   * opens A2 on a hunch, so if a failure never announces itself it is never read — and a failed push
+   * is a photograph AXA does not have.
    */
   { to: '/admin/failed-pushes', label: 'Failed pushes' },
 ]
@@ -65,8 +64,15 @@ export const ROLE_SHELLS: Record<string, RoleShell> = {
   admin: { name: 'Admin', touch: false, tabs: ADMIN_TABS, home: 'Experts' },
 }
 
-/** Routes that are not built yet, so their tab renders as a plain disabled item. */
-export const UNBUILT_TABS = new Set(['/admin/failed-pushes'])
+/**
+ * Routes that are not built yet, so their tab renders as a plain disabled item.
+ *
+ * Empty since slice 6.2 shipped A2 — kept, because the next tab drawn ahead of its screen wants it,
+ * and because deleting a guard is how the next one comes back as a link to a blank page.
+ * `AppHeader.test.tsx` exercises the branch by adding a path to this set, so an empty default does
+ * not quietly become untested code.
+ */
+export const UNBUILT_TABS = new Set<string>()
 
 export function shellFor(role: string | null): RoleShell {
   // `api/session.ts` falls back to the admin screens for a role it cannot read, and this follows it:

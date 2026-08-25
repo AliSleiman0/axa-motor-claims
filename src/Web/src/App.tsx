@@ -3,12 +3,14 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom
 import { createQueryClient } from './api/queryClient'
 import { currentRole, homePathFor } from './api/session'
 import { getTokens } from './api/tokens'
+import { useOutboxFailedCount } from './admin/outbox'
 import { GARAGE_PUSH_COPY } from './push/copy'
 import { PushPanel } from './push/PushPanel'
 import { AppShell } from './ui/AppShell'
 import LoginPage from './pages/LoginPage'
 import InvitePage from './pages/InvitePage'
 import PublicRequestPage from './public/PublicRequestPage'
+import AdminFailedPushesPage from './pages/AdminFailedPushesPage'
 import ProfileListPage from './pages/ProfileListPage'
 import ProfileFormPage from './pages/ProfileFormPage'
 import ExpertAssignmentsPage from './pages/ExpertAssignmentsPage'
@@ -32,9 +34,16 @@ const queryClient = createQueryClient()
  * controls and an officer's 36 px is one string and not four copies of a layout.
  */
 function AdminLayout() {
+  // Called here rather than inside `ui/`, which may not import a role module — so the one number in
+  // the chrome is fetched by the shell that owns it and passed down (slice 6.2). It runs on all five
+  // admin screens on purpose: nobody opens A2 on a hunch, so a failure that never announces itself is
+  // never read.
+  const failed = useOutboxFailedCount()
+
   if (!getTokens()) return <Navigate to="/login" replace />
+
   return (
-    <AppShell role="admin">
+    <AppShell role="admin" tabCounts={{ '/admin/failed-pushes': failed.data?.failed ?? 0 }}>
       <Outlet />
     </AppShell>
   )
@@ -158,6 +167,12 @@ function App() {
             <Route path="/broker/:id" element={<BrokerRequestPage />} />
           </Route>
           <Route element={<AdminLayout />}>
+            {/*
+              Before `/admin/:kind`, or the parameter route swallows it — today it does, and the
+              screen renders A1's "Unknown profile type." The broker block's `new`/`link` sit above
+              `:id` for the same reason.
+            */}
+            <Route path="/admin/failed-pushes" element={<AdminFailedPushesPage />} />
             <Route path="/admin/:kind" element={<ProfileListPage />} />
             <Route path="/admin/:kind/new" element={<ProfileFormPage />} />
             <Route path="/admin/:kind/:id" element={<ProfileFormPage />} />

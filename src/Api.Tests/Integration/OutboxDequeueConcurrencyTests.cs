@@ -155,6 +155,38 @@ public sealed class OutboxDequeueConcurrencyTests(ApiFixture fixture)
         Assert.Equal(8, row.Attempts);
         Assert.Null(row.SentAt);
         Assert.NotNull(row.LastError);
+
+        // Retiring a row is giving up on it, not attempting it (slice 6.2). The retire statement
+        // deliberately leaves `last_attempt_at` alone, so A2's "Last tried" column keeps meaning
+        // "last tried" rather than "last given up on" for exactly the rows an admin is reading.
+        Assert.Null(row.LastAttemptAt);
+    }
+
+    [Fact]
+    public async Task TheClaimStampsLastAttemptAt_AndAnUnclaimedRowHasNone()
+    {
+        // A2's "Last tried" column (§5.4, slice 6.2). The stamp lives in the claim for the same
+        // reason the attempts increment does: the claim *is* the attempt, and a worker that dies
+        // before recording an outcome still tried. Nothing else on the row can answer this —
+        // `sent_at` is written only on success, and `next_retry_at` is overwritten with the lease
+        // deadline the instant a row is claimed, so mid-push it reads as a time in the future.
+        var visa = fixture.SeedClaim();
+        await fixture.ClearQueue();
+        var claimed = await fixture.EnqueueDocument(visa, OutboxFlows.NextClientRef());
+
+        Assert.Null((await fixture.Row(claimed)).LastAttemptAt);
+
+        var attemptedAt = fixture.Time.GetUtcNow().UtcDateTime;
+        await fixture.OutboxProcessor.RunOnce(default);
+
+        // The procedure stamps its own @now, which the worker passes from TimeProvider — the same
+        // clock the retry schedule is written against (slice 2.2).
+        Assert.Equal(attemptedAt, (await fixture.Row(claimed)).LastAttemptAt);
+
+        // A row enqueued after that pass has never been claimed, so it has no attempt to report and
+        // A2 renders an em dash rather than inventing one.
+        var never = await fixture.EnqueueDocument(visa, OutboxFlows.NextClientRef());
+        Assert.Null((await fixture.Row(never)).LastAttemptAt);
     }
 
     [Fact]

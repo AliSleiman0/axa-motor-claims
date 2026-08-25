@@ -6,6 +6,7 @@ using Api.Modules.Media;
 using Api.Modules.PublicSurface;
 using Api.Modules.Push;
 using Api.Modules.Users;
+using Api.Outbox;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +47,7 @@ app.MapAuthEndpoints();
 app.MapRoleEndpoints();
 app.MapAdminUserEndpoints();
 app.MapAdminProfileEndpoints();
+app.MapOutboxAdminEndpoints();
 app.MapExpertEndpoints();
 app.MapExpertDocumentEndpoints();
 app.MapGarageDeclarationEndpoints();

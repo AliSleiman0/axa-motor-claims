@@ -56,6 +56,15 @@ public static class AuditActions
     // that is no longer in the transit container can still be accounted for.
     public const string DocumentUploaded = "document_uploaded";
     public const string DocumentBlobDeleted = "document_blob_deleted";
+
+    // §9: "outbox retries from A2". An admin reaching into the queue and re-sending a push AXA has
+    // not received is an intervention in the one pipeline this whole project exists to make
+    // reliable, so it is recorded with who did it. Two actions rather than one because they answer
+    // different questions: the singular carries the message id, the plural carries a count and no
+    // entity, and collapsing them would make "somebody retried everything at 09:14" indistinguishable
+    // from thirty separate decisions.
+    public const string OutboxPushRetried = "outbox_push_retried";
+    public const string OutboxPushesRetried = "outbox_pushes_retried";
 }
 
 /// <summary>Entity-kind strings for <see cref="AuditLog.EntityKind"/>.</summary>
@@ -71,4 +80,11 @@ public static class AuditEntityKinds
     public const string PublicLinkToken = "public_link_token";
     public const string Document = "document";
     public const string Declaration = "declaration";
+
+    /// <summary>
+    /// §5.4's A2 retries. The audit row names the table rather than the entity type, like every
+    /// other value here — and deliberately so: `Api.Modules.Audit` may not reference
+    /// `Next3OutboxMessage` (architecture rule 4), and a string is all it ever needs.
+    /// </summary>
+    public const string Next3Outbox = "next3_outbox";
 }

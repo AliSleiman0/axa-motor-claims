@@ -632,6 +632,12 @@ textarea.field__control {
 .worklist th.mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  /*
+   * An identifier never breaks across lines. Measured on A2 in the 6.2 browser pass: a 21-character
+   * visa number in a 173 px column wrapped to "PLACEHOLDER-" / "VISA-0002", in the one column whose
+   * whole job is to be read out to a developer. `.worklist__scroll` exists to take the extra width.
+   */
+  white-space: nowrap;
 }
 
 .worklist__scroll {
@@ -955,6 +961,47 @@ textarea.field__control {
 .car-slot__label {
   font-size: var(--compact-size);
   font-weight: 500;
+}
+
+/* ── A2's "nothing failed" (slice 6.2) ───────────────────────────────── */
+
+/*
+ * Empty is the *normal* state of the failed-push queue, so the A2Empty artboard draws it as
+ * reassurance rather than as a blank table. Centred and generously padded so it reads as an answer
+ * ("nothing failed") instead of as an absence ("nothing loaded") — a distinction the last-checked
+ * timestamp underneath then makes explicit.
+ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: var(--title-size);
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 52ch;
+}
+
+/* Colour is never the only signal here either: the tick carries the meaning, the green agrees. */
+.empty-state__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--ok-line);
+  background: var(--ok-tint);
+  color: var(--ok-text);
 }
 
 /* ── push panel ──────────────────────────────────────────────────────── */

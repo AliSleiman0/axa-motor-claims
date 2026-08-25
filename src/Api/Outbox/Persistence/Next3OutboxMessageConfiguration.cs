@@ -49,6 +49,9 @@ public sealed class Next3OutboxMessageConfiguration : IEntityTypeConfiguration<N
         builder.Property(m => m.CreatedAt).HasColumnName("created_at");
         builder.Property(m => m.SentAt).HasColumnName("sent_at");
 
+        // No index: A2 displays this column and never filters or sorts on it (slice 6.2).
+        builder.Property(m => m.LastAttemptAt).HasColumnName("last_attempt_at");
+
         // The dequeue's WHERE clause, and A2's "show me the failed pushes" list (§5.4).
         builder.HasIndex(m => new { m.Status, m.NextRetryAt });
 

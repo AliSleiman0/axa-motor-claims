@@ -20,7 +20,7 @@ import type { RoleShell } from './roles'
  * and `role` and no name, and the header renders perfectly well without them while that request is in
  * flight — which is why nothing here waits on it.
  */
-export function AppHeader({ shell }: { shell: RoleShell }) {
+export function AppHeader({ shell, tabCounts }: { shell: RoleShell; tabCounts?: Record<string, number> }) {
   const { data: me } = useMe()
   const signOut = useSignOut()
 
@@ -28,7 +28,7 @@ export function AppHeader({ shell }: { shell: RoleShell }) {
     <header className="app-header">
       <span className="app-header__brand">AXA Motor Claims</span>
       <span className="app-header__role">{shell.name}</span>
-      {shell.tabs.length > 0 ? <DesktopNav tabs={shell.tabs} /> : null}
+      {shell.tabs.length > 0 ? <DesktopNav tabs={shell.tabs} counts={tabCounts} /> : null}
       <span className="app-header__spacer" />
       {me ? <span className="app-header__phone mono">{me.phone}</span> : null}
       <Button variant="link" onClick={signOut}>

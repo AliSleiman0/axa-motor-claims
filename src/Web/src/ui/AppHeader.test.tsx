@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getTokens, setTokens } from '../api/tokens'
 import { AppShell } from './AppShell'
+import { UNBUILT_TABS } from './roles'
 
 const ME = {
   id: '00000000-0000-0000-0000-0000000000aa',
@@ -73,23 +74,49 @@ describe('AppHeader — Sign out (slice 4.4, net-new)', () => {
 })
 
 describe('DesktopNav', () => {
-  it('gives the admin its four profile tabs plus Failed pushes', () => {
+  it('gives the admin five live tabs, Failed pushes among them', () => {
+    // Was "four profile tabs plus Failed pushes", which was pinned while A2 had no route. Slice 6.2
+    // built it, so the fifth tab joins the loop rather than being asserted as text beside it.
     show('admin')
 
-    for (const label of ['Experts', 'Garages', 'Claim officers', 'Brokers']) {
-      expect(screen.getByRole('link', { name: label })).toBeDefined()
+    for (const label of ['Experts', 'Garages', 'Claim officers', 'Brokers', 'Failed pushes']) {
+      expect(screen.getByRole('link', { name: new RegExp(`^${label}`) })).toBeDefined()
     }
-    expect(screen.getByText('Failed pushes')).toBeDefined()
   })
 
-  it('renders Failed pushes as a non-link, with no count', () => {
-    // A2 is slice 6.2. A tab that navigated to a blank screen would be worse than one that says it
-    // is not ready — and a count is deliberately absent, because no endpoint counts failed rows yet
-    // and a zero we invented would read as "nothing has failed".
-    show('admin')
+  it('shows a count on a tab when it is given one', () => {
+    show('admin', { '/admin/failed-pushes': 2 })
 
-    expect(screen.queryByRole('link', { name: 'Failed pushes' })).toBeNull()
-    expect(screen.getByText('Failed pushes').getAttribute('aria-disabled')).toBe('true')
+    const tab = screen.getByRole('link', { name: /^Failed pushes/ })
+    expect(tab.textContent).toContain('2')
+    // Announced, not merely coloured: a red pill beside a word says nothing to a screen reader.
+    expect(tab.textContent).toContain('failed')
+  })
+
+  it('shows nothing at zero, so an invented number cannot read as reassurance', () => {
+    // The rule slice 4.4 recorded, kept now that the endpoint is real: a count of nothing must not
+    // appear on the tab, because "0" beside Failed pushes reads as "nothing has failed" — which is
+    // the one thing that screen exists to be able to contradict. A *real* zero may say it, on the
+    // screen, with a timestamp; the chrome may not.
+    show('admin', { '/admin/failed-pushes': 0 })
+
+    expect(screen.getByRole('link', { name: /^Failed pushes/ }).textContent).toBe('Failed pushes')
+  })
+
+  it('still renders an unbuilt tab as a muted non-link', () => {
+    // `UNBUILT_TABS` is empty as of 6.2 and the mechanism is kept for the next tab drawn ahead of its
+    // screen. An empty set would make this branch dead code that nothing covers — CLAUDE.md's "a
+    // guard that quietly stops covering new code is worse than none" — so the test puts a path in
+    // and takes it out again rather than letting the branch rot.
+    UNBUILT_TABS.add('/admin/brokers')
+    try {
+      show('admin')
+
+      expect(screen.queryByRole('link', { name: 'Brokers' })).toBeNull()
+      expect(screen.getByText('Brokers').getAttribute('aria-disabled')).toBe('true')
+    } finally {
+      UNBUILT_TABS.delete('/admin/brokers')
+    }
   })
 
   it('keeps a one-tab bar for the officer', () => {
@@ -111,7 +138,7 @@ describe('DesktopNav', () => {
 })
 
 /** Returns the client so a test can assert what sign-out did to the cache. */
-function show(role: string): QueryClient {
+function show(role: string, tabCounts?: Record<string, number>): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   render(
@@ -121,7 +148,7 @@ function show(role: string): QueryClient {
           <Route
             path="/start"
             element={
-              <AppShell role={role}>
+              <AppShell role={role} tabCounts={tabCounts}>
                 <p>PLACEHOLDER page</p>
               </AppShell>
             }

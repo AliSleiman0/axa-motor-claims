@@ -14,12 +14,24 @@ import { shellFor } from './roles'
  * roles 36 px, and every button and input inside inherits it. That is why no component in `ui/` has
  * to be told which kind of user is pressing it.
  */
-export function AppShell({ role, children }: { role: string | null; children: ReactNode }) {
+export function AppShell({
+  role,
+  children,
+  tabCounts,
+}: {
+  role: string | null
+  children: ReactNode
+  /**
+   * Badge counts by tab path, for the header's nav. Passed in rather than fetched, because `ui/` may
+   * not import a role module — the admin shell calls the hook and hands the number down (slice 6.2).
+   */
+  tabCounts?: Record<string, number>
+}) {
   const shell = shellFor(role)
 
   return (
     <div className={`app-shell${shell.touch ? ' app-shell--touch' : ''}`}>
-      <AppHeader shell={shell} />
+      <AppHeader shell={shell} tabCounts={tabCounts} />
       <main className="app-main">{children}</main>
     </div>
   )

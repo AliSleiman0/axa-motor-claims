@@ -41,6 +41,24 @@ public sealed class Next3OutboxMessage
     public string? LastError { get; set; }
 
     /// <summary>
+    /// When the dequeue last claimed this row, i.e. when it was last *tried* — A2's "Last tried"
+    /// column (§5.4, slice 6.2). Stamped by the dequeue statement rather than by the worker, for
+    /// <see cref="Attempts"/>'s reason: the claim *is* the attempt, and a worker that dies before
+    /// recording an outcome still tried.
+    ///
+    /// It needs its own column because no existing one can answer the question. <see cref="SentAt"/>
+    /// is only ever set on success; <see cref="CreatedAt"/> is when the row was enqueued; and
+    /// <see cref="NextRetryAt"/> is overwritten with the lease deadline the moment a row is claimed,
+    /// so while a push is in flight it says a time in the *future*. Null on rows that predate this
+    /// column and on rows never yet claimed — A2 renders an em dash rather than inventing a time.
+    ///
+    /// Deliberately not stamped by the dequeue's abandoned-row retire: retiring a row is giving up on
+    /// it, not attempting it, and stamping there would make this column read "last given up on" for
+    /// precisely the rows an admin is looking at.
+    /// </summary>
+    public DateTime? LastAttemptAt { get; set; }
+
+    /// <summary>
     /// When this row next becomes eligible. Set to <see cref="CreatedAt"/> on enqueue so a new row is
     /// immediately due, to now + backoff after a failure, and to now + lease while claimed.
     /// </summary>

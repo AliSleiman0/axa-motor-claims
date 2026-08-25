@@ -128,6 +128,48 @@ internal static class OutboxFlows
             + "WHERE status IN ('pending', 'processing')");
     }
 
+    /// <summary>
+    /// <see cref="ClearQueue"/> plus the `failed` rows.
+    ///
+    /// A2's list and count are table-wide by definition — an admin asking "what has not reached
+    /// NEXT3" wants every such row, not one test's — and `failed` is exactly the status
+    /// <see cref="ClearQueue"/> deliberately leaves alone, because the retry suites assert on rows
+    /// they have driven to it. So an A2 test that used the narrower clear would see the backoff
+    /// walk's leftovers and count them, and would pass or fail depending on which classes xUnit had
+    /// already run. Safe for the same reason the narrower one is: the integration classes are one
+    /// serialized collection, so nothing else is mid-flight.
+    /// </summary>
+    public static async Task ClearQueueAndFailures(this ApiFixture fixture)
+    {
+        await using var db = fixture.CreateDbContext();
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE next3_outbox SET status = 'sent', sent_at = SYSUTCDATETIME() "
+            + "WHERE status IN ('pending', 'processing', 'failed')");
+    }
+
+    /// <summary>
+    /// Forces a queued row into the state a test needs to arrange — a status the producer cannot
+    /// write, a due time in the future, an attempt count part-way through the schedule. Raw SQL
+    /// rather than the tracked entity, because `attempts` is the concurrency token and a tracked
+    /// save of an arrange step would be competing with the thing under test.
+    /// </summary>
+    public static async Task Reshape(
+        this ApiFixture fixture, Guid messageId, string status, DateTime nextRetryAt,
+        int? attempts = null, string? lastError = null)
+    {
+        await using var db = fixture.CreateDbContext();
+        // One interpolated string, not concatenated pieces: ExecuteSqlAsync takes a
+        // FormattableString, and `+` collapses it to a plain string with the values already baked in.
+        await db.Database.ExecuteSqlAsync($"""
+            UPDATE next3_outbox
+            SET status = {status},
+                next_retry_at = {nextRetryAt},
+                attempts = COALESCE({attempts}, attempts),
+                last_error = COALESCE({lastError}, last_error)
+            WHERE id = {messageId}
+            """);
+    }
+
     private static OutboxOptions Clone(OutboxOptions source) => new()
     {
         MaxAttempts = source.MaxAttempts,
