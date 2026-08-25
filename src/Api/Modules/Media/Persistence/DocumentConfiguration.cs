@@ -105,6 +105,31 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         // keys every pass. Not unique — a fresh GUID per document makes collisions impossible anyway,
         // and a uniqueness violation would surface only after the blob had already been written.
         builder.HasIndex(d => d.BlobKey).HasFilter("[blob_deleted_at] IS NULL");
+
+        // **One photograph per car side** (§5.3, slice 6.1) — in the schema, because CLAUDE.md's
+        // first recurring bug class is that "this may only happen once" belongs in the schema or the
+        // WHERE and never in an `if`.
+        //
+        // A customer who retakes the front shot replaces it (`PublicEndpoints` stages the delete into
+        // the same transaction as the new row). Without this index that replacement would be a
+        // convention: a race, a retry or a later edit that forgot it leaves two `public_car_front`
+        // rows, and then **both** reach AXA as attachments — `BrokerRequestEmail.Attachments` selects
+        // on the owner alone — with nothing on the email to say which is current. Duplicates also
+        // consume §9.1's `MaxFiles`, and there is no delete route on `/public/*`, so enough retakes
+        // would leave a request nobody can send and nobody can repair.
+        //
+        // Filtered to the five, generated from `MediaBuckets.PublicCarShots` for the same reason the
+        // bucket check constraint is generated from `MediaBuckets.All`: a sixth side must not be able
+        // to arrive without this rule following it. Every other bucket is deliberately outside the
+        // filter — a request may carry many supporting documents, and an assignment many photographs.
+        builder.HasIndex(d => new { d.OwnerKind, d.OwnerId, d.Bucket })
+            .IsUnique()
+            .HasFilter(
+                "[bucket] IN ("
+                + string.Join(
+                    ", ",
+                    MediaBuckets.PublicCarShots.Order(StringComparer.Ordinal).Select(b => $"'{b}'"))
+                + ")");
     }
 
     /// <summary>

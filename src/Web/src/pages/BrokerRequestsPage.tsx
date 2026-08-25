@@ -65,7 +65,15 @@ function Results({
       {/* The server orders newest-first; the screen does not re-sort. */}
       {data.map((request) => (
         <tr key={request.id}>
-          <td>{request.insuredName ?? '—'}</td>
+          {/*
+            The name is a link on **every** row (week-5 browser-pass finding 6, fixed in 6.1). One
+            action per row is right about actions, but it left a sent request inert — and `/broker/{id}`
+            is the only place the routed recipient is shown, which is the question B4's own note says
+            this screen exists to answer. O1 does the same with the plate.
+          */}
+          <td>
+            <Link to={`/broker/${request.id}`}>{request.insuredName ?? '—'}</Link>
+          </td>
           <td>{request.insuranceType ?? '—'}</td>
           <td className="mono">{request.option}</td>
           <td>
@@ -128,13 +136,16 @@ function RowAction({ request }: { request: BrokerRequestListItem }) {
 function Resend({ requestId }: { requestId: string }) {
   const resend = useBrokerAction(requestId, 'resend')
 
+  // A column, not inline siblings (week-5 finding 4, fixed in 6.1). A `<td>` is not a flex container,
+  // so the caption wrapped *around* the button — "Resend  Email" then "not yet sent" underneath — on
+  // the one row where something has actually gone wrong.
   return (
-    <>
+    <div className="cell-stack">
       <Button variant="secondary" onClick={resend.run} disabled={resend.pending}>
         {resend.pending ? 'Sending…' : 'Resend'}
       </Button>
       <span className="caption">Email not yet sent</span>
       {resend.failed ? <AlertBanner>{resend.failed}</AlertBanner> : null}
-    </>
+    </div>
   )
 }

@@ -110,6 +110,11 @@ const SUBMIT_EXPLANATIONS: Record<string, string> = {
   incomplete_submission: 'Some details are still missing. Fill in every field and try again.',
   unknown_insurance_type: 'That insurance type is no longer offered. Choose one from the list.',
   documents_required: 'Attach at least one supporting document before sending.',
+  // Slice 6.1. The server does not name the missing side — §9.1's surface says as little as it can —
+  // so the sentence points at the checklist, which is computed from the page's own document list and
+  // already shows exactly which ones are still needed.
+  car_photos_required:
+    'All five photographs of the car are needed. The list above shows which are still missing.',
 }
 
 export function describeSubmitError(error: unknown): string {

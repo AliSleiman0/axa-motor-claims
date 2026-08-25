@@ -450,6 +450,13 @@ textarea.field__control {
   font-weight: var(--label-weight);
   line-height: var(--label-line);
   white-space: nowrap;
+  /*
+   * `inline-flex` sizes to content in normal flow, but a chip is a *flex item* inside `.doc-row`,
+   * which is a flex column — so `align-items: stretch` gave it the full row width. The week-5
+   * browser pass measured the word "captured" at **707 px**, reading as a coloured bar rather than a
+   * chip. Here rather than on `.doc-row`, because the next column-flex parent would do it again.
+   */
+  width: fit-content;
 }
 
 .chip--sm {
@@ -606,6 +613,19 @@ textarea.field__control {
 
 .worklist tbody tr:hover {
   background: var(--accent-100);
+}
+
+/*
+ * A worklist cell holding a control **and** the sentence that explains it. `<td>` is not a flex
+ * container, so B1's "Email not yet sent" caption was an inline sibling of the Resend button and
+ * wrapped around it — "Resend  Email" on one line, "not yet sent" on the next, on the one row where
+ * something is actually wrong. Left-aligned rather than stretched, so the button keeps its own width.
+ */
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
 .worklist td.mono,
@@ -845,6 +865,96 @@ textarea.field__control {
   background: var(--surface-0);
   border: 1px solid var(--line-200);
   border-radius: var(--radius-md);
+}
+
+/* ── car side selector (P1, slice 6.1) ───────────────────────────────── */
+
+.car-sides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.car-sides svg[role='radiogroup'] {
+  background: var(--surface-0);
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-md);
+}
+
+.car-sides__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * `--row-min` rather than a font-derived height: every line here is a tap target on a phone, and the
+ * page it lives on is the only one in the product whose reader is always standing outside.
+ */
+.car-sides__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-min);
+  font-size: var(--compact-size);
+}
+
+.car-sides__item .muted {
+  margin-left: auto;
+}
+
+/* ── B4's car photographs (slice 6.1) ────────────────────────────────── */
+
+/*
+ * Three across, as the B4Review artboard draws it. `minmax(0, 1fr)` rather than `1fr`: a grid track's
+ * default minimum is `auto`, which is the *content* size — and the content here is a 1600x1200
+ * photograph, so the plain version blows the column out to the image's natural width and takes the
+ * page's horizontal scrollbar with it. Measured exactly that in the manual pass before this rule
+ * existed: five images at 1600x1200 and a body 418 px wider than the viewport.
+ */
+.car-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.car-slot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/*
+ * A fixed frame, so five photographs of whatever shape a customer's phone produces line up as a grid
+ * rather than a ragged column. `object-fit: cover` fills it without distorting the car; the broker who
+ * needs the whole frame has the document list beneath, and the full image is one click away there.
+ */
+.car-slot__frame {
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-md);
+  background: var(--surface-100);
+  text-align: center;
+}
+
+.car-slot__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.car-slot__label {
+  font-size: var(--compact-size);
+  font-weight: 500;
 }
 
 /* ── push panel ──────────────────────────────────────────────────────── */

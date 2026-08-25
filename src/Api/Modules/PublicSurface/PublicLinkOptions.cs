@@ -32,5 +32,12 @@ public sealed class PublicRateLimitOptions
 {
     public int PerIpPermitsPerMinute { get; set; }
 
+    /// <summary>
+    /// Raised from 20 to 60 in slice 6.1, because that slice changed what one honest session costs.
+    /// A complete Option 2 submission is now around fifteen calls — the link, the document list, six
+    /// uploads, six refetches and the submit — so a customer who retook two car sides was throttled
+    /// while holding a perfectly valid link. It remains a real control: the per-IP limit is unchanged
+    /// and chained beneath this one, so varying either the address or the token buys no fresh budget.
+    /// </summary>
     public int PerTokenPermitsPerMinute { get; set; }
 }

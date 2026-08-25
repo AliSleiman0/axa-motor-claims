@@ -231,8 +231,9 @@ public sealed class PublicUploadTests(ApiFixture fixture) : IDisposable
         }
 
         // 1.5's rule: a refused submission must not burn the link. The customer attaches the document
-        // they forgot and presses Send again.
+        // they forgot — and, since 6.1, photographs the car — and presses Send again.
         (await PublicLinkFlows.UploadPublicDocument(customer, link.Token)).EnsureSuccessStatusCode();
+        await PublicLinkFlows.AttachCarShots(customer, link.Token);
         var retry = await customer.PostAsJsonAsync(
             $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
@@ -354,5 +355,343 @@ public sealed class PublicUploadTests(ApiFixture fixture) : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, submit.StatusCode);
         Assert.Equal(BrokerRequestState.ReadyToSend, (await fixture.RequestRow(link.RequestId)).State);
+    }
+
+    // ── slice 6.1: §5.3's five mandatory car sides ───────────────────────────────────────────────
+
+    /// <summary>
+    /// The side **is** the bucket (slice 6.1). <c>MediaUploadTarget</c> has no side slot and the
+    /// multipart contract reads only <c>bucket</c> and <c>origin</c>, so a car side is a §7.1 row
+    /// rather than a wire field somebody could mistype into a sixth value nothing validates.
+    /// </summary>
+    [Theory]
+    [InlineData(MediaBuckets.PublicCarFront)]
+    [InlineData(MediaBuckets.PublicCarRear)]
+    [InlineData(MediaBuckets.PublicCarLeft)]
+    [InlineData(MediaBuckets.PublicCarRight)]
+    [InlineData(MediaBuckets.PublicCarRoof)]
+    public async Task ACarShot_IsStoredUnderItsOwnSideBucket(string bucket)
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        var response = await PublicLinkFlows.UploadCarShot(customer, link.Token, bucket);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<PublicDocumentBodyDto>();
+        Assert.NotNull(body);
+        Assert.Equal(bucket, body.Bucket);
+
+        await using var db = fixture.CreateDbContext();
+        var document = await db.Documents.AsNoTracking().SingleAsync(d => d.Id == body.Id);
+
+        Assert.Equal(bucket, document.Bucket);
+        Assert.Equal(DocumentOwnerKinds.BrokerRequest, document.OwnerKind);
+        Assert.Equal(link.RequestId, document.OwnerId);
+        Assert.Equal(DocumentOrigins.Captured, document.Origin);
+
+        // Still outside the NEXT3 pipeline entirely, like every other broker-owned bucket.
+        Assert.Null(document.CreatedBy);
+        Assert.Null(document.DocType);
+        Assert.Null(document.OutboxMessageId);
+        Assert.Equal(DocumentPushStatuses.NotApplicable, document.PushStatus);
+    }
+
+    /// <summary>
+    /// The BRD's hard rule, on the surface where it matters most: a quotation priced from a photograph
+    /// of somebody else's car is the failure this whole application exists to remove. <c>origin</c> is
+    /// a claim the client makes, so §7.1's <c>AllowUpload: false</c> is the only thing that refuses it.
+    /// </summary>
+    [Fact]
+    public async Task ACarShotCannotBeUploadedFromTheGallery()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        var response = await PublicLinkFlows.UploadCarShot(
+            customer, link.Token, MediaBuckets.PublicCarFront, DocumentOrigins.Uploaded);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "upload_not_allowed_for_bucket",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+
+        Assert.Empty(await fixture.BrokerDocumentRows(link.RequestId));
+    }
+
+    /// <summary>
+    /// §5.3's "all 5 car shots present". Every one of the five is required — four sides and a missing
+    /// roof is a quotation AXA cannot price — and the refusal **leaves the token alive** (1.5's rule),
+    /// so the customer photographs the side they missed and presses Send again.
+    ///
+    /// The 400 does not name the missing side. The page holds the same list and computes it from its
+    /// own document list, and §9.1's surface says as little as it can.
+    /// </summary>
+    [Theory]
+    [InlineData(MediaBuckets.PublicCarFront)]
+    [InlineData(MediaBuckets.PublicCarRoof)]
+    public async Task Submit_WithADocumentButAMissingSide_IsRefused_AndLeavesTheTokenUsable(string missing)
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token)).EnsureSuccessStatusCode();
+
+        foreach (var bucket in MediaBuckets.PublicCarShots.Where(b => b != missing))
+        {
+            (await PublicLinkFlows.UploadCarShot(customer, link.Token, bucket))
+                .EnsureSuccessStatusCode();
+        }
+
+        var refused = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        var body = await refused.Content.ReadAsStringAsync();
+        Assert.Contains("car_photos_required", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(missing, body, StringComparison.Ordinal);
+
+        await using (var db = fixture.CreateDbContext())
+        {
+            var token = await db.PublicLinkTokens.AsNoTracking()
+                .SingleAsync(t => t.BrokerRequestId == link.RequestId);
+            Assert.Null(token.LockedAt);
+        }
+
+        (await PublicLinkFlows.UploadCarShot(customer, link.Token, missing)).EnsureSuccessStatusCode();
+        var retry = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+    }
+
+    /// <summary>
+    /// The two preconditions are **disjoint in both directions**, which is the whole reason the submit
+    /// asks which buckets are filled rather than how many rows there are. A customer who photographs
+    /// their car has not thereby sent their identity card.
+    /// </summary>
+    [Fact]
+    public async Task Submit_WithFiveCarShotsAndNoDocument_IsRefusedForTheDocument()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+        await PublicLinkFlows.AttachCarShots(customer, link.Token);
+
+        var refused = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        var body = await refused.Content.ReadAsStringAsync();
+        Assert.Contains("documents_required", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("car_photos_required", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>The whole §5.3 precondition set, met: one supporting document and all five sides.</summary>
+    [Fact]
+    public async Task Submit_WithAllFiveSidesAndADocument_IsAccepted_AndLocksTheLink()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
+
+        var response = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var db = fixture.CreateDbContext();
+        var request = await db.BrokerRequests.AsNoTracking().SingleAsync(r => r.Id == link.RequestId);
+        Assert.Equal(BrokerRequestState.ReadyToSend, request.State);
+
+        var token = await db.PublicLinkTokens.AsNoTracking()
+            .SingleAsync(t => t.BrokerRequestId == link.RequestId);
+        Assert.NotNull(token.LockedAt);
+    }
+
+    /// <summary>
+    /// §9.1's <c>MaxFiles</c> is a cap on the **submission**, and the five car sides are part of that
+    /// submission — 5 shots plus 10 supporting at the placeholder cap of 15. The count has always been
+    /// scoped to the owner rather than to a bucket, so this holds by construction; pinned here because
+    /// "by construction" is exactly the kind of claim that stops being true quietly.
+    /// </summary>
+    [Fact]
+    public async Task TheFileCountCapCountsCarShotsAndDocumentsTogether()
+    {
+        SetCaps(maxFiles: 6, maxFileMb: _original.MaxFileMb);
+
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        // Five shots and one document is exactly the cap.
+        await PublicLinkFlows.AttachCarShots(customer, link.Token);
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token)).EnsureSuccessStatusCode();
+
+        var refused = await PublicLinkFlows.UploadPublicDocument(
+            customer, link.Token, fileName: "PLACEHOLDER-one-too-many.pdf");
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains(
+            "too_many_files", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        Assert.Equal(6, (await fixture.BrokerDocumentRows(link.RequestId)).Count);
+    }
+
+    /// <summary>
+    /// The list is what P1 computes its done marks and its "N of 5" from, so it has to carry the car
+    /// shots as well as the documents — and still never a broker's own attachment.
+    /// </summary>
+    [Fact]
+    public async Task TheDocumentList_CarriesTheCarShotsWithTheirBuckets()
+    {
+        using var brokerClient = await fixture.CreateBrokerClient();
+        var link = await fixture.IssueLink(brokerClient);
+        using var customer = fixture.CreatePublicClient();
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
+        await fixture.SeedBrokerDocument(link.RequestId);
+
+        var listed = await (await customer.GetAsync(PublicLinkFlows.DocumentsPath(link.Token)))
+            .Content.ReadFromJsonAsync<List<PublicDocumentBodyDto>>();
+
+        Assert.NotNull(listed);
+        Assert.Equal(
+            MediaBuckets.PublicCarShots.Order(StringComparer.Ordinal),
+            listed.Select(d => d.Bucket)
+                .Where(b => b != MediaBuckets.PublicDocument)
+                .Order(StringComparer.Ordinal));
+
+        Assert.Single(listed, d => d.Bucket == MediaBuckets.PublicDocument);
+        Assert.DoesNotContain(listed, d => d.Bucket == MediaBuckets.BrokerDocument);
+    }
+
+    /// <summary>
+    /// A retake **replaces** rather than adds (slice 6.1). §5.3's sides are one photograph each, and
+    /// P1 offers "Take a photo" on a side that is already done, so this is one tap away rather than a
+    /// corner case.
+    ///
+    /// Two rows would both reach AXA as attachments — <c>BrokerRequestEmail.Attachments</c> selects on
+    /// the owner alone — with nothing on the email to say which is current, and both would consume
+    /// §9.1's <c>MaxFiles</c> on a surface with no delete route.
+    /// </summary>
+    [Fact]
+    public async Task RetakingASide_ReplacesThatSidesPhotograph()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        var first = await PublicLinkFlows.UploadCarShot(
+            customer, link.Token, MediaBuckets.PublicCarFront, fileName: "PLACEHOLDER-blurry.jpg");
+        first.EnsureSuccessStatusCode();
+        var replaced = (await first.Content.ReadFromJsonAsync<PublicDocumentBodyDto>())!;
+
+        var second = await PublicLinkFlows.UploadCarShot(
+            customer, link.Token, MediaBuckets.PublicCarFront, fileName: "PLACEHOLDER-sharp.jpg");
+        second.EnsureSuccessStatusCode();
+        var kept = (await second.Content.ReadFromJsonAsync<PublicDocumentBodyDto>())!;
+
+        var rows = await fixture.BrokerDocumentRows(link.RequestId);
+        var front = Assert.Single(rows, d => d.Bucket == MediaBuckets.PublicCarFront);
+
+        Assert.Equal(kept.Id, front.Id);
+        Assert.Equal("PLACEHOLDER-sharp.jpg", front.FileName);
+        Assert.DoesNotContain(rows, d => d.Id == replaced.Id);
+
+        // The **row** goes and the bytes do not: §7.3's safe failure order, so the old photograph is
+        // an unclaimed blob for the orphan sweep rather than something deleted inside a transaction
+        // that might yet roll back.
+        Assert.Null(front.BlobDeletedAt);
+    }
+
+    /// <summary>
+    /// Retakes cost nothing against §9.1's <c>MaxFiles</c>, which is the half of the replacement that
+    /// matters most: without it a customer who retook each side twice would reach the cap on a surface
+    /// with no delete route, leaving a request nobody can send and nobody can repair.
+    /// </summary>
+    [Fact]
+    public async Task RetakesDoNotConsumeTheFileCountCap()
+    {
+        SetCaps(maxFiles: 6, maxFileMb: _original.MaxFileMb);
+
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        // Every side photographed three times over — fifteen uploads against a cap of six.
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await PublicLinkFlows.AttachCarShots(customer, link.Token);
+        }
+
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token)).EnsureSuccessStatusCode();
+
+        Assert.Equal(6, (await fixture.BrokerDocumentRows(link.RequestId)).Count);
+
+        var submitted = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+    }
+
+    /// <summary>
+    /// The guarantee is the **index**, not the code that leans on it. A filtered unique index over the
+    /// five car buckets is what makes a duplicate unrepresentable — CLAUDE.md's first recurring bug
+    /// class, which says a read-then-write on a "may only happen once" rule is not a rule at all.
+    ///
+    /// Asserted by writing the second row directly, past every endpoint: this goes green only while
+    /// the database itself refuses it, so removing `IsUnique()` from `DocumentConfiguration` turns it
+    /// red while the replacement path above stays green and proves nothing.
+    /// </summary>
+    [Fact]
+    public async Task TheDatabaseRefusesASecondPhotographOfOneSide()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+        (await PublicLinkFlows.UploadCarShot(customer, link.Token, MediaBuckets.PublicCarFront))
+            .EnsureSuccessStatusCode();
+
+        await using var db = fixture.CreateDbContext();
+        db.Documents.Add(new Document
+        {
+            Id = Guid.CreateVersion7(),
+            OwnerKind = DocumentOwnerKinds.BrokerRequest,
+            OwnerId = link.RequestId,
+            Bucket = MediaBuckets.PublicCarFront,
+            DocType = null,
+            Origin = DocumentOrigins.Captured,
+            ClarityResult = ClarityResults.Passed,
+            BlobKey = $"broker_request/{link.RequestId:N}/{Guid.CreateVersion7():N}.jpg",
+            ContentType = ImageHeader.Jpeg,
+            FileName = "PLACEHOLDER-duplicate.jpg",
+            SizeBytes = 64,
+            PushStatus = DocumentPushStatuses.NotApplicable,
+            CreatedAt = fixture.Time.GetUtcNow().UtcDateTime,
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    /// <summary>
+    /// And the other side of that index: the filter is scoped to the five, so the buckets that are
+    /// legitimately many-per-request stay that way. A customer attaches an identity card *and* the car
+    /// papers; an index that caught those too would refuse the second one.
+    /// </summary>
+    [Fact]
+    public async Task TheUniquenessRuleDoesNotReachTheSupportingDocuments()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+        await customer.GetAsync($"/public/{link.Token}");
+
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token, fileName: "PLACEHOLDER-id.pdf"))
+            .EnsureSuccessStatusCode();
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token, fileName: "PLACEHOLDER-papers.pdf"))
+            .EnsureSuccessStatusCode();
+
+        var rows = await fixture.BrokerDocumentRows(link.RequestId);
+        Assert.Equal(2, rows.Count(d => d.Bucket == MediaBuckets.PublicDocument));
     }
 }

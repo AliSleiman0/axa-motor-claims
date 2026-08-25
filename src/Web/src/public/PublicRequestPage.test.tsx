@@ -7,6 +7,7 @@ import { setTokens } from '../api/tokens'
 import { TestQueryProvider } from '../testing/TestQueryProvider'
 import PublicRequestPage from './PublicRequestPage'
 import type { PublicDocument, PublicLinkView } from './api'
+import { CAR_SHOT_PANELS } from './carShots'
 
 const TOKEN = 'PLACEHOLDER-token-0001'
 const BROKER = 'PLACEHOLDER Broker One'
@@ -17,8 +18,42 @@ const MEDIA: MediaConfig = {
   maxFileMb: 15,
   buckets: [
     { bucket: 'public_document', allowUpload: true, contentTypes: ['image/jpeg', 'application/pdf'] },
+    // The five car sides (slice 6.1). `CapturePanel` renders "This section is not configured for
+    // uploads yet" for a bucket the config does not carry, so leaving them out here would not fail
+    // the tests below — it would make them pass against a page showing an error banner.
+    ...CAR_SHOT_PANELS.map((panel) => ({
+      bucket: panel.bucket,
+      allowUpload: false,
+      contentTypes: ['image/jpeg'],
+    })),
   ],
 }
+
+/**
+ * One photograph per side, as the documents list returns them.
+ *
+ * **Every test that presses Send now needs these**, and that is the new rule being enforced rather
+ * than an assertion being relaxed: since slice 6.1 the server refuses a submission missing any of the
+ * five with `400 car_photos_required`. The five tests that broke when this landed were all of the
+ * form "submit succeeds, then assert something else" — they are unchanged apart from being given a
+ * complete submission to make.
+ */
+const CAR_SHOTS: PublicDocument[] = CAR_SHOT_PANELS.map((panel, index) => ({
+  id: `shot-${panel.id}`,
+  bucket: panel.bucket,
+  fileName: `PLACEHOLDER-${panel.id}.jpg`,
+  sizeBytes: 2048 + index,
+}))
+
+const DOCUMENT: PublicDocument = {
+  id: '00000000-0000-0000-0000-0000000pd001'.replace(/p/g, 'a'),
+  bucket: 'public_document',
+  fileName: 'car-papers.pdf',
+  sizeBytes: 4096,
+}
+
+/** A complete submission: one supporting document and all five sides. */
+const COMPLETE: PublicDocument[] = [DOCUMENT, ...CAR_SHOTS]
 
 function view(overrides: Partial<PublicLinkView> = {}): PublicLinkView {
   return {
@@ -30,13 +65,6 @@ function view(overrides: Partial<PublicLinkView> = {}): PublicLinkView {
     insuranceTypes: ['MOTOR ALL RISK', 'MOTOR TOTAL LOSS', 'PLACEHOLDER-TYPE-3'],
     ...overrides,
   }
-}
-
-const DOCUMENT: PublicDocument = {
-  id: '00000000-0000-0000-0000-0000000pd001'.replace(/p/g, 'a'),
-  bucket: 'public_document',
-  fileName: 'car-papers.pdf',
-  sizeBytes: 4096,
 }
 
 let fetchMock: ReturnType<typeof vi.fn>
@@ -102,7 +130,7 @@ describe('P1 — the public customer form', () => {
   })
 
   it('sends once for three clicks in the same tick', async () => {
-    show(view(), [DOCUMENT])
+    show(view(), COMPLETE)
     await fill()
     await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
 
@@ -133,7 +161,7 @@ describe('P1 — the public customer form', () => {
    * with the old code it reads 0 and goes red.
    */
   it('counts the documents that were sent, after the link has closed behind them', async () => {
-    show(view(), [DOCUMENT, { ...DOCUMENT, id: 'second', fileName: 'id-card.jpg' }])
+    show(view(), [DOCUMENT, { ...DOCUMENT, id: 'second', fileName: 'id-card.jpg' }, ...CAR_SHOTS])
     await fill()
     await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
 
@@ -145,10 +173,15 @@ describe('P1 — the public customer form', () => {
     expect(await screen.findByText('Sent to your broker')).toBeTruthy()
     expect(screen.getByText(/2 documents/)).toBeTruthy()
     expect(screen.queryByText(/0 documents/)).toBeNull()
+
+    // Slice 6.1: the photographs are counted **separately** rather than folded into that number.
+    // They are a separate effort — five walks around a car — and the pinned "2 documents" above still
+    // means what it meant when the browser pass caught this screen reporting zero.
+    expect(screen.getByText(/5 photographs of the car/)).toBeTruthy()
   })
 
   it('does not ask the dead link for its documents again', async () => {
-    show(view(), [DOCUMENT])
+    show(view(), COMPLETE)
     await fill()
     await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
 
@@ -184,14 +217,85 @@ describe('P1 — the public customer form', () => {
     expect(shell?.className).toContain('app-shell--touch')
   })
 
-  it('says the photographs are still to come rather than pretending to collect them', async () => {
+  /**
+   * **Moved deliberately in slice 6.1, not deleted.** It used to pin the "Photographs come next"
+   * placeholder 5.3 shipped in place of this section — a promise that the five sides were not
+   * collected yet. They are now, so what the test guards moved with them: that the section is a
+   * working control rather than a banner, and that it is the *five* §5.3 names.
+   */
+  it('collects the five car sides on the customer form', async () => {
     show(view(), [DOCUMENT])
     await fill()
     await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
 
-    // The five car sides are slice 6.1. A working-looking control that collected nothing is the
-    // version somebody would demo.
-    expect(await screen.findByText(/Photographs come next/)).toBeTruthy()
+    const sides = await screen.findAllByRole('radio')
+    expect(sides.map((side) => side.getAttribute('aria-label'))).toEqual([
+      'Front',
+      'Rear',
+      'Left',
+      'Right',
+      'Roof',
+    ])
+
+    expect(screen.queryByText(/Photographs come next/)).toBeNull()
+    // The heading, specifically: the send hint says "0 of 5 taken" as well, and a bare text match
+    // would pass on either — including on a page where the section itself never rendered.
+    expect(screen.getByRole('heading', { name: /Photographs of the car \(0 of 5\)/ })).toBeTruthy()
+  })
+
+  it('will not send until all five sides are photographed', async () => {
+    // A supporting document and four sides — the case the server answers `car_photos_required` for,
+    // refused here before it costs the customer a round trip.
+    show(view(), [DOCUMENT, ...CAR_SHOTS.slice(0, 4)])
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
+
+    const send = await screen.findByRole('button', { name: 'Send to AXA' })
+    expect((send as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/All five photographs of the car are needed. 4 of 5 taken/)).toBeTruthy()
+  })
+
+  it('marks the sides that have been photographed', async () => {
+    show(view(), COMPLETE)
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
+
+    // The done-fill is the only feedback a shot gives — there is no auto-advance — so the accessible
+    // name is where a screen reader learns it, and the count is where everyone else does.
+    const sides = await screen.findAllByRole('radio')
+    expect(sides.every((side) => side.getAttribute('aria-label')?.includes('photographed'))).toBe(true)
+    expect(screen.getByRole('heading', { name: /Photographs of the car \(5 of 5\)/ })).toBeTruthy()
+  })
+
+  it('points the capture panel at whichever side is selected', async () => {
+    show(view(), [DOCUMENT])
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
+
+    // Front by default, and the panel follows the tap. The distinct buckets are what keep the
+    // capture input's DOM id unique as it swaps.
+    expect(await screen.findByLabelText('Take a photo — the front of the car')).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Roof' }))
+
+    expect(await screen.findByLabelText('Take a photo — the roof of the car')).toBeTruthy()
+    expect(screen.queryByLabelText('Take a photo — the front of the car')).toBeNull()
+
+    // Capture-only, the BRD's hard rule: no file control on a car side, ever.
+    expect(screen.queryByLabelText(/Choose a file — the roof of the car/)).toBeNull()
+  })
+
+  it('explains a car_photos_required refusal in words the customer can act on', async () => {
+    show(view(), COMPLETE, { submitError: 'car_photos_required' })
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
+
+    const send = await screen.findByRole('button', { name: 'Send to AXA' })
+    await act(async () => {
+      send.click()
+    })
+
+    expect(await screen.findByText(/All five photographs of the car are needed/)).toBeTruthy()
   })
 
   it('shows the closed page for a dead link, and nothing identifying on it', async () => {
@@ -216,7 +320,7 @@ describe('P1 — the public customer form', () => {
    */
   it('sends no Authorization header even when this browser holds a session', async () => {
     setTokens({ accessToken: 'PLACEHOLDER-access', refreshToken: 'PLACEHOLDER-refresh' })
-    show(view(), [DOCUMENT])
+    show(view(), COMPLETE)
     await fill()
     await userEvent.click(screen.getByRole('button', { name: 'Continue to documents' }))
 
@@ -268,7 +372,11 @@ function postsTo(suffix: string): number {
  * against the code a real browser caught reporting "0 documents". A test whose fake is kinder than
  * the server is a test that cannot see the bug the server causes.
  */
-function show(body: PublicLinkView, documents: PublicDocument[]) {
+function show(
+  body: PublicLinkView,
+  documents: PublicDocument[],
+  options: { submitError?: string } = {},
+) {
   let locked = false
 
   fetchMock = vi.fn((url: string, init?: RequestInit) => {
@@ -276,6 +384,15 @@ function show(body: PublicLinkView, documents: PublicDocument[]) {
     if (path.endsWith('/api/config/media')) return Promise.resolve(json(MEDIA))
 
     if (path.endsWith('/submit')) {
+      // A coded 400 leaves the token **alive** (1.5's rule), so the stub does not lock on one — the
+      // customer fixes what is missing and presses Send again, and a stub that killed the link here
+      // could not model that.
+      if (options.submitError) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: options.submitError }), { status: 400 }),
+        )
+      }
+
       locked = true
       return Promise.resolve(new Response('', { status: 200 }))
     }

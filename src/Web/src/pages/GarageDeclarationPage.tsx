@@ -201,8 +201,10 @@ function WaitingPanel({ declarationId }: { declarationId: string }) {
  * next worker tick: "Queued, will send" then "Sent to AXA", on the one screen where both are true.
  *
  * Names and buckets only: no preview and no blob fetch. The artboard draws a file name and a status,
- * and previewing here would mean lifting `useDocumentBlobUrl` out of `officer/` into shared code for
- * a screen whose job is reassurance rather than review.
+ * and this screen's job is reassurance rather than review. **The lift this comment used to give as
+ * the reason has since happened** — `useDocumentBlobUrl` moved to `media/` in slice 6.1 for B4 — so
+ * what keeps previews off G3 now is only that nobody has asked for them, which is a smaller and more
+ * honest reason. Recorded rather than quietly dropped.
  */
 function SubmittedDocuments({ declarationId }: { declarationId: string }) {
   const { data, isPending, error } = useDeclarationDocuments(declarationId)

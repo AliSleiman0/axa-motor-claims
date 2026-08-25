@@ -8,7 +8,7 @@ import {
   type DeclarationDocument,
   type OfficerDeclarationDetail,
 } from '../officer/api'
-import { useDocumentBlobUrl } from '../officer/useDocumentBlobUrl'
+import { useDocumentBlobUrl } from '../media/useDocumentBlobUrl'
 import {
   useDecision,
   useOfficerDeclaration,

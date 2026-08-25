@@ -155,24 +155,40 @@ public static class PublicEndpoints
                 return Results.BadRequest(new { error = "unknown_insurance_type" });
             }
 
-            // §5.3's "uploads supporting documents" as a precondition rather than a hope. Counted on
-            // the bucket, not on the owner: `broker_document` shares this owner kind, so a request the
-            // broker had attached a file to would otherwise satisfy a rule about what the *customer*
-            // provided.
+            // §5.3's two media preconditions, from one read.
             //
-            // **The five car shots are 6.1 and are deliberately not enforced here.** §5.3 makes them
-            // mandatory and this slice has no way to capture them, so a submission carrying documents
-            // and no photographs is accepted today. Recorded rather than half-built.
-            var documents = await db.Documents.AsNoTracking()
-                .CountAsync(
-                    d => d.OwnerKind == DocumentOwnerKinds.BrokerRequest
-                        && d.OwnerId == link.Request.Id
-                        && d.Bucket == MediaBuckets.PublicDocument,
-                    ct);
+            // **Which buckets hold something**, rather than how many rows each holds: both rules are
+            // existence questions, and asking them as one `Distinct` keeps them provably disjoint —
+            // the alternative is two counts that a later edit can quietly point at the same set.
+            // Scoped to the customer's own buckets, not to the owner: `broker_document` shares this
+            // owner kind, so a request the broker had attached a file to would otherwise satisfy a
+            // rule about what the *customer* provided.
+            var filled = await db.Documents.AsNoTracking()
+                .Where(d => d.OwnerKind == DocumentOwnerKinds.BrokerRequest
+                    && d.OwnerId == link.Request.Id
+                    && MediaBuckets.PublicCustomer.Contains(d.Bucket))
+                .Select(d => d.Bucket)
+                .Distinct()
+                .ToListAsync(ct);
 
-            if (documents == 0)
+            // The supporting documents (§5.3, slice 5.3). Still `public_document` alone: **a car shot
+            // never satisfies this**, which is the whole of the disjointness the card asks for — a
+            // customer who photographs their car has not thereby sent their identity card.
+            if (!filled.Contains(MediaBuckets.PublicDocument, StringComparer.Ordinal))
             {
                 return Results.BadRequest(new { error = "documents_required" });
+            }
+
+            // §5.3's five mandatory car sides (slice 6.1) — "car photos are mandatory, the BRD's hard
+            // rule". Checked after the documents so the two refusals arrive in the order P1 asks for
+            // them, and **every one of the five must be present**: four sides and a missing roof is a
+            // quotation AXA cannot price.
+            //
+            // It deliberately does **not** name the missing sides. The page holds the same list and
+            // computes them from its own document list, and §9.1's surface says as little as it can.
+            if (MediaBuckets.PublicCarShots.Except(filled, StringComparer.Ordinal).Any())
+            {
+                return Results.BadRequest(new { error = "car_photos_required" });
             }
 
             Apply(dto, link);
@@ -281,11 +297,25 @@ public static class PublicEndpoints
                     new MediaUploadTarget(
                         DocumentOwnerKinds.BrokerRequest, link.Request.Id, VisaNo: null, ActorUserId: null),
                     ct,
-                    // One bucket, and the allow-list is load-bearing rather than tidy: `broker_document`
-                    // shares this owner kind, so the bucket rules alone would let an anonymous caller
-                    // file a document as the broker's own — and `origin` is a claim the client makes,
-                    // so nothing else would catch it.
-                    gate: BucketGates.Only(MediaBuckets.PublicDocument));
+                    // The six buckets a customer may write — the supporting documents and §5.3's five
+                    // car sides (widened in slice 6.1). The allow-list is load-bearing rather than
+                    // tidy: `broker_document` shares this owner kind, so the bucket rules alone would
+                    // let an anonymous caller file a document as the broker's own — and `origin` is a
+                    // claim the client makes, so nothing else would catch it. `MediaBuckets`
+                    // deliberately names this set rather than `BrokerRequest`, which includes the one
+                    // bucket that must stay out.
+                    gate: BucketGates.Only(MediaBuckets.PublicCustomer),
+                    // §5.3's sides are one photograph each, so a retake **replaces** rather than
+                    // adds (slice 6.1). Staged here rather than after the upload because the unique
+                    // index on `(owner_kind, owner_id, bucket)` would see both rows otherwise; one
+                    // `SaveChanges` carries the delete and the insert together, so a failed upload
+                    // leaves the customer's earlier photograph exactly where it was.
+                    //
+                    // The **row** goes and the blob does not: §7.3's safe failure order says a blob
+                    // without a row is garbage the orphan sweep collects, while deleting bytes whose
+                    // row then survives a rollback is unrecoverable. The old photograph is unclaimed
+                    // the moment this commits, and `Retention:OrphanBlobHours` takes it from there.
+                    accepted: (rule, token) => ReplacePreviousCarShot(db, link.Request.Id, rule, token));
 
                 return outcome.Document is null
                     ? Results.Json(new { error = outcome.ErrorCode }, statusCode: outcome.StatusCode)
@@ -314,18 +344,45 @@ public static class PublicEndpoints
                 return NotFound();
             }
 
-            // Scoped to the public bucket, so a broker's own attachments are never listed back to a
-            // member of the public — the same reason submit counts on the bucket rather than the owner.
+            // Scoped to the customer's own buckets, so a broker's own attachments are never listed
+            // back to a member of the public — the same reason submit counts on the bucket rather than
+            // the owner. **Widened from the one supporting-document bucket in slice 6.1**: the five car
+            // sides come back here too, each carrying its `Bucket`, which is how P1 renders its done
+            // marks and its "N of 5" without a second endpoint or a count the server has to compute.
             var documents = await db.Documents.AsNoTracking()
                 .Where(d => d.OwnerKind == DocumentOwnerKinds.BrokerRequest
                     && d.OwnerId == link.Request.Id
-                    && d.Bucket == MediaBuckets.PublicDocument)
+                    && MediaBuckets.PublicCustomer.Contains(d.Bucket))
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new PublicDocumentDto(d.Id, d.Bucket, d.FileName, d.SizeBytes))
                 .ToListAsync(ct);
 
             return Results.Ok(documents);
         });
+    }
+
+    /// <summary>
+    /// Marks the side's previous photograph for deletion, so the upload in flight replaces it
+    /// (slice 6.1). A no-op for the supporting-document bucket, which is genuinely many-per-request.
+    /// </summary>
+    private static async Task ReplacePreviousCarShot(
+        AppDbContext db, Guid requestId, BucketRule rule, CancellationToken ct)
+    {
+        if (!MediaBuckets.PublicCarShots.Contains(rule.Bucket, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        // `ToListAsync` rather than `SingleOrDefault`: the unique index makes more than one
+        // impossible from here on, but rows written before it existed are not covered by it, and a
+        // sweep that assumed one would throw on exactly the data it was added to clean up.
+        var previous = await db.Documents
+            .Where(d => d.OwnerKind == DocumentOwnerKinds.BrokerRequest
+                && d.OwnerId == requestId
+                && d.Bucket == rule.Bucket)
+            .ToListAsync(ct);
+
+        db.Documents.RemoveRange(previous);
     }
 
     private static PublicDocumentDto Project(Document document) =>
@@ -339,8 +396,9 @@ public static class PublicEndpoints
 
     /// <summary>
     /// The six fields of §5.3, including the customer-entered premium (§1's recorded decision, #24c).
-    /// Required documents and the five mandatory car shots arrive with slices 5.3 and 6.1 — they
-    /// cannot be enforced before there is anywhere to put a file.
+    /// The media preconditions are separate and live in the handler above: the supporting documents
+    /// since slice 5.3, the five car sides since 6.1. Neither could be enforced before there was
+    /// anywhere to put a file, which is why they arrived slices apart from the fields they accompany.
     /// </summary>
     private static bool IsComplete(PublicSubmissionDto dto) =>
         !string.IsNullOrWhiteSpace(dto.InsuredName)

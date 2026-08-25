@@ -44,6 +44,15 @@ public class MediaBucketTests
     // an Option 2 link. Upload allowed, and unlike the row above **no kill-switch applies**: §7.1's
     // `Broker.AllowUpload` is written against the Broker Option 1 row and the public rows carry none.
     [InlineData(MediaBuckets.PublicDocument, true, MediaKind.Document)]
+    // Slice 6.1's five car sides. **Capture-only, and here it is the BRD's own rule** rather than
+    // 3.1's "there is no file to pick": these are car photographs, and the project exists because the
+    // photograph has to be of the car in front of the person taking it. Images, so §7.2's server-side
+    // resolution floor applies to each exactly as to an expert's.
+    [InlineData(MediaBuckets.PublicCarFront, false, MediaKind.Image)]
+    [InlineData(MediaBuckets.PublicCarRear, false, MediaKind.Image)]
+    [InlineData(MediaBuckets.PublicCarLeft, false, MediaKind.Image)]
+    [InlineData(MediaBuckets.PublicCarRight, false, MediaKind.Image)]
+    [InlineData(MediaBuckets.PublicCarRoof, false, MediaKind.Image)]
     public void TheBucketMatrixMatchesSection71(string bucket, bool allowUpload, MediaKind kind)
     {
         var rule = MediaBuckets.Find(bucket);
@@ -124,9 +133,11 @@ public class MediaBucketTests
     [Fact]
     public void EveryBrokerBucketIsOutsideTheNext3PipelineEntirely()
     {
-        // Slice 5.2's third owner kind, and **two rows since slice 5.3** — the broker's own documents
-        // and the ones a public customer attaches, which share this owner kind precisely so that B4's
-        // review and the Option 2 email reach both with one query. §5.3: "the broker module never
+        // Slice 5.2's third owner kind, and **seven rows since slice 6.1** — the broker's own
+        // documents, the ones a public customer attaches, and their five car sides, which share this
+        // owner kind precisely so that B4's review and the Option 2 email reach all of them with one
+        // query. Unchanged in 6.1 because it is pinned to `MediaBuckets.BrokerRequest` rather than to
+        // a count: the five joined that named set, and this test followed them there. §5.3: "the broker module never
         // touches NEXT3 — its terminal act is an email routed by insurance type". So there is nothing
         // to say about a folder or a document type, and saying nothing is the assertion: a placeholder
         // code invented for a push that cannot happen is exactly the client data CLAUDE.md forbids.
@@ -145,6 +156,63 @@ public class MediaBucketTests
     }
 
     [Fact]
+    public void TheFiveCarShotsAreCaptureOnlyImagesUnderTheBrokerRequestOwner()
+    {
+        // §5.3's hard rule, as data: "all 5 car shots present (front/rear/left/right/roof,
+        // capture-only, side selected at capture)". The side **is** the bucket — `MediaUploadTarget`
+        // has no side slot and the multipart contract reads only `bucket` and `origin` — so a missing
+        // or miscategorised row here is a car side a customer could upload from their gallery, or one
+        // the submit could never require.
+        //
+        // Pinned to `MediaBuckets.PublicCarShots` rather than to a count of five, for the reason 5.1
+        // gives about the declaration split: a sixth side has to be classified in that named set
+        // rather than inherit whichever flags its author typed. **The order is asserted too** — P1
+        // renders its dot list and its "N of 5" from it, and B4 reads the same sequence.
+        Assert.Equal(
+            [
+                MediaBuckets.PublicCarFront,
+                MediaBuckets.PublicCarRear,
+                MediaBuckets.PublicCarLeft,
+                MediaBuckets.PublicCarRight,
+                MediaBuckets.PublicCarRoof,
+            ],
+            MediaBuckets.PublicCarShots);
+
+        Assert.All(MediaBuckets.PublicCarShots, bucket =>
+        {
+            var rule = MediaBuckets.Find(bucket);
+
+            Assert.NotNull(rule);
+            Assert.Equal(DocumentOwnerKinds.BrokerRequest, rule.OwnerKind);
+            Assert.False(rule.AllowUpload);
+            Assert.Equal(MediaKind.Image, rule.Kind);
+        });
+    }
+
+    [Fact]
+    public void ThePublicCustomersBucketsAreTheOnesTheLinkMayWriteAndReadBack()
+    {
+        // The set the `/public/*` gate, the document list and the submit's two preconditions all read
+        // (slice 6.1). It is the broker's own buckets **minus `broker_document`**, and that exclusion
+        // is the load-bearing part: the two families share an owner kind, so the §7.1 rules alone
+        // would let an anonymous caller file a document as the broker's own, and `origin` is a claim
+        // the client makes rather than a fact.
+        Assert.Equal(
+            MediaBuckets.PublicCustomer.Order(StringComparer.Ordinal),
+            MediaBuckets.BrokerRequest
+                .Except([MediaBuckets.BrokerDocument], StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal));
+
+        Assert.DoesNotContain(MediaBuckets.BrokerDocument, MediaBuckets.PublicCustomer);
+
+        // And the half `documents_required` depends on: the supporting-document bucket is in the set
+        // but is not one of the five, so a car shot can never satisfy it and a supporting document can
+        // never satisfy `car_photos_required`.
+        Assert.Contains(MediaBuckets.PublicDocument, MediaBuckets.PublicCustomer);
+        Assert.DoesNotContain(MediaBuckets.PublicDocument, MediaBuckets.PublicCarShots);
+    }
+
+    [Fact]
     public void EveryBucketIsAccountedForByOwnerKind()
     {
         // The non-vacuity guard for the three tests above: together they must cover every rule, or a
@@ -154,9 +222,9 @@ public class MediaBucketTests
         //
         // Slice 5.1 left this alone deliberately and said so. **Slice 5.2 had to widen it**, which is
         // the guard working rather than the guard being wrong: `broker_document` is the first bucket
-        // under a third owner kind, so it arrived with a test of its own above. Slice 5.3 needed no
-        // change here — `public_document` reuses that same owner kind — and that was checked rather
-        // than assumed.
+        // under a third owner kind, so it arrived with a test of its own above. Slices 5.3 and 6.1
+        // needed no change here — `public_document` and the five car sides reuse that same owner kind
+        // — and both times that was checked rather than assumed.
         Assert.Equal(
             MediaBuckets.AllRules.Count,
             MediaBuckets.AllRules.Count(r =>
@@ -207,6 +275,11 @@ public class MediaBucketTests
     [InlineData(MediaBuckets.GarageCarPhoto)]
     [InlineData(MediaBuckets.ApprovalImage)]
     [InlineData(MediaBuckets.RepairPhoto)]
+    [InlineData(MediaBuckets.PublicCarFront)]
+    [InlineData(MediaBuckets.PublicCarRear)]
+    [InlineData(MediaBuckets.PublicCarLeft)]
+    [InlineData(MediaBuckets.PublicCarRight)]
+    [InlineData(MediaBuckets.PublicCarRoof)]
     public void ACaptureOnlyBucketRefusesAnUploadedFile(string bucket)
     {
         var rule = MediaBuckets.Find(bucket)!;

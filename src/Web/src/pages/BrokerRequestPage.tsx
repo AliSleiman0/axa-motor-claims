@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { formatDateTime } from '../api/datetime'
 import type { BrokerDocument, BrokerRequestDetail } from '../broker/api'
-import { requestDocumentsPath } from '../broker/api'
+import { requestDocumentContentPath, requestDocumentsPath } from '../broker/api'
 import { BROKER_STATE_LABELS } from '../broker/labels'
 import {
   useBrokerAction,
@@ -11,7 +11,9 @@ import {
   useRequestDocuments,
 } from '../broker/useBroker'
 import { CapturePanel } from '../media/CapturePanel'
+import { useDocumentBlobUrl } from '../media/useDocumentBlobUrl'
 import { useMediaConfig } from '../media/useMediaConfig'
+import { CAR_SHOT_BUCKETS, CAR_SHOT_PANELS } from '../public/carShots'
 import { AlertBanner, StatusBanner } from '../ui/Banner'
 import { Button } from '../ui/Button'
 import { DetailTable } from '../ui/DetailTable'
@@ -55,10 +57,11 @@ function RequestView({ requestId }: { requestId: string }) {
       {data.state === 'draft' ? (
         <DraftPanel requestId={requestId} />
       ) : (
-        <OutcomePanel request={data} />
+        <>
+          <OutcomePanel request={data} />
+          <Documents requestId={requestId} />
+        </>
       )}
-
-      <Documents requestId={requestId} />
     </section>
   )
 }
@@ -82,7 +85,14 @@ function Details({ request }: { request: BrokerRequestDetail }) {
   )
 }
 
-/** The one state where documents may be attached — after the submit the email has already been built. */
+/**
+ * The one state where documents may be attached — after the submit the email has already been built.
+ *
+ * **Capture, then the attached list, then Submit** (week-5 browser-pass finding 1, fixed in 6.1). The
+ * list used to render *below* the button, so a broker pressed Submit before ever seeing what was
+ * attached — and the email is built from exactly that list. Both panels were also headed "Documents";
+ * the list is "Attached" now, which is what P1 calls its own.
+ */
 function DraftPanel({ requestId }: { requestId: string }) {
   const { data: config } = useMediaConfig()
   const refresh = useRefreshAfterCapture(requestId)
@@ -99,13 +109,21 @@ function DraftPanel({ requestId }: { requestId: string }) {
         qualifier="supporting document"
       />
 
+      <Documents requestId={requestId} title="Attached" />
+
       <section className="panel">
         {submit.failed ? <AlertBanner>{submit.failed}</AlertBanner> : null}
         <Button variant="primary" onClick={submit.run} disabled={submit.pending}>
           {submit.pending ? 'Sending…' : 'Submit'}
         </Button>
+        {/*
+          "any documents", not "every document" (week-5 finding 5). Submit has no document
+          requirement — whether Option 1 should have one is #48, unanswered — so until it is answered
+          the caption says what the button actually does rather than promising attachments that may
+          not exist. A gate would be inventing a rule the BRD does not state.
+        */}
         <span className="caption">
-          This sends the details and every document above to AXA, in one email.
+          This sends the details and any documents above to AXA, in one email.
         </span>
       </section>
     </>
@@ -196,16 +214,7 @@ function ReviewPanel({ request }: { request: BrokerRequestDetail }) {
 
   return (
     <>
-      {/*
-        §5.3's five mandatory car shots are slice 6.1. Drawn as absent rather than omitted: a review
-        screen that silently showed no photographs would read as a customer who sent none.
-      */}
-      <section className="panel">
-        <h3 className="panel__title">The car</h3>
-        <StatusBanner>
-          Photographs are not collected on the customer's form yet, so there are none to review.
-        </StatusBanner>
-      </section>
+      <CarPhotosPanel requestId={request.id} />
 
       <section className="panel">
         <h3 className="panel__title">Send to AXA</h3>
@@ -250,6 +259,29 @@ function SentPanel({ request }: { request: BrokerRequestDetail }) {
   const unsent = request.emailedAt === null
 
   return (
+    <>
+      <SentSummary request={request} resend={resend} unsent={unsent} />
+      {/*
+        Option 2 only: an Option 1 request has no car photographs and never had, so the panel would
+        be five "Not provided" slots saying nothing. Shown *after* the send as well as before it
+        because the review is the last time anyone looks at this request, and a screen that dropped
+        the photographs the moment the email left would read as a customer who never sent any.
+      */}
+      {request.option === 2 ? <CarPhotosPanel requestId={request.id} /> : null}
+    </>
+  )
+}
+
+function SentSummary({
+  request,
+  resend,
+  unsent,
+}: {
+  request: BrokerRequestDetail
+  resend: ReturnType<typeof useBrokerAction>
+  unsent: boolean
+}) {
+  return (
     <section className="panel">
       <h3 className="panel__title">{unsent ? 'Not sent yet' : 'Sent to AXA'}</h3>
 
@@ -291,18 +323,26 @@ function SentPanel({ request }: { request: BrokerRequestDetail }) {
  * The attached documents, with **the provenance flag on every row** — "AXA asked for that flag and it
  * is on every row in the system, not only here". No `PushIndicator`: a broker document is
  * `PushTiming.Never`, so there is no push to be in a state about.
+ *
+ * **The five car sides are excluded** (slice 6.1). They arrive from the same query — the list selects
+ * on the owner alone, which is what makes a customer's files reach B4 and the email with no extra
+ * code — but `CarPhotosPanel` renders them by side, and listing them again here as five rows called
+ * `PLACEHOLDER-public_car_front.jpg` is the same evidence twice in a worse form. It also restores the
+ * B4Review artboard's two sections: "The car", then "Supporting documents".
  */
-function Documents({ requestId }: { requestId: string }) {
+function Documents({ requestId, title = 'Documents' }: { requestId: string; title?: string }) {
   const { data, isPending, error } = useRequestDocuments(requestId)
 
   if (isPending) return <p className="muted">Loading documents…</p>
   if (error) return <AlertBanner>The documents could not be loaded.</AlertBanner>
-  if (!data || data.length === 0) return null
+
+  const documents = (data ?? []).filter((document) => !CAR_SHOT_BUCKETS.includes(document.bucket))
+  if (documents.length === 0) return null
 
   return (
     <section className="panel">
-      <h3 className="panel__title">Documents</h3>
-      {data.map((document) => (
+      <h3 className="panel__title">{title}</h3>
+      {documents.map((document) => (
         <DocumentRow
           key={document.id}
           name={document.fileName ?? document.bucket}
@@ -312,6 +352,82 @@ function Documents({ requestId }: { requestId: string }) {
       ))}
     </section>
   )
+}
+
+/**
+ * B4's photo review (design.md §5.3, slice 6.1) — the customer's five car sides, each in its own
+ * labelled slot.
+ *
+ * **A side with no document says "Not provided" rather than being omitted.** Two reasons: a request
+ * that reached `ready_to_send` before this slice existed legitimately has none — 5.3 shipped the form
+ * without the capture — and a review screen that silently showed four photographs would read as a
+ * customer who sent four, which is exactly the misreading the placeholder this replaces was written
+ * to prevent.
+ */
+function CarPhotosPanel({ requestId }: { requestId: string }) {
+  const { data, isPending, error } = useRequestDocuments(requestId)
+
+  if (isPending) return <p className="muted">Loading photographs…</p>
+  if (error) return <AlertBanner>The photographs could not be loaded.</AlertBanner>
+
+  return (
+    <section className="panel">
+      <h3 className="panel__title">The car</h3>
+      <p className="caption">Five sides, every one mandatory before the customer could send.</p>
+      <div className="car-slots">
+        {CAR_SHOT_PANELS.map((panel) => (
+          <CarSlot
+            key={panel.bucket}
+            requestId={requestId}
+            label={panel.label}
+            document={(data ?? []).find((document) => document.bucket === panel.bucket)}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CarSlot({
+  requestId,
+  label,
+  document,
+}: {
+  requestId: string
+  label: string
+  document: BrokerDocument | undefined
+}) {
+  // A swept blob is a real and expected state (§7.3 deletes these `Retention:BrokerBlobDays` after
+  // the email went), so the row says so rather than fetching bytes that are gone and showing a broken
+  // image — `blobRetained` is the flag the list carries for exactly this.
+  const preview = useDocumentBlobUrl(
+    document ? requestDocumentContentPath(requestId, document.id) : '',
+    { enabled: document !== undefined && document.blobRetained },
+  )
+
+  return (
+    <figure className="car-slot">
+      <span className="car-slot__frame">
+        {preview.url ? (
+          <img src={preview.url} alt={`${label} of the car`} />
+        ) : (
+          <span className="muted">{describeSlot(document, preview.pending, preview.failed)}</span>
+        )}
+      </span>
+      <figcaption className="car-slot__label">{label}</figcaption>
+    </figure>
+  )
+}
+
+function describeSlot(
+  document: BrokerDocument | undefined,
+  pending: boolean,
+  failed: boolean,
+): string {
+  if (!document) return 'Not provided'
+  if (!document.blobRetained) return 'Local copy removed'
+  if (failed) return 'Could not be shown'
+  return pending ? 'Loading…' : 'Not provided'
 }
 
 function ProvenanceChip({ document }: { document: BrokerDocument }) {

@@ -45,7 +45,7 @@ email is about.
 3. **NEXT3 OpenAPI specification.** The exact endpoints the application needs NEXT3 to expose —
    ready to forward to whoever owns NEXT3 integration on your side.
 
-**Three questions that have come up since, from testing on real handsets:**
+**Four questions that have come up since:**
 
 1. **Which phones do your experts and garages actually carry?** A rough Android / iPhone split is
    enough. On Android the app ships as a native app; on iPhone it installs from the browser. If your
@@ -56,6 +56,11 @@ email is about.
    and a document-type code — please confirm NEXT3 keys on those, not on the file name.
 3. **Which currency are car value and estimated premium in?** The BRD names the fields but not the
    currency. One currency for the whole deployment, or per insurance type?
+
+4. **May a broker's request email go out with no documents attached?** The broker form promises
+   the details *and* the attached documents, but the BRD sets no minimum. The customer-link flow
+   already requires at least one document — please confirm whether the broker's own form should
+   enforce the same rule.
 
 Separately, the week-4 demonstration milestone from our payment schedule has now been reached; the
 corresponding invoice will follow in its own email.

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrokerDocument, BrokerRequestDetail } from '../broker/api'
 import type { MediaConfig } from '../media/config'
 import { TestQueryProvider } from '../testing/TestQueryProvider'
+import { CAR_SHOT_PANELS } from '../public/carShots'
 import BrokerRequestPage from './BrokerRequestPage'
 
 const ID = '00000000-0000-0000-0000-0000000b0001'
@@ -69,6 +70,15 @@ const UPLOADED: BrokerDocument = {
   contentType: 'application/pdf',
   fileName: 'car-papers.pdf',
 }
+
+/** §5.3's five car sides, as the documents list returns them (slice 6.1). */
+const CAR_SHOTS: BrokerDocument[] = CAR_SHOT_PANELS.map((panel, index) => ({
+  ...CAPTURED,
+  id: `shot-${panel.id}`,
+  bucket: panel.bucket,
+  fileName: `PLACEHOLDER-${panel.id}.jpg`,
+  sizeBytes: 3000 + index,
+}))
 
 let fetchMock: ReturnType<typeof vi.fn>
 
@@ -173,6 +183,42 @@ describe('B2 — one request', () => {
  * button the server refused with `409 not_submitted`. `emailedAt` is null in both cases and cannot
  * tell them apart; only the state can.
  */
+  /**
+   * **Week-5 browser-pass finding 1.** The attached list rendered *below* Submit, so a broker pressed
+   * the button before ever seeing what was attached — and the email is built from exactly that list.
+   * Both panels were also headed "Documents".
+   *
+   * Pinned on DOM order rather than on a snapshot, because that is the defect: the words were all
+   * present before the fix and in the wrong sequence.
+   */
+  it('shows what is attached above Submit, under its own heading', async () => {
+    show(detail({ state: 'draft' }), [CAPTURED, UPLOADED], true)
+
+    const capture = await screen.findByRole('heading', { name: 'Documents' })
+    const attached = await screen.findByRole('heading', { name: 'Attached' })
+    const submit = await screen.findByRole('button', { name: 'Submit' })
+
+    // DOCUMENT_POSITION_FOLLOWING (4) — "the node passed in comes after me in the document".
+    expect(capture.compareDocumentPosition(attached) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(attached.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // And the lesser half of the finding: two adjacent panels no longer carry the same heading.
+    expect(screen.getAllByRole('heading', { name: 'Documents' })).toHaveLength(1)
+  })
+
+  /**
+   * **Week-5 finding 5**, as far as it can be settled today. Submit has no document requirement and
+   * whether Option 1 should have one is #48, unanswered — so the caption says what the button does
+   * rather than promising attachments that may not exist. Gating it would invent a rule the BRD does
+   * not state; recorded in `scope-decisions.md`.
+   */
+  it('promises only the documents that are actually there', async () => {
+    show(detail({ state: 'draft' }), [], true)
+
+    expect(await screen.findByText(/details and any documents above/)).toBeTruthy()
+    expect(screen.queryByText(/every document above/)).toBeNull()
+  })
+
 describe('B4 — the customer\'s submission', () => {
   beforeEach(() => {
     vi.stubGlobal('URL', {
@@ -279,6 +325,95 @@ describe('B4 — the customer\'s submission', () => {
   })
 })
 
+describe('B4 — the car photographs', () => {
+  beforeEach(() => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:PLACEHOLDER',
+      revokeObjectURL: vi.fn(),
+    })
+  })
+
+  const READY = {
+    option: 2,
+    state: 'ready_to_send',
+    submittedAt: '2026-08-24T09:00:00',
+  } satisfies Partial<BrokerRequestDetail>
+
+  it('shows the five sides by name, in §5.3 order', async () => {
+    show(detail(READY), [UPLOADED, ...CAR_SHOTS], true)
+
+    expect(await screen.findByRole('heading', { name: 'The car' })).toBeTruthy()
+
+    const captions = screen
+      .getAllByRole('figure')
+      .map((figure) => figure.querySelector('figcaption')?.textContent)
+    expect(captions).toEqual(['Front', 'Rear', 'Left', 'Right', 'Roof'])
+
+    // Each rendered from its own bytes, fetched through the authorized client and shown as a
+    // `blob:` URL — a browser cannot authenticate an `<img src>`.
+    await waitFor(() => {
+      expect(screen.getAllByRole('img')).toHaveLength(5)
+    })
+    expect(screen.getByAltText('Roof of the car')).toBeTruthy()
+  })
+
+  /**
+   * **"Not provided" rather than an omitted slot**, and the reason is a real one: a request that
+   * reached `ready_to_send` before slice 6.1 legitimately has no photographs — 5.3 shipped the form
+   * without the capture — and a review screen that silently showed four would read as a customer who
+   * sent four.
+   */
+  it('says a missing side is missing rather than leaving a gap', async () => {
+    show(detail(READY), [UPLOADED, ...CAR_SHOTS.slice(0, 4)], true)
+
+    expect(await screen.findByRole('heading', { name: 'The car' })).toBeTruthy()
+    expect(screen.getAllByRole('figure')).toHaveLength(5)
+    expect(screen.getByText('Not provided')).toBeTruthy()
+  })
+
+  it('shows none of them as document rows as well', async () => {
+    // The list selects on the owner alone — which is what carries the customer's files to B4 and into
+    // the email for free — so without the filter the five would appear twice: once as labelled slots
+    // and once as rows called `PLACEHOLDER-front.jpg`.
+    show(detail(READY), [UPLOADED, ...CAR_SHOTS], true)
+
+    expect(await screen.findByRole('heading', { name: 'The car' })).toBeTruthy()
+    expect(screen.getByText('car-papers.pdf')).toBeTruthy()
+    expect(screen.queryByText('PLACEHOLDER-front.jpg')).toBeNull()
+  })
+
+  it('still shows them after the email has gone', async () => {
+    // The review is the last time anyone looks at this request. A screen that dropped the
+    // photographs the moment the email left would read as a customer who never sent any.
+    show(
+      detail({ ...READY, state: 'sent', emailedAt: '2026-08-24T09:05:00', emailRecipient: RECIPIENT }),
+      [UPLOADED, ...CAR_SHOTS],
+      true,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Sent to AXA' })).toBeTruthy()
+
+    // `findBy`, not `getBy`: the summary renders from the detail query and the panel from the
+    // documents query, so the first can resolve while the second is still "Loading photographs…".
+    expect(await screen.findByRole('heading', { name: 'The car' })).toBeTruthy()
+    expect(screen.getAllByRole('figure')).toHaveLength(5)
+  })
+
+  it('does not draw an empty car on an Option 1 request', async () => {
+    // Option 1 has no car photographs and never had — five "Not provided" slots would be five
+    // sentences saying nothing about a request nobody expected them from.
+    show(
+      detail({ state: 'submitted', emailedAt: '2026-08-24T09:05:00', emailRecipient: RECIPIENT }),
+      [UPLOADED],
+      true,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Sent to AXA' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'The car' })).toBeNull()
+  })
+})
+
 function postsTo(suffix: string): number {
   return fetchMock.mock.calls.filter(([url, init]) => {
     const request = init as RequestInit | undefined
@@ -299,6 +434,11 @@ function show(body: BrokerRequestDetail, documents: BrokerDocument[], allowUploa
     }
     if (path.endsWith('/submit') || path.endsWith('/resend') || path.endsWith('/send')) {
       return Promise.resolve(json({ state: 'submitted', emailFailed: false, recipient: RECIPIENT }))
+    }
+    // Before `/documents`, because a content path ends in neither and would otherwise fall through
+    // to the detail body and be handed to `apiBlob` as if it were an image.
+    if (path.endsWith('/content')) {
+      return Promise.resolve(new Response('PLACEHOLDER-bytes', { status: 200 }))
     }
     if (path.endsWith('/documents')) return Promise.resolve(json(documents))
     return Promise.resolve(json(body))

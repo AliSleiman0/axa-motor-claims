@@ -106,6 +106,15 @@ export function requestDocumentsPath(requestId: string): string {
   return `/api/broker/requests/${requestId}/documents`
 }
 
+/**
+ * B4's photo and document previews (slice 6.1). The *fetch* points here and only the rendered `src`
+ * is a `blob:` URL — a browser cannot authenticate an `<img src>`, and an unauthenticated one would
+ * 401 and hard-navigate the broker to `/login` mid-review. See `media/useDocumentBlobUrl`.
+ */
+export function requestDocumentContentPath(requestId: string, documentId: string): string {
+  return `${requestDocumentsPath(requestId)}/${documentId}/content`
+}
+
 export function listRequests(signal?: AbortSignal): Promise<BrokerRequestListItem[]> {
   return api<BrokerRequestListItem[]>('/api/broker/requests', { signal })
 }

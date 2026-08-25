@@ -153,6 +153,50 @@ function postsTo(suffix: string): number {
   }).length
 }
 
+/**
+ * **Week-5 browser-pass finding 6.** One action per row is right about *actions* — the rows in
+ * between are waiting on somebody else — but it left a sent request completely inert: no action and
+ * no navigation, so `/broker/{id}`, the only place the routed recipient is shown, was reachable by
+ * typing a URL. "Which desk did that go to?" is the question B4's own note says this screen exists to
+ * answer. O1 solved the same problem by linking the plate.
+ */
+describe('B1 — reaching a request from its row', () => {
+  it('links the insured name on every row, whatever state it is in', async () => {
+    const states = ['draft', 'submitted', 'link_issued', 'ready_to_send', 'sent'] as const
+    show(
+      states.map((state, index) =>
+        row({
+          id: `00000000-0000-0000-0000-00000000000${index}`,
+          state,
+          insuredName: `PLACEHOLDER Insured ${index}`,
+          emailedAt: state === 'sent' ? '2026-08-24T09:00:00' : null,
+        }),
+      ),
+    )
+
+    // Await a row first: the page header carries two links of its own, so `findAllByRole`
+    // resolves on those before the worklist has painted a single request.
+    await screen.findByRole('cell', { name: 'PLACEHOLDER Insured 0' })
+    const links = screen.getAllByRole('link')
+    for (const [index, state] of states.entries()) {
+      const link = links.find((candidate) => candidate.textContent === `PLACEHOLDER Insured ${index}`)
+      expect(link, `the ${state} row has no link on its name`).toBeTruthy()
+      expect(link?.getAttribute('href')).toBe(`/broker/00000000-0000-0000-0000-00000000000${index}`)
+    }
+  })
+
+  it('links a row that has no name yet, so an Option 2 request is reachable too', async () => {
+    // Three of the seven states legitimately have no name — the row exists from the moment the link
+    // is issued. An em dash is still the way in.
+    const id = '00000000-0000-0000-0000-0000000b9999'
+    show([row({ id, state: 'link_issued', option: 2, insuredName: null })])
+
+    const cells = await screen.findAllByRole('cell')
+    expect(cells[0].textContent).toBe('—')
+    expect(screen.getByRole('link', { name: '—' }).getAttribute('href')).toBe(`/broker/${id}`)
+  })
+})
+
 function show(rows: BrokerRequestListItem[]) {
   fetchMock = vi.fn((url: string) => {
     const path = String(url)

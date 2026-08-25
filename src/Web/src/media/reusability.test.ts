@@ -77,10 +77,68 @@ describe('the media module stays reusable', () => {
 
   it('reaches into the subfolders', () => {
     // The count above cannot tell "13 files at the top level" from "9 plus 4 nested", and the whole
-    // point of widening the glob was the nested ones. Both subfolders are named, because a guard
-    // that covers one of them is exactly the half-covering rule this file exists to prevent.
+    // point of widening the glob was the nested ones. **Every** subfolder is named, because a guard
+    // that covers some of them is exactly the half-covering rule this file exists to prevent —
+    // `carshots/` was added in slice 6.1 and named here in the same commit.
     expect(sourceFiles.some(([name]) => name.includes('/diagram/'))).toBe(true)
     expect(sourceFiles.some(([name]) => name.includes('/approval/'))).toBe(true)
+    expect(sourceFiles.some(([name]) => name.includes('/carshots/'))).toBe(true)
+  })
+
+  /**
+   * **No §7.1 bucket name anywhere in this module** (slice 6.1).
+   *
+   * The import bans above stop `media/` reaching into a caller. This stops the subtler version: a
+   * component that *knows* which bucket it is for. `CarSideSelector` draws a car and reports which
+   * side was tapped; the moment it also knew that the roof goes to `public_car_roof`, it would be an
+   * Option 2 component sitting in the shared folder, and the garage flow that wants the same picker
+   * next year would copy it instead of using it.
+   *
+   * Every bucket is listed, not just the five new ones — the whole point is that none of them belongs
+   * here, and a list that grew only when somebody remembered would be the guard rotting quietly. The
+   * match is on the **full** bucket name, so `regions.ts`'s panel ids (`roof`, `bonnet`, …) and
+   * `carshots/sides.ts`'s zone ids (`front`, `rear`, …) are untouched: those are parts of a drawing,
+   * which is exactly what this module is allowed to know about.
+   */
+  const BUCKET_NAMES = [
+    'insured_documents',
+    'insured_car_photo',
+    'tp_documents',
+    'tp_car_photo',
+    'expert_report',
+    'voice_note',
+    'damage_diagram',
+    'garage_documents',
+    'garage_car_photo',
+    'approval_image',
+    'repair_photo',
+    'discharge',
+    'invoice',
+    'broker_document',
+    'public_document',
+    'public_car_front',
+    'public_car_rear',
+    'public_car_left',
+    'public_car_right',
+    'public_car_roof',
+  ]
+
+  it('has every bucket to check', () => {
+    // Non-vacuity again, from the other direction: the list has to match the server's, or the rule
+    // passes because it is looking for names nothing uses. Twenty is `MediaBuckets.All` at slice 6.1;
+    // `MediaBucketTests` is the copy that fails the build when the server's set changes.
+    expect(BUCKET_NAMES).toHaveLength(20)
+    expect(new Set(BUCKET_NAMES).size).toBe(BUCKET_NAMES.length)
+  })
+
+  it.each(sourceFiles)('%s names no §7.1 bucket', (name, source) => {
+    for (const bucket of BUCKET_NAMES) {
+      expect(
+        source.includes(`'${bucket}'`) || source.includes(`"${bucket}"`),
+        `${name} names the bucket '${bucket}'; media/ takes its bucket as a prop so that every ` +
+          'caller — expert, garage, broker and the public page — can reuse it unchanged',
+      ).toBe(false)
+    }
   })
 
   it.each(sourceFiles)('%s imports nothing caller-specific', (name, source) => {

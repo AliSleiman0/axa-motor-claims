@@ -100,7 +100,9 @@ public sealed record BucketRule(
 ///
 /// **The broker row landed in slice 5.2** and is the first to carry <see cref="PushTiming.Never"/>:
 /// no doc type, no folder, <c>push_status = n/a</c>. **The public row (§5.3) joined it in slice 5.3**
-/// with the same shape and the same owner kind.
+/// with the same shape and the same owner kind, and **its five car sides in 6.1** — the same shape
+/// again, capture-only, which is the one bucket family where §7.1's hard rule and the BRD's reason for
+/// it coincide exactly.
 ///
 /// Each new bucket is a migration, because `bucket` is a check-constrained enum like every other §4
 /// state column — which makes adding one a reviewable decision rather than a string appearing.
@@ -122,6 +124,17 @@ public static class MediaBuckets
     public const string Invoice = "invoice";
     public const string BrokerDocument = "broker_document";
     public const string PublicDocument = "public_document";
+
+    // §5.3's five mandatory car sides (slice 6.1). Five buckets rather than one bucket plus a "side"
+    // field, because `MediaUploadTarget` has no side slot and the multipart contract reads only
+    // `bucket` and `origin` — so the side *is* the bucket, and no wire field or `document` column had
+    // to be invented for it. It also keeps `CapturePanel`'s `${bucket}-capture` DOM ids unique on a
+    // screen that shows one panel per side.
+    public const string PublicCarFront = "public_car_front";
+    public const string PublicCarRear = "public_car_rear";
+    public const string PublicCarLeft = "public_car_left";
+    public const string PublicCarRight = "public_car_right";
+    public const string PublicCarRoof = "public_car_roof";
 
     private static readonly Dictionary<string, BucketRule> Rules =
         new(StringComparer.Ordinal)
@@ -248,6 +261,38 @@ public static class MediaBuckets
             [PublicDocument] = new(
                 PublicDocument, DocumentOwnerKinds.BrokerRequest, AllowUpload: true,
                 DocTypeKey: null, MediaKind.Document, Next3Folder: null, PushTiming.Never),
+
+            // §5.3's five car shots (slice 6.1) — the photographs a member of the public must supply
+            // before the submit will accept anything. Same owner kind and the same `PushTiming.Never`
+            // shape as the two rows above, so the biconditional below holds untouched and these files
+            // reach B4 and the Option 2 email on the owner alone.
+            //
+            // **Capture-only, and this time it is the BRD's own rule rather than 3.1's**: these are car
+            // photographs, and the entire project exists because the photograph has to be of the car
+            // that is actually in front of the person taking it. `origin` is a claim the client makes,
+            // so the rule here is what refuses an `uploaded` one.
+            //
+            // `MediaKind.Image`, so §7.2's server-side resolution floor applies to each of them exactly
+            // as it does to an expert's.
+            [PublicCarFront] = new(
+                PublicCarFront, DocumentOwnerKinds.BrokerRequest, AllowUpload: false,
+                DocTypeKey: null, MediaKind.Image, Next3Folder: null, PushTiming.Never),
+
+            [PublicCarRear] = new(
+                PublicCarRear, DocumentOwnerKinds.BrokerRequest, AllowUpload: false,
+                DocTypeKey: null, MediaKind.Image, Next3Folder: null, PushTiming.Never),
+
+            [PublicCarLeft] = new(
+                PublicCarLeft, DocumentOwnerKinds.BrokerRequest, AllowUpload: false,
+                DocTypeKey: null, MediaKind.Image, Next3Folder: null, PushTiming.Never),
+
+            [PublicCarRight] = new(
+                PublicCarRight, DocumentOwnerKinds.BrokerRequest, AllowUpload: false,
+                DocTypeKey: null, MediaKind.Image, Next3Folder: null, PushTiming.Never),
+
+            [PublicCarRoof] = new(
+                PublicCarRoof, DocumentOwnerKinds.BrokerRequest, AllowUpload: false,
+                DocTypeKey: null, MediaKind.Image, Next3Folder: null, PushTiming.Never),
         };
 
     /// <summary>
@@ -266,13 +311,34 @@ public static class MediaBuckets
     public static readonly string[] Repair = [RepairPhoto, Discharge, Invoice];
 
     /// <summary>
-    /// §5.3's broker-owned buckets — the ones that never reach NEXT3. Two since slice 5.3: the
-    /// broker's own documents and the ones a public customer attaches, both under the same owner kind.
-    /// Named for `GarageDeclaration`'s reason: `MediaBucketTests` pins the `PushTiming.Never` set
-    /// against this list, so a third no-push bucket has to be classified here rather than inherit
-    /// whichever timing its author typed.
+    /// §5.3's five mandatory car sides, **in the order P1 lists them** (slice 6.1). The order is part
+    /// of the value: the page renders its dot list and its "N of 5" from this, and the B4 review reads
+    /// the same sequence, so front-rear-left-right-roof is written once rather than in three screens.
     /// </summary>
-    public static readonly string[] BrokerRequest = [BrokerDocument, PublicDocument];
+    public static readonly string[] PublicCarShots =
+        [PublicCarFront, PublicCarRear, PublicCarLeft, PublicCarRight, PublicCarRoof];
+
+    /// <summary>
+    /// Everything a member of the public may write from an Option 2 link, and everything the link may
+    /// read back (slice 6.1).
+    ///
+    /// Named rather than spelled out at each call site because **three places have to agree on it** —
+    /// the upload's `BucketGate`, `GET /public/{token}/documents`, and the submit's check that a car
+    /// shot never satisfies `documents_required` — and two hand-written lists eventually disagree.
+    /// That is `GarageDeclaration`'s and `Repair`'s argument, in the module next door. Deliberately
+    /// **not** `BrokerRequest`: `broker_document` shares this owner kind, and letting an anonymous
+    /// caller file a document as the broker's own is precisely what the gate exists to stop.
+    /// </summary>
+    public static readonly string[] PublicCustomer = [PublicDocument, .. PublicCarShots];
+
+    /// <summary>
+    /// §5.3's broker-owned buckets — the ones that never reach NEXT3. Two since slice 5.3 and **seven
+    /// since 6.1**: the broker's own documents, the supporting documents a public customer attaches,
+    /// and their five car sides, all under the same owner kind. Named for `GarageDeclaration`'s reason:
+    /// `MediaBucketTests` pins the `PushTiming.Never` set against this list, so a further no-push
+    /// bucket has to be classified here rather than inherit whichever timing its author typed.
+    /// </summary>
+    public static readonly string[] BrokerRequest = [BrokerDocument, .. PublicCustomer];
 
     /// <summary>Every bucket the schema currently allows — the source for the check constraint.</summary>
     public static IReadOnlyCollection<string> All => Rules.Keys;

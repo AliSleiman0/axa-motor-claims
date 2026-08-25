@@ -106,14 +106,46 @@ internal static class PublicLinkFlows
                     ImageHeader.Pdf, fileName));
 
     /// <summary>
+    /// One of §5.3's five car sides (slice 6.1). Always captured and always a JPEG comfortably over
+    /// §7.2's floor: the bucket is capture-only, so an <c>uploaded</c> origin is refused by design and
+    /// the test that proves it says so explicitly rather than relying on this default.
+    /// </summary>
+    public static Task<HttpResponseMessage> UploadCarShot(
+        HttpClient customer,
+        string token,
+        string bucket,
+        string origin = DocumentOrigins.Captured,
+        string? fileName = null) =>
+        MediaFlows.Upload(
+            customer,
+            DocumentsPath(token),
+            MediaFlows.Multipart(
+                bucket, origin, TestImages.Jpeg(1600, 1200), ImageHeader.Jpeg,
+                fileName ?? $"PLACEHOLDER-{bucket}.jpg"));
+
+    /// <summary>All five sides, in §5.3's order. Every one is mandatory, so there is no partial form.</summary>
+    public static async Task AttachCarShots(HttpClient customer, string token)
+    {
+        foreach (var bucket in MediaBuckets.PublicCarShots)
+        {
+            (await UploadCarShot(customer, token, bucket)).EnsureSuccessStatusCode();
+        }
+    }
+
+    /// <summary>
     /// The whole customer journey up to but not including the submit: open the link, attach one
-    /// supporting document. Since slice 5.3 a submission without one is refused
-    /// <c>400 documents_required</c>, so **every** test that submits needs this first — which is the
-    /// new precondition being enforced, not an assertion being relaxed.
+    /// supporting document, photograph all five car sides.
+    ///
+    /// Since slice 5.3 a submission without a document is refused <c>400 documents_required</c>, and
+    /// **since 6.1 one without all five sides is refused <c>400 car_photos_required</c>** — so every
+    /// test that submits needs both. That is the new precondition being enforced, not an assertion
+    /// being relaxed: the tests that only wanted *a* successful submission go through here and are
+    /// unchanged, and the ones that are about a specific refusal build their own state.
     /// </summary>
     public static async Task OpenAndAttach(HttpClient customer, string token)
     {
         (await customer.GetAsync($"/public/{token}")).EnsureSuccessStatusCode();
         (await UploadPublicDocument(customer, token)).EnsureSuccessStatusCode();
+        await AttachCarShots(customer, token);
     }
 }

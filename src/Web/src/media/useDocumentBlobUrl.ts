@@ -16,7 +16,10 @@ export interface UseDocumentBlobUrlResult {
 }
 
 /**
- * One document's bytes as a `blob:` URL (slice 4.2).
+ * One document's bytes as a `blob:` URL (slice 4.2; moved out of `officer/` in 6.1, when B4's photo
+ * review became its second caller — the move `GarageDeclarationPage` had already recorded as the
+ * thing that would have to happen). It touches only `apiBlob`, so it never knew anything about an
+ * officer beyond the folder it sat in.
  *
  * **This exists because a browser cannot authenticate an `<img src>`.** The session is a bearer token
  * added as a header by `withBearer`; an `<img>` or a plain `<a href>` aimed at `/api/…/content` sends
@@ -41,7 +44,7 @@ export function useDocumentBlobUrl(
   }: UseDocumentBlobUrlOptions,
 ): UseDocumentBlobUrlResult {
   const query = useQuery({
-    queryKey: ['officer', 'document-content', path],
+    queryKey: ['media', 'document-content', path],
     queryFn: () => apiBlob(path),
     enabled,
     // The bytes cannot change under a given document id — §7.3 deletes them, it never rewrites them

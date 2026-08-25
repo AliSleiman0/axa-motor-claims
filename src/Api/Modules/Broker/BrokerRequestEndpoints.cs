@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Api.Infrastructure;
+using Api.Integrations.Blob;
 using Api.Modules.Media;
 using Api.Modules.Users;
 using Microsoft.EntityFrameworkCore;
@@ -325,6 +326,38 @@ public static class BrokerRequestEndpoints
                 .ToListAsync(ct);
 
             return Results.Ok(documents);
+        });
+
+        // B4's photo review (slice 6.1). The broker has to be able to *look* at what the customer
+        // sent before releasing it to AXA — five car sides and their supporting documents — and until
+        // now the only content routes in the application were the declaration's.
+        //
+        // Ownership first, through the same `Find` the list above uses, so a broker learns nothing
+        // about another broker's request; then the shared helper, which matches the document on its
+        // owner as well as its id. Both halves matter: a lookup by `docId` alone would let a broker
+        // read any document in the system by quoting its id under a request of their own.
+        //
+        // A blob `BrokerMediaCleanupTask` has already swept answers **404, and that is expected rather
+        // than a fault** — §7.3 deletes a broker request's bytes `Retention:BrokerBlobDays` after the
+        // email went, and `DocumentDto.BlobRetained` is how B4 knows never to link one.
+        group.MapGet("/{id:guid}/documents/{docId:guid}/content", async (
+            Guid id, Guid docId, ClaimsPrincipal principal, AppDbContext db, IBlobStore blobs,
+            CancellationToken ct) =>
+        {
+            var brokerUserId = principal.GetUserId();
+            if (brokerUserId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var request = await Find(db, id, brokerUserId.Value, ct);
+            if (request is null)
+            {
+                return Results.NotFound();
+            }
+
+            return await DocumentContent.Serve(
+                db, blobs, DocumentOwnerKinds.BrokerRequest, id, docId, ct);
         });
     }
 

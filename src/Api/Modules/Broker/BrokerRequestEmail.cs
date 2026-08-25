@@ -31,7 +31,10 @@ public sealed class BrokerRequestEmail(AppDbContext db, IBlobStore blobs, TimePr
         var documents = await db.Documents.AsNoTracking()
             .Where(d => d.OwnerKind == DocumentOwnerKinds.BrokerRequest && d.OwnerId == requestId)
             .OrderBy(d => d.CreatedAt)
-            .Select(d => new { d.FileName, d.ContentType, d.SizeBytes, d.BlobKey, d.BlobDeletedAt, d.Id })
+            .Select(d => new
+            {
+                d.FileName, d.ContentType, d.SizeBytes, d.BlobKey, d.BlobDeletedAt, d.Id, d.Bucket,
+            })
             .ToListAsync(ct);
 
         // Checked before a single byte is read, and before the state transition commits: an email
@@ -47,13 +50,36 @@ public sealed class BrokerRequestEmail(AppDbContext db, IBlobStore blobs, TimePr
 
         var attachments = documents
             .Select(d => new EmailAttachment(
-                d.FileName ?? $"{d.Id:N}",
+                AttachmentName(d.Bucket, d.FileName, d.Id),
                 d.ContentType,
                 d.SizeBytes,
                 token => blobs.Open(d.BlobKey, token)))
             .ToList();
 
         return (attachments, null);
+    }
+
+    /// <summary>
+    /// What the attachment is called in AXA's inbox.
+    ///
+    /// **A car side is named for its side** (slice 6.1), because the name a phone supplies cannot say
+    /// it: the 6.3a device spike found that **every iOS capture is called `image.jpg`**, so five car
+    /// photographs arrive as five identical names and the recipient cannot tell the front from the
+    /// roof. The side is known — it is the bucket — and design.md §4 makes the same argument one
+    /// module over about a garage's `invoice.pdf` reaching NEXT3 as `019ab….pdf`: this project exists
+    /// to stop files arriving at AXA unidentifiable.
+    ///
+    /// The customer's own name is kept after it rather than discarded, so a desktop upload that
+    /// already said something useful still says it. Supporting documents are untouched — a scan
+    /// called `car-papers.pdf` needs no help.
+    /// </summary>
+    private static string AttachmentName(string bucket, string? fileName, Guid id)
+    {
+        var supplied = string.IsNullOrWhiteSpace(fileName) ? $"{id:N}" : fileName;
+
+        return MediaBuckets.PublicCarShots.Contains(bucket, StringComparer.Ordinal)
+            ? $"{bucket}-{supplied}"
+            : supplied;
     }
 
     public string Subject(BrokerRequest request)

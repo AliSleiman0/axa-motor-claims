@@ -44,6 +44,21 @@ public sealed record MediaUploadOutcome(int StatusCode, string? ErrorCode, Docum
 /// </summary>
 public delegate MediaUploadOutcome? BucketGate(BucketRule rule);
 
+/// <summary>
+/// Work a caller stages **into the same transaction as the document row**, once the bucket is known
+/// and the gate has accepted it (slice 6.1).
+///
+/// It exists for the same reason <see cref="BucketGate"/> does, one step further on: the bucket
+/// arrives inside the streamed body, so a caller whose rule depends on *which* bucket was sent cannot
+/// act before calling this service. §5.3's five car sides need exactly that — a retake replaces the
+/// side's previous photograph, and the delete has to commit with the insert or a unique index sees
+/// both rows at once.
+///
+/// The callback shares the caller's <c>AppDbContext</c>, so staging is all it does: no
+/// <c>SaveChanges</c>, and the pipeline's own commit carries it.
+/// </summary>
+public delegate Task BucketAccepted(BucketRule rule, CancellationToken ct);
+
 /// <summary>The gates that are not state-dependent.</summary>
 public static class BucketGates
 {
@@ -102,11 +117,17 @@ public sealed class MediaUploadService(
     /// file is read** so a refusal costs no blob and leaves no row. See <see cref="BucketGate"/> for
     /// why it is a callback rather than a list.
     /// </param>
+    /// <param name="accepted">
+    /// Optional work staged into the same transaction once the bucket is known and allowed — see
+    /// <see cref="BucketAccepted"/>. Runs after <paramref name="gate"/>, so a refused upload stages
+    /// nothing.
+    /// </param>
     public async Task<MediaUploadOutcome> Upload(
         HttpRequest request,
         MediaUploadTarget target,
         CancellationToken ct,
-        BucketGate? gate = null)
+        BucketGate? gate = null,
+        BucketAccepted? accepted = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(target);
@@ -176,6 +197,11 @@ public sealed class MediaUploadService(
             if (gate?.Invoke(rule) is { } refusal)
             {
                 return refusal;
+            }
+
+            if (accepted is not null)
+            {
+                await accepted(rule, ct);
             }
 
             return await StoreFile(section, disposition, rule, origin, target, ct);
