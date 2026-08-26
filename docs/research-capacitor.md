@@ -298,6 +298,8 @@ inadequate" — has fired on Android camera, and the fix is a Capacitor plugin, 
 
 ## 12. Revised estimate for slice 6.3
 
+> **Outcome, added 2026-08-26.** Slice 6.3 shipped the Android column of this table — camera, FCM with a second `IPushSender`, the location copy, release signing and the battery guidance — inside the 5–7 d estimate. The device pass confirmed §4's finding from the other side: the capture-only bucket now opens the system camera with no gallery route. **The three blocked rows are untouched and still blocked** (iOS Capacitor on #30, store/MDM on #29, Huawei/HMS on #28), and §3's OEM battery risk was reproduced under control on the Samsung — see `docs/oem-push-guidance.md`.
+
 §4's figure was **1–1.5 weeks for both platforms**. Measured against what is actually left:
 
 | Work | Estimate | Blocked on |

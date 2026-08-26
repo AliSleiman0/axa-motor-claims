@@ -1,6 +1,10 @@
 # demo-week4.md — the week-4 client demo, beat by beat
 
 **Internal.** Not client-facing. Slice 4.3.
+> **Superseded 2026-08-26 by `docs/demo-week6.md`.** This file is kept as the record of what was
+> shown at the week-4 payment gate; it predates the broker module, the Option 2 public page, the
+> five car shots, the A2 failed-push screen and the Android app, and its rig seeded no broker.
+> Use the week-6 script for any demo from now on.
 **Audience:** AXA Middle East (HADDAD Ramy + whoever he brings). **Length:** 15 minutes of demo, then questions.
 **Milestone:** this demo is the week-4 gate in design.md §11 and triggers the 30% payment.
 
@@ -179,8 +183,7 @@ Say, close to verbatim:
 ```
 
 **Do this before going back to writing code.** The demo runs the API with `dotnet run`, so a live
-demo holds a lock on `src\Apiin\Debug
-et10.0\Api.exe` and the next `dotnet build` or
+demo holds a lock on `src\Api\bin\Debug\net10.0\Api.exe` and the next `dotnet build` or
 `dotnet test` fails with `MSB3027: ... file is locked by "Api"`. It reads like a broken build and is
 not one.
 

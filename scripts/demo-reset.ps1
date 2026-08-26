@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Drops and recreates the AxaMotorClaims LocalDB, migrates it, starts Azurite and the API with
-    `Blob__Mode=azure` and `Push__Mode=webpush`, seeds the three demo users and two assignments
+    `Blob__Mode=azure` and `Push__Mode=webpush`, seeds the four demo users and two assignments
     **through the admin API**, generates the demo media, and starts the web dev server.
 
     Nothing here writes to the database directly. Every row it creates goes through the same
@@ -13,7 +13,7 @@
     works, and a seed that broke would be a bug worth knowing about before the client is in the room.
 
     The one thing it cannot do for you is grant Chrome permission to show notifications. That is
-    browser UI; see docs/demo-week4.md's pre-flight.
+    browser UI; see docs/demo-week6.md's pre-flight.
 
 .PARAMETER Stop
     Tear down everything this script starts (API, web, Azurite) and exit.
@@ -86,6 +86,18 @@ $DemoUsers = @(
         Body = @{
             phone = '+999000003003'; displayName = 'DEMO Claim Officer'
             next3User = 'PLACEHOLDER-OFF-01'; email = 'demo-officer@example.invalid'
+        }
+    }
+    # Added 2026-08-26. Weeks 5 and 6 built the whole broker module - Option 1, the Option 2 public
+    # page, the five car shots and B4's review - and this rig still seeded only the three roles week 4
+    # needed, so any broker beat dead-ended at sign-in. `displayName` is what the public page shows a
+    # member of the public as the broker who sent them the link (design.md 9.1), so it has to read
+    # like a name rather than a slug.
+    @{
+        Kind = 'broker'; Slug = 'brokers'; Phone = '+999000003004'
+        Body = @{
+            phone = '+999000003004'; displayName = 'DEMO Broker'
+            irisCode = 'PLACEHOLDER-IRIS-01'; email = 'demo-broker@example.invalid'
         }
     }
 )
@@ -329,7 +341,7 @@ $adminToken = $tokens.accessToken
 # inside the OtpResendSeconds window is throttled, and the throttle would land mid-demo.
 $tokens | ConvertTo-Json | Set-Content -LiteralPath $AdminTokenFile
 
-Write-Step 'Creating and activating the three demo users'
+Write-Step 'Creating and activating the demo users'
 foreach ($user in $DemoUsers) {
     $phone = $user.Phone
 
@@ -403,4 +415,4 @@ Write-Host '  Kill NEXT3 (beat 3):   set Fake:FailureRate to 1.0 in src\Api\apps
 Write-Host ''
 Write-Host '  Chrome will not show a notification until you allow it for' -NoNewline
 Write-Host " $WebBase" -ForegroundColor Yellow -NoNewline
-Write-Host ' - see the pre-flight in docs\demo-week4.md.'
+Write-Host ' - see the pre-flight in docs\demo-week6.md.'

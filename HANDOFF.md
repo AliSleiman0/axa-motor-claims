@@ -58,6 +58,8 @@ server log says "delivered" in both cases**, so nothing on AXA's side can tell t
 is why `docs/oem-push-guidance.md`'s per-handset enrolment step is not optional, and why #28 (the
 device mix) matters: post-2020 Huawei handsets have no Play Services and FCM cannot reach them at all.
 
+**The demo rig is updated and `docs/demo-week6.md` is the current script.** The rig had never been touched since week 4, so it seeded three users and no broker — every broker beat would have dead-ended at sign-in, and weeks 5 and 6 are mostly broker. `demo-reset.ps1` now seeds a fourth user (`+999000003004`, DEMO Broker), verified end to end: signs in, reaches B1, and is served the placeholder insurance types. The new script covers Option 1 and 2, the five car shots, A2 and a beat with **the Android app on a real phone**, and it carries the two traps that cost time during the device pass — `Fake:FailureRate` is global so sign everyone in *before* breaking NEXT3, and `adb reverse` dies silently whenever the cable is re-seated. `docs/demo-week4.md` is kept and marked superseded: it is the record of the week-4 payment gate.
+
 **Next actions, in order.** (1) Review 6.3's test diff and commit it — the deliberate test changes to
 read first are `OneUsersHandsetIsInvisibleToAnother` (rewritten; it asserted the opposite rule),
 `AUserWithNoSubscriptionsLogsFailedAndThrows` (the row moved to the composite), `PortSelectionTests`'
