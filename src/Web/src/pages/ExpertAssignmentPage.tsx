@@ -2,7 +2,8 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { formatDateTime } from '../api/datetime'
 import { documentsPath, type AssignmentDetail } from '../expert/api'
-import { GEOLOCATION_EXPLANATIONS } from '../expert/geolocation'
+import { explainGeolocationFailure } from '../expert/geolocation'
+import { detectNativeShell } from '../media/nativeShell'
 import { useArrived } from '../expert/useArrived'
 import {
   useAssignment,
@@ -198,7 +199,11 @@ function ArrivedPanel({
           pressed once.
         </p>
       )}
-      {arrival.blockedBy && <AlertBanner>{GEOLOCATION_EXPLANATIONS[arrival.blockedBy]}</AlertBanner>}
+      {arrival.blockedBy && (
+        <AlertBanner>
+          {explainGeolocationFailure(arrival.blockedBy, detectNativeShell() !== null)}
+        </AlertBanner>
+      )}
       {arrival.failed && <AlertBanner>{arrival.failed}</AlertBanner>}
     </section>
   )

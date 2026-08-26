@@ -1,0 +1,51 @@
+{
+  "_comment": [
+    "PLACEHOLDER — slice 6.3. This is the template, not a working file.",
+    "",
+    "Copy it to `google-services.json` (which .gitignore excludes) and replace every PLACEHOLDER",
+    "value with the real ones, or download the real file from the Firebase console: Project",
+    "settings -> Your apps -> Android -> google-services.json. The Android package name registered",
+    "there MUST be com.axa.motorclaims, because FCM binds to the applicationId compiled into the APK.",
+    "",
+    "This file is named `.placeholder` on purpose. The Gradle plugin hard-fails on a google-services",
+    "file whose values are not real, so committing a placeholder under the real name would break",
+    "every build on a clean clone. `android/app/build.gradle` applies the plugin only when a",
+    "google-services.json exists AND does not carry the PLACEHOLDER marker, so a copy made without",
+    "filling it in is skipped rather than fatal — and a build with no Firebase project compiles fine,",
+    "it simply cannot receive push.",
+    "",
+    "It is NOT a credential: this file is compiled into the APK and ships to every handset. The",
+    "credential is the service-account JSON on the server (Push:Fcm:ServiceAccountJsonPath), which is",
+    "a mounted secret and never lives in this repository.",
+    "",
+    "At handover this swaps to AXA's own Firebase project, exactly like every Appendix A value. The",
+    "current project is developer-owned (decision 2026-08-24); who owns it in production is #49."
+  ],
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "PLACEHOLDER-firebase-project-id",
+    "storage_bucket": "PLACEHOLDER-firebase-project-id.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:PLACEHOLDER0000000000",
+        "android_client_info": {
+          "package_name": "com.axa.motorclaims"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER-firebase-android-api-key"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

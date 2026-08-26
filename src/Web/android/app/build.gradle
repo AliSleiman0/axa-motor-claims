@@ -1,10 +1,23 @@
 apply plugin: 'com.android.application'
 
+// Slice 6.3. Release signing details live outside the repository: `keystore.properties` is
+// gitignored and holds the store path, the two passwords and the key alias. Absent - which is the
+// normal state on a clean clone and in CI - the release build stays *unsigned* rather than falling
+// back to the debug key, because a debug-signed release installs and runs and looks fine right up
+// to the point where it can never be updated by the real key. `scripts/android-release.ps1` refuses
+// to run without the file and prints how to create one.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
-    namespace = "PLACEHOLDER.axa.motorclaims"
+    namespace = "com.axa.motorclaims"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "PLACEHOLDER.axa.motorclaims"
+        applicationId "com.axa.motorclaims"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -16,10 +29,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                // `rootProject.file`, not `file`: inside app/build.gradle a bare `file()` resolves
+                // against the **app module** directory, so a `storeFile=release.jks` sitting beside
+                // keystore.properties in android/ was looked for in android/app/ and the build died
+                // at validateSigningRelease. Both paths are now relative to the same directory the
+                // properties file is in, which is the only reading of them that is not surprising.
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
@@ -44,11 +76,29 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Slice 6.3 hardens Capacitor's own conditional apply. The template checked only that the file was
+// readable and non-empty; the marker check is the addition, and it exists because the obvious thing
+// to do with `google-services.json.placeholder` is to copy it to `google-services.json` and build.
+// The Gradle plugin hard-fails on placeholder values, so that copy would have turned a helpful
+// template into a broken build with an error naming Firebase internals rather than the mistake.
+// Skipping instead is correct: an APK without Firebase compiles and runs, it simply cannot receive
+// push - which is exactly the state every build was in before this slice.
+//
+// Both branches are exercised in the slice's DoD, because a conditional nobody has run the false
+// half of is a conditional that works by assumption.
 try {
     def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
+    if (servicesJSON.exists() && servicesJSON.text && !servicesJSON.text.contains('PLACEHOLDER')) {
         apply plugin: 'com.google.gms.google-services'
+        logger.lifecycle("google-services.json found; Firebase Cloud Messaging is wired in.")
+    } else if (servicesJSON.exists()) {
+        logger.warn("google-services.json still carries PLACEHOLDER values - the google-services " +
+            "plugin was NOT applied and this build cannot receive push. Replace it with the real " +
+            "file from the Firebase console (package name must be com.axa.motorclaims).")
+    } else {
+        logger.lifecycle("No google-services.json; the google-services plugin was not applied and " +
+            "this build cannot receive push. See android/app/google-services.json.placeholder.")
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.warn("google-services.json could not be read, google-services plugin not applied. Push Notifications won't work")
 }

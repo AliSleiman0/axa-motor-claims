@@ -35,6 +35,35 @@ export const GEOLOCATION_EXPLANATIONS: Record<GeolocationFailure, string> = {
     'you were dispatched with.',
 }
 
+/**
+ * What the native shell says instead, for the one code whose browser copy is wrong there.
+ *
+ * **Slice 6.3a measured this on the Samsung: with location services switched off, the Android
+ * WebView reports code 3, `TIMEOUT`** — not code 2, `POSITION_UNAVAILABLE`. So the expert was
+ * correctly told what the platform said and incorrectly told what to do: "press Arrived again once
+ * the device has a signal" can never work, because no amount of signal helps when the setting is
+ * off. A web page cannot read the system location setting, so the honest fix is copy that names the
+ * likelier cause first while still covering a genuine slow fix.
+ *
+ * Only `timeout` is overridden. The other three codes mean the same thing on both platforms, and a
+ * second full table would be two copies to keep in step.
+ */
+export const NATIVE_GEOLOCATION_OVERRIDES: Partial<Record<GeolocationFailure, string>> = {
+  timeout:
+    'Arrival was not sent. This device did not return a location — on Android that usually means ' +
+    'Location is switched off. Turn it on in Settings › Location, then press Arrived again.',
+}
+
+/**
+ * The explanation to show for a failure, given whether the app is running in the native shell.
+ *
+ * `GEOLOCATION_EXPLANATIONS` stays exported and stays the browser's answer, so the tests that pin
+ * those strings are untouched and there is still one table rather than two.
+ */
+export function explainGeolocationFailure(reason: GeolocationFailure, native: boolean): string {
+  return (native ? NATIVE_GEOLOCATION_OVERRIDES[reason] : undefined) ?? GEOLOCATION_EXPLANATIONS[reason]
+}
+
 const OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
 
 /**

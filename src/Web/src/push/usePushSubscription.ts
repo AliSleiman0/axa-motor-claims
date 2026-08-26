@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { getVapidPublicKey, postSubscription } from './api'
+import { detectNativeShell } from '../media/nativeShell'
+import { getVapidPublicKey, postSubscription, registerDeviceToken } from './api'
+import { acquireNativePushToken, type AcquirePushToken } from './nativeToken'
 import {
   hasBrowserSubscription,
   PUSH_EXPLANATIONS,
@@ -19,6 +21,13 @@ export interface UsePushSubscriptionOptions {
   readPermission?: ReadPushPermission
   /** Reads whether this browser is already subscribed. Silent — never prompts. */
   readSubscription?: ReadExistingSubscription
+  /**
+   * Whether the app is running inside the Android shell (slice 6.3). Injectable for the same reason
+   * everything else here is; production probes for the Capacitor bridge.
+   */
+  shellIsNative?: boolean
+  /** The native seam. Only ever called when {@link shellIsNative} is true. */
+  acquireToken?: AcquirePushToken
 }
 
 export interface UsePushSubscriptionResult {
@@ -52,6 +61,8 @@ export function usePushSubscription({
   subscribe = subscribeInBrowser,
   readPermission = readBrowserPushPermission,
   readSubscription = hasBrowserSubscription,
+  shellIsNative = detectNativeShell() !== null,
+  acquireToken = acquireNativePushToken,
 }: UsePushSubscriptionOptions = {}): UsePushSubscriptionResult {
   const [permission] = useState(() => readPermission())
   const [enabled, setEnabled] = useState(false)
@@ -63,11 +74,23 @@ export function usePushSubscription({
   // 1.5's lesson, fifth slice running — verified by removing it.
   const inFlight = useRef(false)
 
-  const unsupported = permission === 'unsupported'
+  // **The native shell is never "unsupported", however loudly the browser API says so.** The
+  // Capacitor WebView exposes no PushManager, so `readPermission()` answers 'unsupported' there and
+  // the panel would render "this browser cannot show claim notifications" — inside the native app,
+  // whose whole reason for existing is that it *can*. FCM is checked at the point of pressing the
+  // button instead, which is also where a handset with no Play Services (Huawei) is discovered.
+  const unsupported = !shellIsNative && permission === 'unsupported'
 
   // Only when permission is already granted: a subscription cannot exist without it, and asking the
   // service worker anything on a browser that has never been asked is pointless work on first paint.
   useEffect(() => {
+    // Skipped entirely in the native shell: there is no service worker to ask, and the honest answer
+    // for a handset is "we do not know". So the shell always offers the button and pressing it
+    // re-registers — which is an upsert server-side and therefore free. Deliberately *not* inferred
+    // from the OS notification permission being granted: that would say "Notifications are on" while
+    // the server held no row, which is a defect already on 7.2's list for the browser and is not
+    // worth reproducing here.
+    if (shellIsNative) return undefined
     if (permission !== 'granted') return undefined
 
     let cancelled = false
@@ -82,7 +105,7 @@ export function usePushSubscription({
     return () => {
       cancelled = true
     }
-  }, [permission, readSubscription])
+  }, [permission, readSubscription, shellIsNative])
 
   function enable() {
     if (enabled || unsupported || inFlight.current) return
@@ -93,10 +116,18 @@ export function usePushSubscription({
 
     void (async () => {
       try {
-        // The key is fetched first and deliberately not cached across attempts: rotating the VAPID
-        // pair must not leave browsers subscribing against the old one, and this runs once per press.
-        const subscription = await subscribe(await getVapidPublicKey())
-        await postSubscription(subscription)
+        if (shellIsNative) {
+          // The native path touches no service worker and no VAPID key: FCM identifies the app by
+          // the `google-services.json` compiled into it, and the server signs with a service
+          // account. Nothing about web push is fetched, which is why a native failure can never
+          // present as a service-worker error.
+          await registerDeviceToken(await acquireToken(), 'android')
+        } else {
+          // The key is fetched first and deliberately not cached across attempts: rotating the VAPID
+          // pair must not leave browsers subscribing against the old one, and this runs once per press.
+          const subscription = await subscribe(await getVapidPublicKey())
+          await postSubscription(subscription)
+        }
         setEnabled(true)
       } catch (error) {
         setFailed(describe(error))

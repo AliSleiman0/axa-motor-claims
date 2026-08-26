@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">AXA Motor Claims</string>
     <string name="title_activity_main">AXA Motor Claims</string>
-    <string name="package_name">PLACEHOLDER.axa.motorclaims</string>
-    <string name="custom_url_scheme">PLACEHOLDER.axa.motorclaims</string>
+    <string name="package_name">com.axa.motorclaims</string>
+    <string name="custom_url_scheme">com.axa.motorclaims</string>
 </resources>

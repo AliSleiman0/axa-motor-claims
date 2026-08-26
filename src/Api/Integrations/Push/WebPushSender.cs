@@ -63,20 +63,27 @@ public sealed partial class WebPushSender(
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+        // `AsNoTracking` since slice 6.3: housekeeping is written with `ExecuteUpdateAsync` rather
+        // than through the change tracker. See `Stamp` for why that matters.
         var subscriptions = await db.Set<PushSubscription>()
+            .AsNoTracking()
             .Where(s => s.UserId == recipientUserId && s.RevokedAt == null)
             .ToListAsync(ct);
 
         if (subscriptions.Count == 0)
         {
             // Not a technical failure, and still the thing the handler needs to hear about: this user
-            // has no device that could have received it. One row, so the answer to "why did this
-            // expert never get the popup" is in the same table as every other send.
-            await notifications.Failed(
-                NotificationChannels.Push, recipientUserId, recipientUserId.ToString(), templateName,
-                payload, "The user has no active push subscription.", ct);
-
-            throw new PushNotDeliveredException(
+            // has no browser that could have received it.
+            //
+            // **The `notification` row for this case moved up to CompositePushSender in slice 6.3,
+            // and the reason is that this channel can no longer see whether it is the only one.** An
+            // officer or a desk-based expert has a browser and no handset; once FCM is a second
+            // channel, a sender that logged `failed` here would write one `sent` row and one `failed`
+            // row for the same notification, and §8's table — the record of whether a person was
+            // told, and the basis of every "why did this expert never get the popup" answer — would
+            // report a failure that did not happen, for the whole non-Android fleet. Only the
+            // composite knows that *every* channel came up empty. Raised by the db-review.
+            throw new PushChannelHasNoDevicesException(
                 $"User {recipientUserId} has no active push subscription.");
         }
 
@@ -102,7 +109,7 @@ public sealed partial class WebPushSender(
                 await client.RequestPushMessageDeliveryAsync(Describe(subscription), new LibPushMessage(payload), ct);
 
                 accepted++;
-                subscription.LastUsedAt = time.GetUtcNow().UtcDateTime;
+                await Stamp(db, subscription.Id, used: time.GetUtcNow().UtcDateTime, revoked: null, ct);
                 await notifications.Sent(
                     NotificationChannels.Push, recipientUserId, address, templateName, payload, ct);
             }
@@ -113,7 +120,7 @@ public sealed partial class WebPushSender(
                     // 404/410 is the push service saying this browser is gone for good — the user
                     // cleared site data, uninstalled, or the subscription expired. Retrying it for
                     // ever would be a slow leak of failed rows against a device that no longer exists.
-                    subscription.RevokedAt = time.GetUtcNow().UtcDateTime;
+                    await Stamp(db, subscription.Id, used: null, revoked: time.GetUtcNow().UtcDateTime, ct);
                     revoked++;
                     LogRevoked(logger, subscription.Id, (int)ex.StatusCode);
                 }
@@ -143,11 +150,6 @@ public sealed partial class WebPushSender(
                 await Record(address, $"{ex.GetType().Name}: {ex.Message}");
             }
 
-            // **One SaveChanges per subscription, not one per batch** — §6.3's lesson, relocated. A
-            // transient failure persisting one device's housekeeping must not discard another
-            // device's revocation, and must never convert a push that was delivered into one that
-            // was not. Housekeeping is exactly that: it is logged and dropped, never rethrown.
-            await Persist(db, ct);
         }
 
         LogDelivered(logger, recipientUserId, accepted, subscriptions.Count);
@@ -165,20 +167,49 @@ public sealed partial class WebPushSender(
             NotificationChannels.Push, recipientUserId, address, templateName, payload, error, ct);
     }
 
-    private async Task Persist(AppDbContext db, CancellationToken ct)
+    /// <summary>
+    /// Writes one subscription's housekeeping, scoped to that row and immediately.
+    ///
+    /// **Changed in slice 6.3, and it was a real bug rather than a tidy-up.** This used to mutate the
+    /// entity and `SaveChanges` per subscription, with `ChangeTracker.Clear()` in the catch — and
+    /// clearing the tracker detaches every subscription *still to be processed* in the loop, so their
+    /// later writes silently did nothing and threw nothing. The comment claimed the cost was one
+    /// row's housekeeping; it was actually all the subsequent rows', so one transient fault on the
+    /// first browser meant the rest were never revoked, each costing a wasted request and a `failed`
+    /// row on every future assignment, with no error anywhere. Found by the db-review of slice 6.3's
+    /// `device_token` migration, which carried the same shape — a lesson learned in one adapter is
+    /// not learned until it is checked in the others.
+    ///
+    /// Row-scoped statements have no shared state to lose, so the coupling is gone rather than
+    /// handled. Failures are still logged and dropped, never rethrown: the push already happened and
+    /// its `notification` row is already committed by NotificationLog's own transaction, so losing
+    /// `last_used_at` is cosmetic and losing a revocation costs one `failed` row per assignment until
+    /// the next send retries it. Either is far cheaper than turning a delivered notification into an
+    /// undelivered one.
+    /// </summary>
+    private async Task Stamp(
+        AppDbContext db, Guid subscriptionId, DateTime? used, DateTime? revoked, CancellationToken ct)
     {
         try
         {
-            await db.SaveChangesAsync(ct);
+            var rows = db.Set<PushSubscription>().Where(s => s.Id == subscriptionId);
+
+            if (used is not null)
+            {
+                await rows.ExecuteUpdateAsync(s => s.SetProperty(x => x.LastUsedAt, used), ct);
+            }
+
+            if (revoked is not null)
+            {
+                await rows.ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, revoked), ct);
+            }
         }
-        catch (DbUpdateException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The push itself already happened, and its `notification` row is already committed by
-            // NotificationLog's own transaction. Losing `last_used_at` is cosmetic; losing a
-            // revocation costs one `failed` row per assignment until the next send retries it. Either
-            // is far cheaper than turning a delivered notification into an undelivered one.
+            // Deliberately not a named list: the provider surfaces a connection fault as its own
+            // exception type rather than a DbUpdateException, and a filter that missed it would undo
+            // the whole point of this method.
             LogHousekeepingFailed(logger, ex);
-            db.ChangeTracker.Clear();
         }
     }
 
@@ -208,7 +239,7 @@ public sealed partial class WebPushSender(
 /// <c>AssignmentHandler</c> turns it into "notified_at stays null", and A2-style support questions
 /// start from the `notification` rows this sender wrote just before throwing it.
 /// </summary>
-public sealed class PushNotDeliveredException : Exception
+public class PushNotDeliveredException : Exception
 {
     public PushNotDeliveredException()
         : base("The push was not delivered to any subscription.")
@@ -221,6 +252,37 @@ public sealed class PushNotDeliveredException : Exception
     }
 
     public PushNotDeliveredException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+/// <summary>
+/// One channel had no device to try at all — no browser subscription, or no Android registration
+/// (slice 6.3).
+///
+/// **It derives from <see cref="PushNotDeliveredException"/> so every existing catch still works**,
+/// and it exists so that <c>CompositePushSender</c> can tell "this user owns no phone" apart from
+/// "the push service refused". The distinction is not academic: the first is normal for most of the
+/// fleet and must not produce a `failed` row when another channel delivered, while the second is a
+/// real failure whose row the channel writes for itself before throwing.
+///
+/// A channel therefore writes **no** `notification` row for this case. The composite writes exactly
+/// one, and only when every channel raised it.
+/// </summary>
+public sealed class PushChannelHasNoDevicesException : PushNotDeliveredException
+{
+    public PushChannelHasNoDevicesException()
+        : base("The user has no device registered on this channel.")
+    {
+    }
+
+    public PushChannelHasNoDevicesException(string message)
+        : base(message)
+    {
+    }
+
+    public PushChannelHasNoDevicesException(string message, Exception innerException)
         : base(message, innerException)
     {
     }

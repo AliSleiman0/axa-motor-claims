@@ -155,18 +155,26 @@ public sealed class WebPushSenderTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task AUserWithNoSubscriptionsLogsFailedAndThrows()
+    public async Task AUserWithNoSubscriptionsThrowsTheNoDevicesSignalAndLogsNothingHere()
     {
         var user = await fixture.CreateUser(UserRole.Expert, UserStatus.Active);
 
-        await Assert.ThrowsAsync<PushNotDeliveredException>(() =>
+        // **Changed deliberately in slice 6.3: this asserted a `failed` row, and the row moved to
+        // CompositePushSender.** It has not been relaxed — the row is still written for exactly this
+        // case, and `CompositePushSenderTests.NoDeviceOnAnyChannelIsOneHonestFailedRow` pins it.
+        // What changed is who can honestly write it. Once FCM is a second channel, an officer or a
+        // desk-based expert has a browser and no handset, so a `failed` row from whichever channel
+        // came up empty would say a notification failed that in fact arrived — in the table §8 uses
+        // to answer "was this person told". Only the composite can see that *every* channel was
+        // empty. Raised by the db-review of slice 6.3's migration.
+        var nobodyHere = await Assert.ThrowsAsync<PushChannelHasNoDevicesException>(() =>
             Sender(new StubHttpMessageHandler()).Send(user.Id, Message(), Template, CancellationToken.None));
 
-        // Not a technical failure, and still exactly "nobody was told" — which is what
-        // AssignmentHandler needs to hear in order to leave notified_at null (slice 2.1's path).
-        var row = Assert.Single(await fixture.PushRows(user.Id));
-        Assert.Equal(NotificationStatuses.Failed, row.Status);
-        Assert.Contains("no active push subscription", row.Error!, StringComparison.Ordinal);
+        // Still a PushNotDeliveredException, so every existing catch — including
+        // AssignmentHandler's, which leaves notified_at null — behaves exactly as before.
+        Assert.IsAssignableFrom<PushNotDeliveredException>(nobodyHere);
+        Assert.Contains("no active push subscription", nobodyHere.Message, StringComparison.Ordinal);
+        Assert.Empty(await fixture.PushRows(user.Id));
     }
 
     [Fact]
@@ -180,7 +188,7 @@ public sealed class WebPushSenderTests(ApiFixture fixture)
 
         // No response is scripted: the stub throws if anything reaches it, so this asserts that the
         // filtered query really excluded the revoked row rather than merely tolerating it.
-        await Assert.ThrowsAsync<PushNotDeliveredException>(() =>
+        await Assert.ThrowsAnyAsync<PushNotDeliveredException>(() =>
             Sender(handler).Send(user.Id, Message(), Template, CancellationToken.None));
 
         Assert.Empty(handler.Requests);

@@ -54,6 +54,15 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <!--
+      Slice 6.3. Required from API 33 (this build targets 36), and without it the runtime prompt
+      never appears, `PushNotifications.requestPermissions()` resolves 'denied' and FCM silently
+      delivers nothing - the BRD's primary trigger, absent, with no error anywhere. Declared here
+      rather than discovered on a handset, for the same reason the 6.3a block above says: a missing
+      manifest line looks exactly like a platform limitation.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- The camera is not required hardware: a tablet without one must still install and run. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

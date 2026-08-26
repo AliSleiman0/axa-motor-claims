@@ -22,6 +22,60 @@ namespace Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Api.Integrations.Push.DeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("platform");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)")
+                        .HasColumnName("token");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasFilter("[revoked_at] IS NULL");
+
+                    b.HasIndex("UserId", "TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("device_token", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_device_token_platform", "[platform] IN ('android')");
+                        });
+                });
+
             modelBuilder.Entity("Api.Integrations.Push.PushSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1032,6 +1086,15 @@ namespace Api.Migrations
 
                             t.HasCheckConstraint("CK_next3_outbox_status", "[status] IN ('pending', 'processing', 'sent', 'failed')");
                         });
+                });
+
+            modelBuilder.Entity("Api.Integrations.Push.DeviceToken", b =>
+                {
+                    b.HasOne("Api.Modules.Users.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Api.Integrations.Push.PushSubscription", b =>
