@@ -1,5 +1,6 @@
+import { detectNativeShell } from '../media/nativeShell'
 import { Button } from '../ui/Button'
-import { EXPERT_PUSH_COPY, type PushCopy } from './copy'
+import { EXPERT_PUSH_COPY, NATIVE_BATTERY_GUIDANCE, type PushCopy } from './copy'
 import { usePushSubscription, type UsePushSubscriptionOptions } from './usePushSubscription'
 
 export interface PushPanelProps extends UsePushSubscriptionOptions {
@@ -16,6 +17,10 @@ export interface PushPanelProps extends UsePushSubscriptionOptions {
  */
 export function PushPanel({ copy = EXPERT_PUSH_COPY, ...options }: PushPanelProps = {}) {
   const { enable, pending, enabled, unsupported, failed } = usePushSubscription(options)
+
+  // Read from the same seam the hook uses, so the panel and the enable path can never disagree
+  // about which platform they are on.
+  const native = options.shellIsNative ?? detectNativeShell() !== null
 
   if (unsupported) {
     // No button at all rather than one that cannot work: offering an action that is guaranteed to
@@ -35,6 +40,9 @@ export function PushPanel({ copy = EXPERT_PUSH_COPY, ...options }: PushPanelProp
         <p className="push-panel__copy" role="status">
           {copy.enabled}
         </p>
+        {/* Only once notifications are actually on: told before that, it is advice about a thing
+            that is not happening yet, on a screen already asking for one decision. */}
+        {native ? <p className="push-panel__copy muted">{NATIVE_BATTERY_GUIDANCE}</p> : null}
       </section>
     )
   }

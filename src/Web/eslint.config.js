@@ -13,9 +13,10 @@ export default tseslint.config([
    * file three times and failed the build on a rule its own inline disable comments name.
    *
    * This is not a guard quietly narrowing: authored web code cannot appear under `android/` by
-   * construction, because `capacitor.config.json` sets `webDir: "dist"` and the native project only
+   * construction, because `capacitor.config.ts` sets `webDir: 'dist'` and the native project only
    * ever receives what the Vite build emits. `src/` — where `reusability.test.ts` and every other
-   * guard operate — is untouched.
+   * guard operate — is untouched. (It was `capacitor.config.json` until slice 6.3 moved the dev-only
+   * `server.url` behind an env var; the argument is unchanged.)
    */
   globalIgnores(['dist', 'android']),
   {

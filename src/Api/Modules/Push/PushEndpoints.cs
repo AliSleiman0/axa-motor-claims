@@ -15,6 +15,12 @@ public sealed record SubscribeRequest(string? Endpoint, string? P256dh, string? 
 /// <summary>What the browser sends to stop being notified on this device.</summary>
 public sealed record UnsubscribeRequest(string? Endpoint);
 
+/// <summary>What the Capacitor shell hands us after FCM's `registration` event (slice 6.3).</summary>
+public sealed record RegisterDeviceTokenRequest(string? Token, string? Platform);
+
+/// <summary>What the shell sends to stop being notified on this handset.</summary>
+public sealed record UnregisterDeviceTokenRequest(string? Token);
+
 /// <summary>The public half of the VAPID pair, which the browser needs in order to subscribe at all.</summary>
 public sealed record VapidPublicKeyDto(string PublicKey);
 
@@ -204,7 +210,201 @@ public static class PushEndpoints
             return Results.NoContent();
         });
 
+        MapDeviceTokens(group);
+
         return app;
+    }
+
+    /// <summary>
+    /// The native half of §8's device registry (slice 6.3): FCM registration tokens from the Android
+    /// Capacitor shell, which has no <c>PushManager</c> and therefore cannot use the two routes above
+    /// at all (research-capacitor.md §3, observed on the handset).
+    ///
+    /// Siblings in the same group rather than a module of their own, and under the same
+    /// <c>ActiveUser</c> policy: this is the same question — "which devices should this user's popups
+    /// go to" — answered for a different device kind. Every row is scoped to the caller, so the wider
+    /// policy grants no wider access, exactly as the subscription routes reasoned.
+    /// </summary>
+    private static void MapDeviceTokens(RouteGroupBuilder group)
+    {
+        group.MapPost("/device-tokens", async (
+            RegisterDeviceTokenRequest? request, ClaimsPrincipal principal, AppDbContext db,
+            IOptions<PushOptions> options, TimeProvider time, CancellationToken ct) =>
+        {
+            var userId = principal.GetUserId();
+            if (userId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request?.Token))
+            {
+                return Results.BadRequest(new { error = "token_required" });
+            }
+
+            // Checked rather than truncated, for the endpoint route's reason one rule up: a token we
+            // shortened is a token FCM does not recognise, and the failure would appear later as
+            // "this expert stopped getting popups" rather than here as a 400.
+            if (request.Token.Length > DeviceTokenLimits.TokenLength)
+            {
+                return Results.BadRequest(new { error = "token_too_long" });
+            }
+
+            // Validated against the same list the check constraint mirrors, so a platform the
+            // database would refuse is a 400 here rather than a 500 at SaveChanges. Only `android`
+            // today: iOS ships as the installed PWA and arrives through push_subscription (§11's
+            // platform split).
+            //
+            // **Accept loosely, store canonically** (3.1's rule): matched case-insensitively, and
+            // what is persisted is the constant, not what the caller sent. SQL Server's default
+            // collation makes `[platform] IN ('android')` accept `'Android'` too, so an Ordinal
+            // check here and a case-insensitive constraint there disagreed about what is storable —
+            // and a seed or repair script could have written a value the database allows and no code
+            // recognises. Raised by the db-review.
+            var platform = DevicePlatforms.All.FirstOrDefault(known =>
+                string.Equals(known, request.Platform, StringComparison.OrdinalIgnoreCase));
+
+            if (platform is null)
+            {
+                return Results.BadRequest(new { error = "platform_not_supported" });
+            }
+
+            var now = time.GetUtcNow().UtcDateTime;
+            var hash = TokenHashing.Hash(request.Token);
+
+            // **Registering claims the handset, and anybody else holding it loses it.**
+            //
+            // This is the one place the push_subscription precedent deliberately does NOT carry, and
+            // the db-review caught the copy. An FCM registration token identifies the *app install*,
+            // not the person: a browser profile is plausibly one person's, but a field handset is
+            // handed over, pooled and re-issued, and signing out does not delete anything. Without
+            // this, expert A signs out, garage user B signs in on the same phone, both rows are live
+            // on the same token, and every claim assigned to A pops up on B's screen — with the visa
+            // number in the body and a deep link into A's assignment. It never self-heals either:
+            // FCM only reports UNREGISTERED for a token that is *dead*, and this one is alive.
+            //
+            // Revoked rather than deleted, so `notification` rows naming the displaced row still
+            // resolve and "this expert stopped getting popups on the 14th" stays answerable. Run on
+            // every registration, so the handset always belongs to whoever signed in last — and A
+            // getting it back is just A registering again.
+            await db.Set<DeviceToken>()
+                .Where(t => t.TokenHash == hash && t.UserId != userId.Value && t.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+
+            var existing = await db.Set<DeviceToken>()
+                .SingleOrDefaultAsync(t => t.UserId == userId.Value && t.TokenHash == hash, ct);
+
+            if (existing is not null)
+            {
+                Refresh(existing, request, platform);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = existing.Id });
+            }
+
+            // Counted after the upsert branch, so re-registering a handset the user already has is
+            // never refused by the cap — which matters more here than for browsers, because the
+            // shell re-registers on launch and FCM rotates tokens on its own schedule.
+            var live = await db.Set<DeviceToken>()
+                .CountAsync(t => t.UserId == userId.Value && t.RevokedAt == null, ct);
+
+            if (live >= options.Value.MaxDeviceTokensPerUser)
+            {
+                return Results.BadRequest(new { error = "too_many_device_tokens" });
+            }
+
+            var device = new DeviceToken
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = userId.Value,
+                Token = request.Token,
+                TokenHash = hash,
+                Platform = platform,
+                CreatedAt = now,
+            };
+
+            db.Set<DeviceToken>().Add(device);
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = device.Id });
+            }
+            catch (DbUpdateException)
+            {
+                // The read above lost a race. The unique index on (user_id, token_hash) is what
+                // actually enforces "one row per handset per user"; this catch is how that
+                // enforcement is reported as success rather than as a 500, because registering twice
+                // is not an error the user can act on. 1.5's lesson, sixth slice running.
+                //
+                // The same caveat the subscriptions route carries applies here: AuditWriter joins the
+                // caller's transaction, so anything staged before this save would be discarded here
+                // while the endpoint still answered 200. Additions belong after the re-read.
+                db.ChangeTracker.Clear();
+
+                var winner = await db.Set<DeviceToken>()
+                    .SingleOrDefaultAsync(t => t.UserId == userId.Value && t.TokenHash == hash, ct);
+
+                if (winner is null)
+                {
+                    // Not the race after all — an FK violation for a deleted user, say. Rethrow the
+                    // original with its stack rather than substituting a confusing one.
+                    throw;
+                }
+
+                Refresh(winner, request, platform);
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { id = winner.Id });
+            }
+        });
+
+        // `[FromBody]` for the reason spelled out on the DELETE above: minimal APIs refuse to *infer*
+        // a body parameter on DELETE, and without it the whole application fails at startup rather
+        // than this one route failing at request time.
+        group.MapDelete("/device-tokens", async (
+            [FromBody] UnregisterDeviceTokenRequest? request, ClaimsPrincipal principal,
+            AppDbContext db, CancellationToken ct) =>
+        {
+            var userId = principal.GetUserId();
+            if (userId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request?.Token))
+            {
+                return Results.BadRequest(new { error = "token_required" });
+            }
+
+            var hash = TokenHashing.Hash(request.Token);
+
+            // Scoped to the caller, so knowing someone else's token buys nothing. Deleting rather
+            // than revoking: the user asked to stop, which is different from FCM telling us the
+            // install is gone, and re-enabling later should look like a fresh registration.
+            await db.Set<DeviceToken>()
+                .Where(t => t.UserId == userId.Value && t.TokenHash == hash)
+                .ExecuteDeleteAsync(ct);
+
+            // Always 204, for the subscription route's reason: whether a row was there is not the
+            // caller's business, and saying would make this endpoint answer "does this token belong
+            // to someone" for any token.
+            return Results.NoContent();
+        });
+    }
+
+    /// <summary>
+    /// Re-registering refreshes the platform and un-revokes.
+    ///
+    /// `CreatedAt` is deliberately left alone, for <see cref="Refresh(PushSubscription,
+    /// SubscribeRequest)"/>'s reason: the shell registers on every launch, so rewriting it would turn
+    /// "when this handset first registered" into "the last time the app was opened" and make every
+    /// row look permanently new to any future retention sweep. `LastUsedAt` is the moving value and
+    /// the sender owns it.
+    /// </summary>
+    private static void Refresh(DeviceToken device, RegisterDeviceTokenRequest request, string platform)
+    {
+        device.Token = request.Token!;
+        device.Platform = platform;
+        device.RevokedAt = null;
     }
 
     /// <summary>

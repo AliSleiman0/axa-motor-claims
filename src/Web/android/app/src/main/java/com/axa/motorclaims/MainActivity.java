@@ -1,4 +1,4 @@
-package PLACEHOLDER.axa.motorclaims;
+package com.axa.motorclaims;
 
 import com.getcapacitor.BridgeActivity;
 

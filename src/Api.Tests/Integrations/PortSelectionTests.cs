@@ -40,14 +40,40 @@ public sealed class PortSelectionTests
     }
 
     [Fact]
-    public void PushMode_WebPush_ResolvesTheRealSender()
+    public void PushMode_WebPush_ResolvesTheCompositeOverWebPushAlone()
     {
         // Resolvable without any Push:Vapid:* settings, exactly as Next3Mode_Real_ResolvesRealClient
         // is: validation lives in ValidateOnStart rather than in a constructor, so this test proves
         // the DI switch and nothing else (slice 3.4).
+        //
+        // **Moved deliberately in slice 6.3**: it asserted `IsType<WebPushSender>`, and the live mode
+        // now composes every channel the deployment has. The assertion is not relaxed — it is
+        // sharpened, because "the real sender" was never the interesting property. What matters is
+        // that with FCM off the composite carries web push *and nothing else*, so this slice is a
+        // no-op for every environment until somebody turns FCM on.
         var sender = Resolve<IPushSender>(("Push:Mode", "webpush"));
 
-        Assert.IsType<WebPushSender>(sender);
+        var composite = Assert.IsType<CompositePushSender>(sender);
+        Assert.IsType<WebPushSender>(Assert.Single(composite.Channels));
+    }
+
+    [Fact]
+    public void PushMode_WebPushWithFcm_AddsTheNativeChannelBesideWebPush()
+    {
+        // The Android half of §8, and the only place `Push:Fcm:Enabled` is read. Both shapes resolve
+        // an IPushSender and both behave identically until a handset registers, so a typo in that
+        // key would otherwise ship a deployment whose Android push silently does not exist — the
+        // exact class of single-platform silent outage slice 6.3a found on iOS.
+        //
+        // Order matters and is asserted: web push first, FCM second. Both are always attempted, but
+        // a browser is the cheaper call and the one every role has.
+        var sender = Resolve<IPushSender>(("Push:Mode", "webpush"), ("Push:Fcm:Enabled", "true"));
+
+        var composite = Assert.IsType<CompositePushSender>(sender);
+        Assert.Collection(
+            composite.Channels,
+            channel => Assert.IsType<WebPushSender>(channel),
+            channel => Assert.IsType<FcmPushSender>(channel));
     }
 
     [Fact]

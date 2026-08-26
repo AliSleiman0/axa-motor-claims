@@ -53,16 +53,28 @@ captures/
 .idea/navEditor.xml
 
 # Keystore files
-# Uncomment the following lines if you do not want to check your keystore files in.
-#*.jks
-#*.keystore
+# Uncommented in slice 6.3. The stock Capacitor template leaves these commented out, so until now
+# nothing in this repository stopped a release keystore being committed. A keystore plus its password
+# is the *only* thing that can publish an update to an installed app: leaked, somebody else can ship
+# an AXA-signed build; lost, nobody can ever update this one, because Android identifies an app by
+# its signing key and there is no recovery.
+*.jks
+*.keystore
+
+# The passwords and the key alias that go with the keystore above. Never committed; the release
+# script refuses to run without it and prints how to create it.
+keystore.properties
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
 .cxx/
 
 # Google Services (e.g. APIs or Firebase)
-# google-services.json
+# Uncommented in slice 6.3. The real file identifies the Firebase project this app sends through and
+# is environment-specific - the developer-owned project today, AXA's at handover - so it is dropped
+# in rather than committed. `google-services.json.placeholder` beside it IS committed, as the
+# template and as the thing that keeps a clean clone building.
+google-services.json
 
 # Freeline
 freeline.py

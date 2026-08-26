@@ -91,6 +91,68 @@ internal static class PushFlows
         return subscription;
     }
 
+    /// <summary>
+    /// A unique FCM registration token. Unique for <see cref="NextEndpoint"/>'s reason: the suite
+    /// shares one database for the run and the unique index is on (user_id, token_hash).
+    /// </summary>
+    public static string NextDeviceToken() =>
+        $"PLACEHOLDER-fcm-token-{Interlocked.Increment(ref _counter):D5}"
+        + ":APA91bPLACEHOLDERPLACEHOLDERPLACEHOLDERPLACEHOLDER";
+
+    public static object DeviceTokenBody(string? token = null, string? platform = null) => new
+    {
+        token = token ?? NextDeviceToken(),
+        platform = platform ?? DevicePlatforms.Android,
+    };
+
+    public static async Task<List<DeviceToken>> DeviceTokensOf(this ApiFixture fixture, Guid userId)
+    {
+        await using var db = fixture.CreateDbContext();
+        return await db.Set<DeviceToken>()
+            .Where(t => t.UserId == userId)
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>Marks a handset dead the way FCM's UNREGISTERED would, so the upsert can un-do it.</summary>
+    public static async Task RevokeDevice(this ApiFixture fixture, Guid deviceTokenId)
+    {
+        await using var db = fixture.CreateDbContext();
+        await db.Set<DeviceToken>()
+            .Where(t => t.Id == deviceTokenId)
+            .ExecuteUpdateAsync(s => s.SetProperty(
+                x => x.RevokedAt, new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc)));
+    }
+
+    /// <summary>
+    /// Registers a handset directly, for tests about sending rather than about registering.
+    ///
+    /// No key material here, unlike <see cref="AddSubscription"/>: an FCM token is opaque and the
+    /// sender does no crypto with it, so a placeholder-shaped string exercises the real path.
+    /// </summary>
+    public static async Task<DeviceToken> AddDeviceToken(
+        this ApiFixture fixture, Guid userId, string? token = null)
+    {
+        // Resolved once, for AddSubscription's reason: hashing a second call's value would store a
+        // row the lookup key can never find.
+        var resolved = token ?? NextDeviceToken();
+
+        var device = new DeviceToken
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            Token = resolved,
+            TokenHash = Api.Infrastructure.TokenHashing.Hash(resolved),
+            Platform = DevicePlatforms.Android,
+            CreatedAt = fixture.Time.GetUtcNow().UtcDateTime,
+        };
+
+        await using var db = fixture.CreateDbContext();
+        db.Set<DeviceToken>().Add(device);
+        await db.SaveChangesAsync();
+        return device;
+    }
+
     /// <summary>The `notification` rows this user's pushes produced, oldest first.</summary>
     public static async Task<List<Api.Modules.Notifications.Notification>> PushRows(
         this ApiFixture fixture, Guid userId)
@@ -130,6 +192,49 @@ internal static class VapidTestKeys
     public static string PublicKey { get; }
 
     public static string PrivateKey { get; }
+}
+
+/// <summary>
+/// A service-account key file for the FCM tests, written fresh into the test output directory each
+/// run (slice 6.3).
+///
+/// **Real RSA, and generated rather than committed, for <see cref="VapidTestKeys"/>'s two reasons.**
+/// Real because <c>FcmAccessTokens</c> imports the PEM and signs an RS256 assertion with it, so a
+/// placeholder string would throw inside `ImportFromPem` before anything reached the transport — the
+/// test would then be pinning the wrong failure. Generated because a service-account key is a
+/// credential, and a fixture is exactly where one quietly becomes permanent.
+///
+/// In the output directory rather than the system temp folder so it is gitignored (`bin/`) and goes
+/// away with a clean, instead of accumulating one file per run somewhere nobody looks.
+/// </summary>
+internal static class FcmTestServiceAccount
+{
+    /// <summary>Google's real token endpoint. Not client data — the same treatment as the FCM host.</summary>
+    public const string TokenUri = "https://oauth2.googleapis.com/token";
+
+    static FcmTestServiceAccount()
+    {
+        using var rsa = RSA.Create(2048);
+
+        // The shape of the file the Firebase console hands out, with only the three fields the
+        // adapter reads. `private_key` carries real newlines once JSON-decoded, which is what
+        // `ImportFromPem` requires — writing it any other way would pass here and fail on the real
+        // file.
+        var json = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["type"] = "service_account",
+            ["project_id"] = "PLACEHOLDER-firebase-project-id",
+            ["client_email"] = "PLACEHOLDER-fcm@PLACEHOLDER-project.iam.gserviceaccount.invalid",
+            ["private_key"] = rsa.ExportPkcs8PrivateKeyPem(),
+            ["token_uri"] = TokenUri,
+        });
+
+        Path = System.IO.Path.Combine(AppContext.BaseDirectory, "fcm-service-account.test.json");
+        File.WriteAllText(Path, json);
+    }
+
+    /// <summary>Where the generated key file sits, for `Push:Fcm:ServiceAccountJsonPath`.</summary>
+    public static string Path { get; }
 }
 
 /// <summary>

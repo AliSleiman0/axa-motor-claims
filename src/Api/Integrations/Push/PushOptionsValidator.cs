@@ -45,6 +45,19 @@ public sealed class PushOptionsValidator : IValidateOptions<PushOptions>
                 + $"'{PushModes.WebPush}' (currently '{options.Vapid.Subject}'). Push services use it "
                 + "to reach whoever is sending, and some reject a request without it (RFC 8292).");
         }
+        else if (HostOf(options.Vapid.Subject) is not { } host || IsUnroutable(host))
+        {
+            failures.Add(
+                $"Push:Vapid:Subject must be **routable** (currently '{options.Vapid.Subject}'). "
+                + "Apple validates the VAPID JWT's `sub` claim and answers 403 BadJwtToken to a "
+                + "reserved or unresolvable contact — so every iPhone silently receives nothing "
+                + "while Android and desktop keep working, and the only trace is a `failed` row in "
+                + "the `notification` log that nobody reads until an expert says they never got a "
+                + "claim. Observed on a real handset in slice 6.3a with "
+                + "'mailto:...@example.invalid'. Use a real AXA mailbox or the deployed origin — "
+                + "this is the one Appendix A value that cannot stay obviously fake (§10's "
+                + "deployment checklist).");
+        }
 
         if (!IsSet(options.Vapid.PublicKey) || options.Vapid.PublicKey.Length != PublicKeyLength)
         {
@@ -74,6 +87,60 @@ public sealed class PushOptionsValidator : IValidateOptions<PushOptions>
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
     }
+
+    /// <summary>
+    /// The host a push service would have to reach, or null if the subject does not carry one.
+    ///
+    /// Two shapes, because RFC 8292 allows two: `mailto:` is not a URI with a host — <c>Uri.Host</c>
+    /// on one is empty — so the address is split on its **last** <c>@</c>, which is the one that
+    /// separates local part from domain (a quoted local part may legally contain others).
+    /// </summary>
+    private static string? HostOf(string subject)
+    {
+        if (subject.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+        {
+            var address = subject["mailto:".Length..];
+            var at = address.LastIndexOf('@');
+            return at > 0 && at < address.Length - 1 ? address[(at + 1)..] : null;
+        }
+
+        return Uri.TryCreate(subject, UriKind.Absolute, out var uri) && uri.Host.Length > 0
+            ? uri.Host
+            : null;
+    }
+
+    /// <summary>
+    /// Whether the host is one the DNS deliberately cannot resolve — the RFC 2606 / RFC 6761
+    /// reserved set, which is exactly where a placeholder reaches for.
+    ///
+    /// Suffix-matched as well as compared, because `a.example.com` and `mail.corp.invalid` are as
+    /// unreachable as their parents, and a validator that only rejected the bare names would be one
+    /// subdomain away from the outage it exists to prevent.
+    /// </summary>
+    private static bool IsUnroutable(string host)
+    {
+        foreach (var reserved in ReservedHosts)
+        {
+            if (host.Equals(reserved, StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith($".{reserved}", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// RFC 2606 §2's reserved TLDs plus RFC 6761's `localhost`, and §3's three second-level names.
+    /// Not client data and not a threshold — a fixed list from a standard, so it lives here rather
+    /// than in Appendix A, the same treatment as <c>Push:AllowedEndpointHosts</c>' real values.
+    /// </summary>
+    private static readonly string[] ReservedHosts =
+    [
+        "localhost", "invalid", "example", "test",
+        "example.com", "example.net", "example.org",
+    ];
 
     private static bool IsSet(string? value) =>
         !string.IsNullOrWhiteSpace(value)

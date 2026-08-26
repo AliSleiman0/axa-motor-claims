@@ -1,9 +1,10 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { createQueryClient } from './api/queryClient'
 import { currentRole, homePathFor } from './api/session'
 import { getTokens } from './api/tokens'
 import { useOutboxFailedCount } from './admin/outbox'
+import { useNativeNotificationTaps } from './push/useNativeNotificationTaps'
 import { GARAGE_PUSH_COPY } from './push/copy'
 import { PushPanel } from './push/PushPanel'
 import { AppShell } from './ui/AppShell'
@@ -108,10 +109,29 @@ function BrokerLayout() {
   )
 }
 
+/**
+ * Keeps native notification taps wired, inside the router (slice 6.3).
+ *
+ * **This lives here rather than in `main.tsx`, and the reason is that `main.tsx` is outside
+ * `<BrowserRouter>`.** There is no `createBrowserRouter` in this app and nothing exports a navigate
+ * handle, so wiring it there would leave only `window.location.assign`, which reloads the whole SPA
+ * on every notification tap — precisely the feel a native app is being built to avoid.
+ *
+ * The work is in `useNativeNotificationTaps` rather than inline because the inline version shipped a
+ * StrictMode bug that left the app with no listener at all; see that hook for what happened and why
+ * a hook is what made it testable.
+ */
+function NativeNotificationTaps() {
+  useNativeNotificationTaps(useNavigate())
+
+  return null
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <NativeNotificationTaps />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           {/*

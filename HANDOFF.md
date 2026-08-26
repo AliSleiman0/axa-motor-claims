@@ -3,7 +3,150 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-24 (slice 5.3) — start here.** **Week 5 is complete.** 5.1 and 5.2 are on
+**Status as of 2026-08-26 (slice 6.3) — start here.** **Week 6 is complete: 6.1 ☑, 6.2 ☑, 6.3a ☑, 6.3 ☑.**
+6.1 and 6.2 are on `main` (`f624a40`); **slice 6.3 is complete and UNCOMMITTED** on branch
+`slice/6.3-android`, awaiting the developer's test-diff review — 70 changed paths. **707 xUnit (704
+pass, +63, 3 environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`,
+and the two new FCM live tests when no service-account key is configured) and 528 web (+129);
+`npm run build` lint-clean.** One migration (`20260825191745_AddDeviceTokenTable`, applied locally
+and db-reviewed).
+
+**6.3 is Android as a real app.** The native camera closes §7.1's capture-only hole, FCM runs
+**beside** web push under a `CompositePushSender`, the routable-VAPID-subject validator refuses to
+boot on a contact Apple would silently 403, and the release build is signed with every piece of dev
+wiring off the path. iOS is untouched and still ships as the installed PWA.
+
+**The device pass ran on the Samsung SM-S908N (Android 16) and is where the value was.** Tapping
+*Take a photo* on a capture-only bucket now opens `com.sec.android.app.camera/.Camera` with no Photo
+Library route — 6.3a's same tap opened the full gallery, which is the fraud surface the BRD's
+capture-only rule exists to close. FCM arrives **backgrounded and app-killed**, wakes the process,
+and its tap deep-links to the right claim. Location-off shows copy naming the setting instead of
+advising a wait that can never work, and writes no `update_arrival`. The clarity gate was measured on
+real camera photos for the first time (**2208×2944, sharpness 970 and 677**) — the A6 backfill 6.3a
+could not run *because* the gallery hole meant browsing a personal photo library.
+
+**Read notes 5, 6 and 7 of the 6.3 card before touching the web seams.** The pass found a defect in
+this slice's own code that no test could reach: the tap-wiring effect held a "wire only once" ref
+latch, and StrictMode does not double-invoke an effect back to back — it runs it, **unmounts**, and
+runs it again, so the latch turned "never wire twice" into **never wire at all** and every
+notification tap opened the worklist. Worse, **the first test written for the fix passed against the
+bug**: `waitFor` succeeded on the moment the listener was attached before its own cleanup removed it.
+Assertions are on the settled state now. And **two of my own diagnoses were wrong and retracted** —
+one hypothesis tested and disproved, one measured twice against a rig whose `adb reverse` tunnels had
+silently dropped. A device pass has a rig, and the rig fails silently.
+
+**The db-review found three real defects, one of them a privacy bug my own test had encoded
+backwards.** An FCM token identifies the *app install*, not the person, so `push_subscription`'s
+"two people sharing a browser each keep their own row" does not carry to a handed-over field
+handset — both rows live means one expert's claim popups, visa number included, on another user's
+screen, for ever. Registering now takes the handset. It also caught that a second push channel makes
+the old per-channel "nobody was told" `notification` row false for most of the fleet, and that
+`ChangeTracker.Clear()` was silently discarding housekeeping for every *remaining* device — the last
+one **pre-existing in `WebPushSender` since 3.4**, fixed in both.
+
+**Firebase exists and is developer-owned (`axa-motor-claims-dev`), created this session via the
+`firebase` CLI.** `google-services.json` is in place and gitignored; the service-account key lives at
+`C:\dev\secrets\` — outside the repo — and is wired through `dotnet user-secrets`. A dev signing
+keystore was generated with a random password, also gitignored. **Who owns the Firebase project and
+that key in production is open question #49**, and it has weight: swapping projects means a new APK
+on every handset, not a config change.
+
+**The battery-saver risk is confirmed, under control, on the OEM the guidance names.** Battery saver
+on and the app not exempt: FCM answered *"1 of 1 device tokens accepted"* and the handset never
+surfaced the notification. Same code with battery saver off: it arrived and woke the app. **The
+server log says "delivered" in both cases**, so nothing on AXA's side can tell the difference — which
+is why `docs/oem-push-guidance.md`'s per-handset enrolment step is not optional, and why #28 (the
+device mix) matters: post-2020 Huawei handsets have no Play Services and FCM cannot reach them at all.
+
+**Next actions, in order.** (1) Review 6.3's test diff and commit it — the deliberate test changes to
+read first are `OneUsersHandsetIsInvisibleToAnother` (rewritten; it asserted the opposite rule),
+`AUserWithNoSubscriptionsLogsFailedAndThrows` (the row moved to the composite), `PortSelectionTests`'
+webpush assertion (now the composite), and three `example.invalid` VAPID subjects (tightened — that
+value is the one Apple refuses). (2) **The client package is still unsent and still outranks
+building** — scope letter, `status-2026-08-22.md`, `next3-openapi.yaml` and the two email drafts, now
+including #48 and #49. (3) The one open week-6 milestone box: the **iPhone** pass — narrow-device
+layout, the Add-to-Home-Screen rollout note, and a regression check that this slice's shared web
+changes (`CapturePanel`, `usePushSubscription`, `geolocation`, `App.tsx`) left iOS alone. (4) Week 7.
+
+**One pre-existing defect found and deliberately not fixed:** `dotnet format --verify-no-changes`
+fails solution-wide on `src/Api/Modules/Broker/BrokerRequestEmail.cs:36`, a file 6.3 never touched
+(last changed in `6c04676`). The post-edit hook only checks files as they are edited, so nothing ever
+ran the whole-solution check. One line, not this slice's.
+
+**Previous status (2026-08-25, slice 6.2):** **Three of week 6's four slices are done.**
+6.1 is on `main` (`6c04676`); **slice 6.2 is complete and UNCOMMITTED**, awaiting the developer's
+test-diff review — 25 changed paths (18 modified, 7 new). **641 xUnit (639 pass, +19, 2
+environment-skipped — the NEXT3 sandbox and, on this run, the Azurite half of
+`BlobStoreContractTests`, which skips when nothing is on port 10000) and 399 web (+12);
+`npm run build` lint-clean.** One migration (`20260825164512_AddOutboxLastAttemptAt`, applied locally
+and db-reviewed). **The test diff is 114 insertions and 13 deletions**, and every deletion is in
+`AppHeader.test.tsx` — the two assertions pinned on A2 being unbuilt, replaced by four; the server
+test files are pure additions, and no assertion was weakened.
+
+**6.2 is §5.4's A2 executable.** Failed and long-`pending` outbox rows listed with their story,
+retryable singly and together, with the admin nav carrying the first count in the chrome. It lives in
+**`Api.Outbox`** — architecture rule 4 permits no other namespace to reference `Next3OutboxMessage`,
+so the surface moved to the row rather than the row leaking out, and only a projection crosses the
+boundary. A new nullable `next3_outbox.last_attempt_at` is stamped **inside the dequeue procedure's
+claim** (the claim *is* the attempt) and deliberately not by the abandoned-row retire; no existing
+column could answer "when was this last tried", because `sent_at` is success-only and `next_retry_at`
+is overwritten with the lease deadline the instant a row is claimed.
+
+**The db-review found a blind spot in the screen built to remove blind spots, and it is recorded
+rather than closed — read this before touching A2.** The list shows `pending` rows scheduled *far
+ahead*; a row that is **overdue** — due in the past and not being claimed — appears on neither the
+list nor the badge. That is the signature of a stopped worker job, of a backlog draining slower than
+it fills, and of the seconds after a Retry, so A2 can show a clean queue while nothing at all is
+reaching NEXT3. It was not fixed because pass-3 decision 2 is quoted verbatim in the slice card and
+the fix is a third predicate arm *plus* a grace period — every freshly enqueued row is briefly
+overdue-looking — which is a decision to take deliberately, not to fold into the slice implementing
+the card. **Carried as a 7.2 ticket**, in design.md §5.4, in `scope-decisions.md`, and on the PO
+handoff's buffer list.
+
+**Two more review findings are recorded and not fixed, both with their mechanism written down.** A
+**stale worker can silently undo a manual retry**: the dequeue's retire leaves `attempts` alone, so a
+hung worker still holds a matching generation and its outcome write lands after the admin's — harm is
+bounded (a duplicate depends on #32, which §6.3 already accepts as unavoidable on a timed-out retry)
+and the fix belongs to the outbox's lease arbitration, not to a screen. And **the list has no
+paging**, which was rejected for a reason rather than skipped: `Retry all` applies *exactly* the list
+predicate, and a page showing 200 of 3,000 rows above a button that retries all 3,000 is the more
+dangerous of the two.
+
+**Two decisions taken with the developer during the slice.** **Retry buys exactly one more attempt,
+not a fresh schedule** — a `failed` row sits at `MaxAttempts`, so `attempts` keeps climbing honestly
+(1 → 2 → 3 across retries, watched live in the browser pass) and a manual retry cannot hide the
+problem for another 26 hours. And **the status flip and its audit row are deliberately not atomic**:
+`ExecuteUpdateAsync` runs outside the change tracker, an explicit transaction would import 2.4's
+execution-strategy hazard, and the case self-heals because `pending` is inside the retry predicate, so
+pressing Retry again is a 200 that writes the row.
+
+**The browser pass ran the whole loop and found one defect.** Ten rows walked to `failed`, both chip
+tones rendered, Retry dropped the badge 6 → 5 live and the worker resent that push, `Retry all`
+drained the rest to `sent`, and the empty state showed with its timestamp. The defect was in the
+column the screen exists for: a 21-character visa wrapped to `PLACEHOLDER-` / `VISA-0002` in the one
+cell an admin reads aloud to a developer. `white-space: nowrap` on `.worklist td.mono`, which
+`.worklist__scroll` was already there to absorb. **A practical trap the pass discovered by locking
+itself out: `Fake:FailureRate` is global**, so setting it to 1.0 to make pushes fail also makes
+`FakeSmsSender` throw and nobody can complete an OTP. Sign in first, then break NEXT3.
+
+**Week 6 is NOT done: 6.3 remains, and it is the largest of the four.** 6.1 ☑, 6.2 ☑, 6.3a ☑ (the
+device spike, pulled forward), **6.3 ☐ — the Android Capacitor app, ≈5–7 days per
+`research-capacitor.md` §12, on branch `slice/6.3-android`.** It owes the native camera that closes
+the WebView gallery hole (§7.1's capture-only rule is only *provisionally* enforced today), FCM push
+beside web push with a `DeviceToken` table and a second db-reviewed migration, a
+`CompositePushSender`, the routable-`mailto:` VAPID validator, location-off copy and a signed release
+build. **Four of the seven week-6 milestone boxes are still open**, three of which can only be ticked
+after FCM exists (gallery, push app-killed/backgrounded, battery-saver); the other two are
+independent of 6.3 — clarity-gate timing on a real Android photo, and the narrow-iPhone layout check.
+No stack risk remains: 6.3a recorded **GO, platforms split**, and Flutter is explicitly not
+reconsidered.
+
+**Next actions, in order.** (1) Review 6.2's test diff and commit it — and note the commit-message
+deviation the PO recorded for week 5 has continued: 6.1's two commits are bare `6.1`. (2) **The
+client package is still unsent and still outranks building** — scope letter, `status-2026-08-22.md`,
+`next3-openapi.yaml` and the two email drafts, now including #48. (3) Slice 6.3, on its branch.
+
+**Previous status (2026-08-24, slice 5.3):** **Week 5 is complete.** 5.1 and 5.2 are on
 `main` (`1013727`); **slice 5.3 is complete and UNCOMMITTED**, awaiting the developer's test-diff
 review — so the working tree is 5.3 plus the three doc files that were already modified. **588 xUnit
 (+25, 1 environment-skipped — the NEXT3 sandbox; Azurite was up) and 337 web (+27).** One migration

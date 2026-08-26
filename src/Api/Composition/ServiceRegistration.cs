@@ -193,21 +193,68 @@ public static class ServiceRegistration
             }
         });
 
+        // The third named client, after `next3` and `webpush` (slice 6.3). Registered unconditionally
+        // for the reason above, and carrying its own timeout because FCM's deadline is configured
+        // separately from web push's — a hung Google must fail one handset, not hold the
+        // assignment-ingestion path open for everybody.
+        services.AddHttpClient(FcmHttpClient.Name, (sp, client) =>
+        {
+            var fcm = sp.GetRequiredService<IOptions<PushOptions>>().Value.Fcm;
+            if (fcm.TimeoutSeconds > 0)
+            {
+                client.Timeout = TimeSpan.FromSeconds(fcm.TimeoutSeconds);
+            }
+        });
+
+        // Read once, beside the mode, so the composite's shape and the validator's gate cannot
+        // disagree about whether FCM is on.
+        var fcmEnabled = configuration.GetValue($"{PushOptions.SectionName}:Fcm:Enabled", false);
+
         if (string.Equals(pushMode, PushModes.WebPush, StringComparison.Ordinal))
         {
             // Only in the live mode, for the reason PushOptionsValidator spells out: the placeholder
             // VAPID values are what every environment runs on today, so an always-on validator would
             // stop the application booting everywhere.
             services.AddSingleton<IValidateOptions<PushOptions>, PushOptionsValidator>();
+
+            if (fcmEnabled)
+            {
+                // Gated **twice** — live mode and FCM switched on — because `Enabled` is false
+                // everywhere and Appendix A's `Push:Fcm:*` are placeholders, so a validator that
+                // fired on mode alone would stop every webpush deployment booting the moment this
+                // slice landed. Same argument as the outer gate, one level in.
+                services.AddSingleton<IValidateOptions<PushOptions>, FcmOptionsValidator>();
+            }
+
             services.AddOptions<PushOptions>()
                 .Bind(configuration.GetSection(PushOptions.SectionName))
                 .ValidateOnStart();
         }
 
+        // Singleton and shared by every FCM send: the OAuth exchange is a network round trip and the
+        // token it returns lasts an hour, so minting one per push would add a second remote call to
+        // the assignment path for nothing. Registered in both modes so the container's shape does not
+        // depend on configuration; in fake mode nothing resolves it.
+        services.AddSingleton<FcmAccessTokens>();
+
         services.AddSingleton<IPushSender>(sp => pushMode switch
         {
             PushModes.Fake => sp.GetRequiredService<FakePushSender>(),
-            PushModes.WebPush => ActivatorUtilities.CreateInstance<WebPushSender>(sp),
+
+            // **Web push and FCM are additive, never alternatives** (slice 6.3). A user legitimately
+            // has a browser and a phone, so the live mode composes every channel this deployment has
+            // rather than choosing one. With FCM off there is a single channel and the behaviour is
+            // exactly what shipped in 3.4 — which is what makes turning it on a config change.
+            PushModes.WebPush => ActivatorUtilities.CreateInstance<CompositePushSender>(
+                sp,
+                (IReadOnlyList<IPushSender>)(fcmEnabled
+                    ? new IPushSender[]
+                    {
+                        ActivatorUtilities.CreateInstance<WebPushSender>(sp),
+                        ActivatorUtilities.CreateInstance<FcmPushSender>(sp),
+                    }
+                    : [ActivatorUtilities.CreateInstance<WebPushSender>(sp)])),
+
             _ => throw new InvalidOperationException(
                 $"Unknown Push:Mode '{pushMode}'. Expected '{PushModes.Fake}' or "
                 + $"'{PushModes.WebPush}' (design.md §8)."),

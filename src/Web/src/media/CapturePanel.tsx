@@ -1,6 +1,7 @@
-import type { ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { ClarityConfirm } from './ClarityConfirm'
 import type { MediaConfig } from './config'
+import { detectNativeShell, NativeCaptureCancelled, type NativeShell } from './nativeShell'
 import { useCapture } from './useCapture'
 import type { MediaOrigin } from './upload'
 
@@ -28,6 +29,17 @@ interface CapturePanelProps {
    * what WCAG 2.5.3 asks for. Optional so a caller with one bucket on a screen need not invent one.
    */
   qualifier?: string
+  /**
+   * The native shell, when there is one (slice 6.3). A parameter with a default, the house idiom —
+   * `decode`'s and `requestPosition`'s shape — so jsdom hands in a fake and production probes.
+   *
+   * When present, the capture control becomes a **button that calls the system camera** instead of a
+   * file input. That is not cosmetic: the Android WebView ignores `capture="environment"` and opens
+   * the whole photo library (6.3a), so on that platform the input is a gallery picker wearing a
+   * camera's label, and §7.1's capture-only rule is unenforced. Upload inputs are untouched — a
+   * picker is *allowed* on `allowUpload` buckets.
+   */
+  shell?: NativeShell | null
 }
 
 /**
@@ -47,8 +59,14 @@ export function CapturePanel({
   auth,
   onUploaded,
   qualifier,
+  shell = detectNativeShell(),
 }: CapturePanelProps) {
   const capture = useCapture({ path, bucket, config, auth, onUploaded })
+
+  // `useCapture` owns `problem` and exposes no setter, so a native camera failure needs somewhere of
+  // its own to land. Rendered through the same alert paragraph, so there is one place a person
+  // looks for what went wrong rather than two.
+  const [shellProblem, setShellProblem] = useState<string | null>(null)
 
   function onPick(origin: MediaOrigin) {
     return (event: ChangeEvent<HTMLInputElement>) => {
@@ -62,6 +80,23 @@ export function CapturePanel({
 
   const busy = capture.stage === 'uploading'
   const named = (action: string) => (qualifier ? `${action} — ${qualifier}` : action)
+  const nativeCamera = shell?.hasCamera === true
+
+  function onTakePhoto() {
+    setShellProblem(null)
+    void shell
+      ?.takePhoto(qualifier)
+      // Straight into the ordinary pipeline: the clarity gate, the confirm screen and the upload are
+      // the same code the browser runs, which is what keeps §7.2 one implementation on both
+      // platforms. `captured` is honest here in a way it is not on Android today — the photograph
+      // demonstrably came from the camera rather than from a picker claiming to be one.
+      .then((file) => capture.select(file, 'captured'))
+      .catch((error: unknown) => {
+        // Backing out of the camera is an ordinary thing to do and must not read as a failure.
+        if (error instanceof NativeCaptureCancelled) return
+        setShellProblem('The camera could not be opened. Try again.')
+      })
+  }
 
   return (
     <section className="panel">
@@ -97,18 +132,35 @@ export function CapturePanel({
             only that it now looks like the button pass 1 draws. The `aria-label` is what makes the
             five panels on E2 distinguishable; the label text stays the shipped string.
           */}
-          <input
-            id={`${bucket}-capture`}
-            className="file-button__input"
-            type="file"
-            accept={capture.acceptTypes}
-            capture="environment"
-            aria-label={named('Take a photo')}
-            onChange={onPick('captured')}
-          />
-          <label className="file-button file-button--primary" htmlFor={`${bucket}-capture`}>
-            Take a photo
-          </label>
+          {nativeCamera ? (
+            // No file input at all in the native shell — its presence *is* the gallery route on
+            // Android. The visible label and the accessible name are byte-identical to the browser's,
+            // so `docs/demo-week4.md`'s script and every `getByLabelText` query read the same on
+            // both platforms.
+            <button
+              type="button"
+              className="file-button file-button--primary"
+              aria-label={named('Take a photo')}
+              onClick={onTakePhoto}
+            >
+              Take a photo
+            </button>
+          ) : (
+            <>
+              <input
+                id={`${bucket}-capture`}
+                className="file-button__input"
+                type="file"
+                accept={capture.acceptTypes}
+                capture="environment"
+                aria-label={named('Take a photo')}
+                onChange={onPick('captured')}
+              />
+              <label className="file-button file-button--primary" htmlFor={`${bucket}-capture`}>
+                Take a photo
+              </label>
+            </>
+          )}
 
           {capture.allowUpload ? (
             <>
@@ -130,9 +182,9 @@ export function CapturePanel({
         </div>
       )}
 
-      {capture.problem ? (
+      {capture.problem || shellProblem ? (
         <p className="banner banner--alert" role="alert">
-          {capture.problem}
+          {capture.problem ?? shellProblem}
         </p>
       ) : null}
     </section>

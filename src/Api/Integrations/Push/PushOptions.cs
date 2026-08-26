@@ -14,6 +14,13 @@ public sealed class PushOptions
 
     public PushVapidOptions Vapid { get; } = new();
 
+    /// <summary>
+    /// Firebase Cloud Messaging, for the Android Capacitor shell (slice 6.3). Nested rather than its
+    /// own top-level section because it is not a *third* mode: FCM runs **beside** web push under
+    /// `Mode = webpush`, never instead of it (see <c>CompositePushSender</c>).
+    /// </summary>
+    public PushFcmOptions Fcm { get; } = new();
+
     /// <summary>Per-request timeout for a call to a push service.</summary>
     public int TimeoutSeconds { get; set; } = 15;
 
@@ -35,6 +42,51 @@ public sealed class PushOptions
     /// assignment-ingestion path, so an unbounded set is an unbounded stall for everybody.
     /// </summary>
     public int MaxSubscriptionsPerUser { get; set; } = 10;
+
+    /// <summary>
+    /// How many live FCM registrations one user may hold. Separate from
+    /// <see cref="MaxSubscriptionsPerUser"/> rather than shared, because the two count different
+    /// things: browsers accumulate (every profile, every machine), handsets do not — an expert
+    /// carries one phone, and a user at ten is a reinstall loop rather than ten devices.
+    /// The same unbounded-serial-stall argument applies, so it is bounded for the same reason.
+    /// </summary>
+    public int MaxDeviceTokensPerUser { get; set; } = 10;
+}
+
+/// <summary>
+/// Firebase Cloud Messaging (design.md §8, slice 6.3) — the only way an Android handset can be
+/// notified, because the Capacitor WebView exposes no <c>PushManager</c> at all
+/// (research-capacitor.md §3, observed).
+///
+/// **<see cref="Enabled"/> defaults to false and the shipped values are placeholders**, so every
+/// environment keeps booting and `dotnet test` needs no Firebase project. Turning it on requires a
+/// real project id and a service-account key file, which is what <c>FcmOptionsValidator</c> checks —
+/// and only then, for the reason <c>PushOptionsValidator</c> spells out at length.
+/// </summary>
+public sealed class PushFcmOptions
+{
+    /// <summary>Whether <c>CompositePushSender</c> adds the FCM channel beneath web push.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>The Firebase project the send URL is built from. Not a secret; the key beside it is.</summary>
+    public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Path to the service-account JSON key.
+    ///
+    /// **A path, not the key itself.** The file holds an RSA private key that can send notifications
+    /// Android accepts as coming from AXA — the same weight as `Push:Vapid:PrivateKey` — so it is
+    /// mounted as a secret (§10) and never inlined into configuration, where it would end up in
+    /// appsettings, in a deployment log, or in a commit.
+    /// </summary>
+    public string ServiceAccountJsonPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Per-request deadline for a call to FCM or to Google's token endpoint. A real deadline: the
+    /// sender walks a user's handsets serially on the assignment-ingestion path, so a hung FCM must
+    /// fail that one device rather than hold up the notification for everybody.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 15;
 }
 
 /// <summary>
