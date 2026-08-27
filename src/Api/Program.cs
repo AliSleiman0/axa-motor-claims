@@ -1,4 +1,5 @@
 using Api.Composition;
+using Api.Infrastructure;
 using Api.Modules.Broker;
 using Api.Modules.Declarations;
 using Api.Modules.Expert;
@@ -30,6 +31,10 @@ builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddAxaMotorClaims(builder.Configuration);
 
 var app = builder.Build();
+
+// First, and before the two middlewares that short-circuit: the limiter answers its own 429 and the
+// body cap its own 413, so anything registered later would leave exactly those responses bare (§9).
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // Before authentication: abuse of the public surface is shed before any work is done for it (§9.1).
 app.UseRateLimiter();

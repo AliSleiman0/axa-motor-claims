@@ -15,6 +15,7 @@ public static class ArchitectureRules
     public const string PublicModuleNamespace = "Api.Modules.PublicSurface";
     public const string Next3Namespace = "Api.Integrations.Next3";
     public const string UsersModuleNamespace = "Api.Modules.Users";
+    public const string LoggingNamespace = "Microsoft.Extensions.Logging";
 
     public static Assembly ApiAssembly => typeof(INext3Client).Assembly;
 
@@ -31,6 +32,20 @@ public static class ArchitectureRules
         Types.InAssembly(assembly)
             .That().ResideInNamespace(publicNamespace)
             .ShouldNot().HaveDependencyOnAny(Next3Namespace, UsersModuleNamespace)
+            .GetResult();
+
+    // Rule 5: nothing in the public module namespace may depend on Microsoft.Extensions.Logging.
+    // Added slice 7.1. There is none today — the rule exists to keep it that way. Everything this
+    // module handles is either a live credential or a member of the public's own data: the raw token
+    // is a bearer secret §9.1 goes to the trouble of storing only as a hash, and the request it opens
+    // holds a name, an address and photographs of an identifiable car. A log line is a copy of that
+    // in a place with different retention, different access control and a different blast radius, and
+    // the first one is always written while debugging something else. The module is silent by
+    // construction, so there is nothing to review case by case.
+    public static TestResult PublicModuleNeverTouchesALogger(Assembly assembly, string publicNamespace) =>
+        Types.InAssembly(assembly)
+            .That().ResideInNamespace(publicNamespace)
+            .ShouldNot().HaveDependencyOn(LoggingNamespace)
             .GetResult();
 
     /// <summary>The types rule 2 is actually checking — empty means the rule proves nothing.</summary>

@@ -131,6 +131,13 @@ public sealed class ApiFixture : IAsyncLifetime
     /// </summary>
     public InMemoryBlobStore Blobs => Services.GetRequiredService<InMemoryBlobStore>();
 
+    /// <summary>
+    /// The same store as <see cref="Blobs"/>, seen through the test-only decorator that can stall one
+    /// <c>Put</c> (slice 7.1). Inert unless a test arms it, so nothing else in the suite is affected —
+    /// <see cref="RemoteIpTestFilter"/>'s arrangement, second outing.
+    /// </summary>
+    internal GatingBlobStore BlobGate => (GatingBlobStore)Services.GetRequiredService<IBlobStore>();
+
     private WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("Fixture not initialized.");
 
@@ -233,6 +240,13 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.Replace(ServiceDescriptor.Singleton<IOptionsMonitor<BrokerOptions>>(sp =>
                     new MutableOptionsMonitor<BrokerOptions>(
                         sp.GetRequiredService<IOptions<BrokerOptions>>().Value)));
+                // §5.3's upload-versus-submit race has no seam over HTTP: TestServer materialises a
+                // request body before dispatching it, so a gated multipart part stalls the client and
+                // never the server (measured in slice 7.1 — see GatingBlobStore). The stall goes
+                // where the window actually is instead, between the handler's read of
+                // `broker_request.state` and its SaveChanges. Pure delegation until armed.
+                services.Replace(ServiceDescriptor.Singleton<IBlobStore>(sp =>
+                    new GatingBlobStore(sp.GetRequiredService<InMemoryBlobStore>())));
                 services.AddSingleton<IStartupFilter, RemoteIpTestFilter>();
             }));
         _ = Factory.Server; // boot now so the admin seeder has run before any test

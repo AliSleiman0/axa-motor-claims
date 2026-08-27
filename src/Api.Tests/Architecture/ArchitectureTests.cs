@@ -51,6 +51,20 @@ public class ArchitectureTests
         Assert.True(result.IsSuccessful, Describe(result));
     }
 
+    /// <summary>
+    /// design.md §9.1's token is a bearer secret stored only as a hash; a log line is the one way it
+    /// could reach durable storage in the clear anyway. The public module writes no logs at all today,
+    /// and this is what stops the first "just while I debug this" from being permanent.
+    /// </summary>
+    [Fact]
+    public void Rule5_ThePublicModuleNeverTouchesALogger()
+    {
+        var result = ArchitectureRules.PublicModuleNeverTouchesALogger(
+            ArchitectureRules.ApiAssembly, ArchitectureRules.PublicModuleNamespace);
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
     private static string Describe(TestResult result) =>
         result.IsSuccessful
             ? "OK"

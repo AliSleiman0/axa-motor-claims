@@ -120,11 +120,28 @@ public sealed class PublicLinkNotFoundUniformityTests(ApiFixture fixture)
         return await Describe(name, response);
     }
 
+    /// <summary>
+    /// Everything a caller can see, folded into one comparable array.
+    /// </summary>
+    /// <remarks>
+    /// **Widened in slice 7.1 to include the response headers as well as the content headers.** It
+    /// had only ever read <c>Content.Headers</c> — the shape of the body — which meant a *response*
+    /// header that differed between failure modes was invisible to the test whose entire job is to
+    /// see differences. Nothing about the three facts below changed; the pin they share got stricter,
+    /// and it now covers §9's security headers and anything a later slice adds beside them.
+    ///
+    /// <c>Date</c> and <c>Server</c> are excluded because they are a clock and a host rather than a
+    /// fact about the token — two probes taken a second apart would differ on <c>Date</c> for a
+    /// reason that tells an enumeration script nothing.
+    /// </remarks>
     private static async Task<Probe> Describe(string name, HttpResponseMessage response)
     {
         var body = await response.Content.ReadAsStringAsync();
-        // Content headers describe the response shape; Date/Server vary by clock and are not signal.
-        var headers = response.Content.Headers
+        string[] varies = ["Date", "Server"];
+
+        var headers = response.Headers
+            .Where(h => !varies.Contains(h.Key, StringComparer.OrdinalIgnoreCase))
+            .Concat(response.Content.Headers)
             .Select(h => $"{h.Key}: {string.Join(",", h.Value)}")
             .Order(StringComparer.Ordinal)
             .ToArray();

@@ -3,9 +3,62 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-26 (slice 6.3) — start here.** **Week 6 is complete: 6.1 ☑, 6.2 ☑, 6.3a ☑, 6.3 ☑.**
-6.1 and 6.2 are on `main` (`f624a40`); **slice 6.3 is complete and UNCOMMITTED** on branch
-`slice/6.3-android`, awaiting the developer's test-diff review — 70 changed paths. **707 xUnit (704
+**Status as of 2026-08-27 (slice 7.1) — start here.** **Week 7 has started: 7.1 ☑.**
+Week 6 is on `main` (`5cf363a`); **slice 7.1 is complete and UNCOMMITTED**, awaiting the developer's
+test-diff review — 6 new files, 11 modified (5 of them docs). **721 xUnit (717 pass, +14, 4
+environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`, and the two
+FCM live tests). No migration, no `src/Web` change**, so `npm test` was not run and there is no
+browser pass: this slice ships no UI.
+
+**7.1 is design.md §9.1 turned from prose into tests, plus the two absences that exposed.** The
+limiter is now proven under concurrent load (exactly the permitted number of twenty-five simultaneous
+callers get through, the rest are refused with a usable `Retry-After`), the upload-versus-submit race
+is actually raced, token expiry is pinned at the HTTP boundary as well as as a pure rule, and a 429
+for a live link is proven byte-identical to one for a token that never existed. The API also sends
+security response headers for the first time — it sent **none** before — from a
+`SecurityHeadersMiddleware` registered ahead of everything, and CORS is now deliberately absent with
+a test that goes red if a permissive default arrives.
+
+**The test diff is 239 insertions and exactly two deletions, and both are one helper.**
+`PublicLinkNotFoundUniformityTests.Describe` compared only the body and the *content* headers, so a
+**response** header that varied by failure mode was invisible to the test whose entire job is to see
+differences. It now folds in `response.Headers` minus `Date`/`Server`. Strictly a superset; the three
+facts above it keep their names and bodies. Read that one first.
+
+**The card's own race mechanism was built, measured, does not work, and would have passed.** A gated
+multipart body stalls nothing: `TestServer` materialises the whole request body before dispatching,
+so the gate opened and closed on the client while the server had not started, and the upload answered
+**404 from `Resolve`** on an already-locked token — the asserted status code, reached without the
+concurrency token ever being consulted. Two measurements caught it (the response had not arrived, so
+it *looked* in flight; no blob was ever written, so the handler had not run), and a megabyte of body
+to force backpressure changed neither. The stall moved to a test-only `IBlobStore` decorator that
+stops the upload inside `Put` — which is in any case *exactly* §5.3's window. **Removing the guard
+then fails the test with `201 Created`**: the file lands after the broker's review, carried by no
+email, and swept on the send's clock. Bytes a customer watched upload, destroyed silently.
+
+**`/security-review` found no vulnerability at any severity and five observations; two are fixed, three
+recorded.** Fixed as doc comments, because both are traps for the *next* card: Kestrel fires
+`OnStarting` **last-registered-first**, so 7.3's HTML carve-out must live inside `Apply` or it will be
+silently overwritten; and `Apply` assigns rather than merges, so a future inline CSP would be
+discarded with nothing going red. Recorded for 7.2/7.3: `form-action` and `base-uri` do not fall back
+to `default-src` (but bite only on HTML, which this API does not serve until 7.3), HSTS carries no
+`includeSubDomains` (§10's single host makes that a deployment decision), and **an app-faulted 500 is
+the one response that gets no headers at all** — Kestrel skips `OnStarting` when the application
+threw, and the only fix is the global exception handler 7.2's card explicitly reserves. One review
+claim is wrong and matters before 7.2 acts on it: it says the fixture boots in Development so that
+path cannot be tested, but `ApiFixture` forces `ASPNETCORE_ENVIRONMENT=Production` (3.4's fix). The
+gap is untested, not untestable.
+
+**Next actions, in order.** (1) Review 7.1's test diff and commit it — the deliberate change is the
+widened `Describe`, and the two new test-only seams worth reading are `GatingBlobStore` and
+`PublicRateLimitLoadTests`' dedicated address block. (2) The client package is **sent**; the chase is
+AXA's acknowledgement + the demo debrief + the 30% invoice. (3) Slice 7.2 — the buffer drained, and
+it now carries one more ticket (the app-faulted 500's bare headers) alongside A2's overdue rows and
+the retention family. (4) The one open week-6 milestone box: the **narrow-iPhone** pass, folded into
+7.2 by the 2026-08-26 decision.
+
+**Previous status (2026-08-26, slice 6.3):** **Week 6 is complete: 6.1 ☑, 6.2 ☑, 6.3a ☑, 6.3 ☑.** 6.1 and 6.2 are on `main` (`f624a40`); **slice 6.3 is complete and since merged to `main` (`f13a24e`)** from branch
+`slice/6.3-android` — 70 changed paths. **707 xUnit (704
 pass, +63, 3 environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`,
 and the two new FCM live tests when no service-account key is configured) and 528 web (+129);
 `npm run build` lint-clean.** One migration (`20260825191745_AddDeviceTokenTable`, applied locally
@@ -158,6 +211,7 @@ and the broker reviews and sends. **Two of the week-5 browser-pass findings are 
 route half of 9); the other eight are untouched and still recorded in `docs/browser-pass-week5.md`.
 > **PO verification, 2026-08-24 (after the banner above was written):** 5.3 was **committed as `30b1bda` and pushed** — the tree is clean and `main` matches `origin/main`, so the "uncommitted, awaiting review" sentence above is superseded. Suites re-run independently by the PO: **589 xUnit (587 pass, 2 environment-skipped — Azurite was down on this run) and 337 web, all green**; 14 migrations. Ticks, Notes placement, scope-decisions propagation (six dated 5.3 rows) and both closed findings (2, and 9's route — verified in `OutcomePanel`/`App.tsx` via the Notes and the pass doc's "Fixed since") all check out. **One deviation recorded, not retro-tidied: the three week-5 commit messages are bare slice numbers ("5.1", "5.2 5.1", "5.3")**, against the repo's descriptive style. The five open week-5-own findings (1, 3, 4, 5, 6) now have a recorded home — the triage note under the playbook's week-6 header — and finding 5's product half is **open question #48** (folded into `docs/client-email-2026-08-24.md`).
 > **Week-6 cards expanded to verbatim prompts (2026-08-25, PO session).** 6.1 (five car shots + side selector + B4 photo review + the four triaged week-5 fixes), 6.2 (A2 over the outbox, living in `Api.Outbox` per rule 4, with the "last tried" migration), 6.3 (Android-only Capacitor: native camera seam, FCM via a `CompositePushSender` + `DeviceToken` table, routable-VAPID-subject validator, release path). Written against fact-briefs of the code at `30b1bda` (2 Explore agents + a Plan agent); decisions in the week-6 header — five buckets ARE the sides, no B2 submit gate pending #48, developer-owned Firebase placeholder. **Next unticked slice: 6.1.** The client package (scope letter + status + OpenAPI + the two email drafts) is still unsent and still outranks building.
+> **Week-7 cards expanded to verbatim prompts (2026-08-26, PO session).** 7.1 (§9.1 as tests — limiter under concurrent load, submit-vs-upload race, expiry boundary, 429 uniformity — plus `SecurityHeadersMiddleware`, the no-CORS statement, and arch rule 5: no logger in the public module), 7.2 (the buffer drained: `CancelledRequestMiddleware`, Kestrel cap, §9 audit completeness incl. the comments hash, three retention sweeps on placeholder keys, CK blank-visa migration, `ListLimits` bounds, A2 overdue rows, device-registry eviction/deactivation/pruning, push resync-on-mount + `pushsubscriptionchange`, the web error/empty-state gaps, the folded narrow-iPhone box), 7.3 (Dockerfile + GitHub Actions + ACR + migration bundle + `/health/ready` + SPA static serving with the constrained fallback + `provision-azure.ps1` on the developer's subscription + `uat-seed.ps1` + runbook + `/code-review ultra`). Fact-briefs at `5cf363a`; PO re-verified week 6 green (703+4 / 528). **Next unticked slice: 7.1.** **The client package is SENT (developer's report, 2026-08-26) — banners flipped, the week-4 box ticked as sent-after-the-demo; the chase is now AXA's acknowledgement + the demo debrief + the 30% invoice.**
 
 **The 5.2 "flake" was a real 500, and finding its mechanism is the thing to read first.** 5.2's note
 10 recorded `ConcurrentSubmits_OnlyOneIsAccepted` failing once in eighteen runs and guessed at a

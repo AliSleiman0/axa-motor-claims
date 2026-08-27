@@ -694,4 +694,100 @@ public sealed class PublicUploadTests(ApiFixture fixture) : IDisposable
         var rows = await fixture.BrokerDocumentRows(link.RequestId);
         Assert.Equal(2, rows.Count(d => d.Bucket == MediaBuckets.PublicDocument));
     }
+
+    /// <summary>
+    /// §5.3's carried-across guard, finally raced (slice 7.1). The upload handler writes
+    /// <c>broker_request.state</c> back unchanged so that a file admitted while the link was open
+    /// **fails** if the submit commits underneath it — rather than committing afterwards, attached to
+    /// a request the broker has already reviewed, carried by no email, and then deleted by
+    /// <c>BrokerMediaCleanupTask</c> on the send's clock. Bytes a customer watched upload, destroyed
+    /// silently, on a surface with no account and no receipt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The window is real but narrow — <c>PublicEndpoints</c>' own comment calls it "the microseconds
+    /// between that read and its commit" — so it is held open deliberately, at the one point inside it
+    /// that a test can reach: <see cref="GatingBlobStore"/> stops the upload inside
+    /// <c>IBlobStore.Put</c>, which is after the handler has resolved a live token, counted the files,
+    /// passed the bucket gate and enlisted in the concurrency check, and before anything is committed.
+    /// **The card's mechanism — a gated multipart body — was built first and measured not to work**;
+    /// the reason is written up on <see cref="GatingBlobStore"/> and is worth reading before touching
+    /// this.
+    /// </para>
+    /// <para>
+    /// The blob assertion is what keeps this test about the concurrency token rather than about the
+    /// gate. If the submit had landed first, <c>Resolve</c> would answer 404 on a locked token and
+    /// **no blob would exist at all** — the same status code from a completely different mechanism,
+    /// and a green test proving nothing. A new blob says the handler got as far as <c>Put</c> and lost
+    /// the race at <c>SaveChanges</c>. Confirmed the other way by deleting the <c>IsModified</c> line,
+    /// which turns this red.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task AnUploadInFlightWhenTheSubmitCommits_DiesAsTheUniform404()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+
+        // The full journey first: without a supporting document and all five sides the submit is a
+        // 400 and the race never happens.
+        await PublicLinkFlows.OpenAndAttach(customer, link.Token);
+        var settled = (await fixture.BrokerDocumentRows(link.RequestId)).Select(d => d.BlobKey).ToList();
+        Assert.Equal(6, settled.Count);
+
+        var before = fixture.Blobs.Keys.ToHashSet(StringComparer.Ordinal);
+
+        // Scoped to this request's own prefix, so the gate cannot be tripped by anything else.
+        using var gate = fixture.BlobGate.GateNextPutUnder(
+            $"{DocumentOwnerKinds.BrokerRequest}/{link.RequestId:N}/");
+
+        // A second supporting document rather than a car-side retake, so `ReplacePreviousCarShot`
+        // stays out of the picture and the only thing under test is the token.
+        var upload = PublicLinkFlows.UploadPublicDocument(
+            customer, link.Token, fileName: "PLACEHOLDER-in-flight.pdf");
+        await gate.Reached;
+
+        var submit = await customer.PostAsJsonAsync(
+            $"/public/{link.Token}/submit", PublicLinkFlows.CompleteSubmission());
+        submit.EnsureSuccessStatusCode();
+
+        gate.Release();
+        using var response = await upload;
+
+        // It leaves through the same door as every other dead token — not a coded 409 like the
+        // broker's equivalent, and above all not a 500, which §9.1 has already been broken by once
+        // (slice 5.3's torn read).
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync());
+
+        // Nothing was recorded: the six from the journey, and no seventh.
+        var rows = await fixture.BrokerDocumentRows(link.RequestId);
+        Assert.Equal(6, rows.Count);
+
+        // §7.3's safe failure order, both halves. The bytes are on disk with no row claiming them —
+        // deliberately, because deleting bytes whose row then survives a rollback is unrecoverable
+        // while an unclaimed blob is garbage with a sweep behind it.
+        var orphan = Assert.Single(fixture.Blobs.Keys.Except(before, StringComparer.Ordinal));
+        Assert.True(await fixture.BlobExists(orphan));
+
+        // And the sweep behind it. The grace window is scoped rather than waited out: the fake clock
+        // is shared by the whole serialized collection and moving it a day forward to prove a
+        // subtraction is the expensive half of an equivalent proof (`MediaFlows.BackdateSentAt`
+        // exists for the same reason).
+        await fixture.WithRetention(
+            options => options.OrphanBlobHours = 0,
+            async () =>
+            {
+                await fixture.Sweep();
+
+                Assert.False(await fixture.BlobExists(orphan));
+
+                // The other half, and the one a too-eager sweep would break: a live `document` row
+                // still claims these, so a zero grace window must not touch them.
+                foreach (var key in settled)
+                {
+                    Assert.True(await fixture.BlobExists(key), $"claimed blob {key} was swept");
+                }
+            });
+    }
 }

@@ -48,4 +48,14 @@ public class ArchitectureRuleSelfTests
         Assert.False(result.IsSuccessful);
         Assert.Contains(typeof(Fixtures.Rule4.ViolatingOutboxRowWriter).FullName!, result.FailingTypeNames);
     }
+
+    [Fact]
+    public void Rule5_SelfTest_DetectsViolation()
+    {
+        var result = ArchitectureRules.PublicModuleNeverTouchesALogger(
+            FixtureAssembly, "Api.Tests.Architecture.Fixtures.Rule5");
+
+        Assert.False(result.IsSuccessful);
+        Assert.Contains(typeof(Fixtures.Rule5.ViolatingPublicLogger).FullName!, result.FailingTypeNames);
+    }
 }
