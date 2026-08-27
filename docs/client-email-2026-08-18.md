@@ -1,7 +1,7 @@
 # Client email — NEXT3 integration + running costs
 
 **To:** HADDAD Ramy, AXA Middle East
-**Status:** draft, not sent
+**Status:** SENT to AXA (developer's report, 2026-08-26; exact date unconfirmed) — awaiting acknowledgement
 **Date drafted:** 2026-08-18
 
 Deliberate omissions (do not add back without a reason):

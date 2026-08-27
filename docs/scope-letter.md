@@ -2,7 +2,7 @@
 
 **To:** HADDAD Ramy, AXA Middle East
 **From:** Ali Sleiman
-**Status:** DRAFT — not sent. Drafted slice 4.3 (2026-08-22); still unsent when the demo ran 2026-08-24 — gate breach recorded in the build playbook week-4 checklist.
+**Status:** SENT to AXA (developer's report, 2026-08-26; exact date unconfirmed) — awaiting acknowledgement. Drafted slice 4.3 (2026-08-22); the send followed the 2026-08-24 demo — the gate breach recorded in the build playbook stands.
 **Purpose:** written acknowledgement of scope, exclusions and dependencies. Drafted to precede the week-4 demo; the demo ran 2026-08-24 before it was sent, and nothing shown there changes the scope stated below.
 Email acknowledgement is sufficient; a signature is not required.
 

@@ -2,7 +2,7 @@
 
 **To:** HADDAD Ramy, AXA Middle East
 **From:** Ali Sleiman
-**Status:** DRAFT — not sent. Drafted 2026-08-24 (PO session), after the demo ran.
+**Status:** SENT to AXA (developer's report, 2026-08-26; exact date unconfirmed) — awaiting acknowledgement. Drafted 2026-08-24 (PO session), after the demo ran.
 **Attachments (three):** `docs/scope-letter.md` · `docs/status-2026-08-22.md` · `docs/next3-openapi.yaml`
 
 Why this email exists: the demo was given on 2026-08-24 with none of the client documents sent — the
