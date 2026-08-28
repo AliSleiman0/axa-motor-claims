@@ -4,8 +4,8 @@
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
 **Status as of 2026-08-27 (slice 7.2) — start here.** **Week 7: 7.1 ☑, 7.2 ☑; 7.3 is next and last.**
-Week 6 and slice 7.1 are on `main` (`a5baf62`); **slice 7.2 is complete and UNCOMMITTED** on branch
-`slice/7.2-hardening`, awaiting the developer's test-diff review. **756 xUnit (752 pass, +31, 4
+Week 6 and slice 7.1 are on `main` (`a5baf62`); **slice 7.2 is reviewed and merged to `main`
+(`c65d027`)** from branch `slice/7.2-hardening` — 74 changed paths. **756 xUnit (752 pass, +31, 4
 environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`, and the two
 FCM live tests) and 547 web (+19); `npm run build` lint-clean.** One migration
 (`TightenDeclarationCheckAndAddSweepIndexes`, applied locally and db-reviewed). A Chrome pass was
