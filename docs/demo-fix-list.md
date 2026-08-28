@@ -62,3 +62,14 @@ geolocation**; **a real `MediaRecorder` voice note** (384,764 bytes, `audio/webm
   with a hand on the mouse, and the double press created **no duplicate rows** — the `inFlight` latch
   from 4.2 holding, which is worth more than the annoyance costs. Noted in the doc's recovery table
   so it is not mistaken for a bug if it appears.
+
+## Closed in 7.2
+
+**#16** — the push lie. `usePushSubscription` re-posts the browser's subscription on mount instead of
+trusting `getSubscription()`, so the second user to sign in on one profile gets a row of their own
+and the panel stops claiming a state nothing confirmed. **#17** — a rejected declaration's blobs.
+`RejectedDeclarationBlobCleanupTask` sweeps them `Retention:RejectedDeclarationBlobDays` after the
+decision; the window is a placeholder and the client answer (#4/#22) changes one config value, not
+any code. **#12**, **#13**, **#14** and **#15** are untouched and stay where they are: the first two
+are answered by A2 (shipped in 6.2) and by #1's sandbox rather than by a dev endpoint, the third is a
+demo-rig limitation rather than a product one, and the fourth needs a handset.

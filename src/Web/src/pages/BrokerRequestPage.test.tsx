@@ -412,6 +412,20 @@ describe('B4 — the car photographs', () => {
     expect(await screen.findByRole('heading', { name: 'Sent to AXA' })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'The car' })).toBeNull()
   })
+
+  /**
+   * **An empty section said nothing at all** until slice 7.2: `Documents` returned `null`, so a
+   * request with no attachments rendered no panel and no heading. On the one screen whose job is
+   * "what is about to be emailed to AXA", a section that vanishes is indistinguishable from a
+   * section that has not loaded — and the difference is whether the broker should press Send. The
+   * car-photo panel beside it has rendered "Not provided" per side since 6.1 for the same reason.
+   */
+  it('says a request has no documents rather than hiding the panel', async () => {
+    show(detail({ state: 'sent' }), [], true)
+
+    expect(await screen.findByText(/No documents attached/i)).toBeDefined()
+  })
+
 })
 
 function postsTo(suffix: string): number {

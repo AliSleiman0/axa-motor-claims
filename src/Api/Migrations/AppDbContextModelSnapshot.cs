@@ -64,6 +64,8 @@ namespace Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TokenHash");
+
                     b.HasIndex("UserId")
                         .HasFilter("[revoked_at] IS NULL");
 
@@ -394,11 +396,13 @@ namespace Api.Migrations
 
                     b.HasIndex("GarageUserId", "CreatedAt");
 
+                    b.HasIndex("State", "DecidedAt");
+
                     b.HasIndex("State", "SubmittedAt");
 
                     b.ToTable("declaration", null, t =>
                         {
-                            t.HasCheckConstraint("CK_declaration_decision", "(CASE WHEN [state] IN ('approved', 'rejected', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [officer_user_id] IS NOT NULL THEN 1 ELSE 0 END) AND (CASE WHEN [state] IN ('approved', 'rejected', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [decided_at] IS NOT NULL THEN 1 ELSE 0 END) AND (CASE WHEN [state] IN ('approved', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [visa_no] IS NOT NULL THEN 1 ELSE 0 END)");
+                            t.HasCheckConstraint("CK_declaration_decision", "(CASE WHEN [state] IN ('approved', 'rejected', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [officer_user_id] IS NOT NULL THEN 1 ELSE 0 END) AND (CASE WHEN [state] IN ('approved', 'rejected', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [decided_at] IS NOT NULL THEN 1 ELSE 0 END) AND (CASE WHEN [state] IN ('approved', 'repair_docs_submitted', 'repairs_in_progress') THEN 1 ELSE 0 END) = (CASE WHEN [visa_no] IS NOT NULL THEN 1 ELSE 0 END) AND ([visa_no] IS NULL OR LEN([visa_no]) > 0)");
 
                             t.HasCheckConstraint("CK_declaration_state", "[state] IN ('approved', 'draft', 'rejected', 'repair_docs_submitted', 'repairs_in_progress', 'submitted')");
                         });
@@ -566,6 +570,7 @@ namespace Api.Migrations
                         .HasColumnName("owner_kind");
 
                     b.Property<string>("PushStatus")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)")
@@ -591,6 +596,9 @@ namespace Api.Migrations
                     b.HasIndex("OwnerKind", "OwnerId", "Bucket")
                         .IsUnique()
                         .HasFilter("[bucket] IN ('public_car_front', 'public_car_left', 'public_car_rear', 'public_car_right', 'public_car_roof')");
+
+                    b.HasIndex(new[] { "OwnerKind", "OwnerId" }, "IX_document_deferred")
+                        .HasFilter("[push_status] = 'deferred'");
 
                     b.ToTable("document", null, t =>
                         {

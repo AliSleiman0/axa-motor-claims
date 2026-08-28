@@ -51,5 +51,12 @@ public sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceTo
         // The send path: "every live token for this user". Filtered, because a revoked row is never
         // a send target and there is no other query that wants one.
         builder.HasIndex(t => t.UserId).HasFilter("[revoked_at] IS NULL");
+
+        // **The displacement lookup (slice 7.2, db-review): `token_hash` without a user.** The unique
+        // index above leads on `user_id`, so "who else holds this handset?" could not seek it and
+        // scanned the table instead — on every launch of the shell, which re-registers by design. Not
+        // unique, because the whole point of that query is that two users can hold the same token
+        // until one of them is revoked.
+        builder.HasIndex(t => t.TokenHash);
     }
 }

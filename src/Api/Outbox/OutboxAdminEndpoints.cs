@@ -50,12 +50,20 @@ public static class OutboxAdminEndpoints
             AppDbContext db, IOptionsMonitor<OutboxOptions> options, TimeProvider time,
             CancellationToken ct) =>
         {
-            var rows = await Listed(db, Horizon(options, time))
+            var rows = await Listed(db, Ahead(options, time), Behind(options, time))
                 // Failed first, then oldest first within each: it is a queue somebody works down,
                 // not a log somebody scrolls. The two-key sort keeps the rows that will never move
                 // on their own above the ones that still might.
                 .OrderBy(m => m.Status == Next3OutboxStatuses.Failed ? 0 : 1)
                 .ThenBy(m => m.CreatedAt)
+                // **The cap is on this chain and deliberately not inside `Listed` (slice 7.2), so
+                // this endpoint and Retry all no longer cover exactly the same rows.** 6.2's note
+                // above the bulk retry said they did, and that stops being true here: a `Take` in the
+                // shared predicate would make the *button* partial, which is far worse than a
+                // truncated screen — an admin would press Retry all during an outage, watch it report
+                // 200, and be silently left with a backlog it never touched. So the screen truncates
+                // and the button keeps the whole predicate. The divergence is stated on the button.
+                .Take(ListLimits.MaxRows)
                 .Select(m => new OutboxAdminRowDto(
                     m.Id, m.Operation, m.VisaNo, m.Status, m.Attempts, m.LastError,
                     m.CreatedAt, m.LastAttemptAt, m.NextRetryAt))
@@ -65,16 +73,30 @@ public static class OutboxAdminEndpoints
             return Results.Ok(rows);
         });
 
-        // Failed only, and that is the whole point of a separate endpoint rather than the list's
-        // length. A long-`pending` row is on its way and will clear itself; a badge that rose and fell
-        // with the backoff schedule would be an alarm nobody trusts, and an admin who learns to
-        // ignore this number has lost the only notification A2 gets.
-        group.MapGet("/count", async (AppDbContext db, CancellationToken ct) =>
+        // **Two numbers, and the split is the whole design (slice 7.2).**
+        //
+        // `failed` is 6.2's badge unchanged: rows that have given up and will sit there for ever.
+        // Long-`pending` rows are still deliberately **not** counted — one is on its way and clears
+        // itself, and a badge that rose and fell with the 1 min / 5 min / 30 min backoff schedule
+        // would be an alarm nobody trusts, which is the argument 6.2 recorded and this slice keeps.
+        //
+        // `overdue` is the blind spot that argument left open, raised by the db-review and carried
+        // here from 6.2's scope-decisions row: a `pending` row due in the *past* and not being
+        // claimed is the signature of a stopped worker job, or a backlog draining slower than it
+        // fills. Nothing clears it by itself, so it belongs in the badge for exactly the reason a
+        // long-pending row does not — and without it the screen built to contradict "nothing has
+        // failed" can show a clean queue while nothing at all is being pushed.
+        group.MapGet("/count", async (
+            AppDbContext db, IOptionsMonitor<OutboxOptions> options, TimeProvider time,
+            CancellationToken ct) =>
         {
             var failed = await db.Set<Next3OutboxMessage>()
                 .CountAsync(m => m.Status == Next3OutboxStatuses.Failed, ct);
 
-            return Results.Ok(new { failed });
+            var overdue = await db.Set<Next3OutboxMessage>()
+                .CountAsync(Overdue(Behind(options, time)), ct);
+
+            return Results.Ok(new { failed, overdue });
         });
 
         group.MapPost("/{id:guid}/retry", async (
@@ -129,11 +151,17 @@ public static class OutboxAdminEndpoints
         {
             var now = time.GetUtcNow().UtcDateTime;
 
-            // Exactly the list predicate, so the button does what the screen shows and nothing else.
+            // Exactly the list *predicate* — but, since slice 7.2, not exactly the list: the screen
+            // stops at `ListLimits.MaxRows` and this does not. That is the deliberate direction of the
+            // divergence. The button retries everything the predicate covers, so an outage that
+            // backed up three thousand rows is drained by one press rather than by fifteen; a bulk
+            // retry that quietly stopped at two hundred would report success and leave the rest, and
+            // an admin has no way to see the difference.
+            //
             // No confirmation dialog: every push carries a stable clientRef, so re-sending one is
             // meant to be a no-op at NEXT3's end (#32), and an admin looking at this screen during an
             // outage should not have to answer a question first.
-            var retried = await Listed(db, Horizon(options, time))
+            var retried = await Listed(db, Ahead(options, time), Behind(options, time))
                 .ExecuteUpdateAsync(
                     s => s
                         .SetProperty(m => m.Status, Next3OutboxStatuses.Pending)
@@ -167,14 +195,41 @@ public static class OutboxAdminEndpoints
     /// dies the lease returns them to the queue by itself (§6.3). Showing them would invite an admin
     /// to act on a row nothing is wrong with.
     /// </summary>
-    private static IQueryable<Next3OutboxMessage> Listed(AppDbContext db, DateTime horizon) =>
+    private static IQueryable<Next3OutboxMessage> Listed(
+        AppDbContext db, DateTime ahead, DateTime behind) =>
         db.Set<Next3OutboxMessage>()
             .Where(m => m.Status == Next3OutboxStatuses.Failed
-                || (m.Status == Next3OutboxStatuses.Pending && m.NextRetryAt > horizon));
+                || (m.Status == Next3OutboxStatuses.Pending
+                    && (m.NextRetryAt > ahead || m.NextRetryAt < behind)));
+
+    /// <summary>
+    /// A <c>pending</c> row that is **overdue**: due in the past, and still sitting there (slice 7.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the blind spot 6.2 recorded and did not close. Its predicate listed rows scheduled far
+    /// *ahead*; a row whose moment came and went is invisible, which is precisely the shape of a
+    /// stopped worker job — the case where the question "where did that photograph go?" is most
+    /// urgent and A2 was answering "nothing has failed".
+    /// </para>
+    /// <para>
+    /// **Two polls of grace, and it is load-bearing rather than round.** Every row is enqueued with
+    /// <c>next_retry_at = now</c>, so at one poll of grace a queue that is working perfectly would
+    /// flash rows overdue in the seconds before the worker's next tick — an alarm that fires during
+    /// normal operation is worse than no alarm. Two ticks means the worker has to have missed a beat
+    /// entirely. It also cannot collide with the long-pending arm: a claimed row's
+    /// <c>next_retry_at</c> is pushed a full <c>LeaseSeconds</c> out and it is <c>processing</c>
+    /// anyway, which A2 never lists (§6.3).
+    /// </para>
+    /// </remarks>
+    private static Expression<Func<Next3OutboxMessage, bool>> Overdue(DateTime behind) =>
+        m => m.Status == Next3OutboxStatuses.Pending && m.NextRetryAt < behind;
 
     /// <summary>
     /// One poll ahead (pass-3 decision 2). A <c>pending</c> row due inside the next tick is about to
-    /// be tried and is nobody's problem; past that it is waiting out a backoff.
+    /// be tried and is nobody's problem; past that it is waiting out a backoff. The other edge is
+    /// <see cref="Behind"/>, added in slice 7.2 — between the two is the window where a row is simply
+    /// about to be attempted, and nothing in it is ever shown.
     ///
     /// Stated plainly, because the db-review caught the comment here claiming more than the code
     /// does: the first backoff step is one minute against a thirty-second poll, so a row that has
@@ -184,8 +239,14 @@ public static class OutboxAdminEndpoints
     /// long-pending case was argued for. Recorded rather than quietly retuned: the threshold is
     /// <c>Outbox:PollSeconds</c>, and moving it is a decision, not a tidy-up.
     /// </summary>
-    private static DateTime Horizon(IOptionsMonitor<OutboxOptions> options, TimeProvider time) =>
+    private static DateTime Ahead(IOptionsMonitor<OutboxOptions> options, TimeProvider time) =>
         time.GetUtcNow().UtcDateTime.AddSeconds(options.CurrentValue.PollSeconds);
+
+    /// <summary>
+    /// Two polls behind — the far edge of <see cref="Overdue"/>. See its remarks for why two.
+    /// </summary>
+    private static DateTime Behind(IOptionsMonitor<OutboxOptions> options, TimeProvider time) =>
+        time.GetUtcNow().UtcDateTime.AddSeconds(-2 * options.CurrentValue.PollSeconds);
 
     /// <summary>
     /// Retryable means "not moving on its own and not in flight". <c>sent</c> is done; a row being

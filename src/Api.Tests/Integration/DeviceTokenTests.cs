@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Api.Integrations.Push;
+using Api.Modules.Audit;
 using Api.Modules.Users;
 
 namespace Api.Tests.Integration;
@@ -155,8 +156,22 @@ public sealed class DeviceTokenTests(ApiFixture fixture)
         Assert.Empty(await fixture.DeviceTokensOf(expert.User.Id));
     }
 
+    /// <summary>
+    /// **Behaviour changed in slice 7.2, and this test changed with it.** It read
+    /// <c>AUserCannotAccumulateUnboundedHandsets</c> and asserted a <c>400
+    /// too_many_device_tokens</c>. The boundedness claim it was written for is kept and asserted
+    /// below — what is gone is the refusal, deliberately.
+    ///
+    /// The argument: a 400 is only useful to something that can act on it. A browser subscription is
+    /// created by a person pressing a button on a screen that can show them the refusal; an FCM
+    /// registration is fired by the Capacitor shell on every launch with nobody watching. So a
+    /// refused handset was an expert whose popups silently never started — §8's primary trigger,
+    /// missing — and it never recovered, because the next launch was refused identically and FCM
+    /// rotates tokens on its own schedule. <c>PushSubscriptionTests</c> keeps the 400 for browsers,
+    /// which is the asymmetry.
+    /// </summary>
     [Fact]
-    public async Task AUserCannotAccumulateUnboundedHandsets()
+    public async Task AtTheCap_ANewHandsetEvictsTheLeastRecentlyUsedOne()
     {
         using var expert = await fixture.CreateMappedExpert();
         var cap = fixture.Push.CurrentValue.MaxDeviceTokensPerUser;
@@ -168,14 +183,142 @@ public sealed class DeviceTokenTests(ApiFixture fixture)
             Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         }
 
-        // The sender walks live rows serially on the assignment-ingestion path, so an unbounded set
-        // is an unbounded stall for every expert, not just this one.
-        using var refused = await expert.Client.PostAsJsonAsync(
+        var before = await fixture.DeviceTokensOf(expert.User.Id);
+        var oldest = before[0];
+
+        using var accepted2 = await expert.Client.PostAsJsonAsync(
             "/api/push/device-tokens", PushFlows.DeviceTokenBody());
 
+        Assert.Equal(HttpStatusCode.OK, accepted2.StatusCode);
+
+        var after = await fixture.DeviceTokensOf(expert.User.Id);
+
+        // The property the old test existed for, unchanged: the sender walks live rows serially on
+        // the assignment-ingestion path, so an unbounded set is an unbounded stall for every expert.
+        Assert.Equal(cap, after.Count(t => t.RevokedAt is null));
+
+        // And the one it did not have: which row went. Least-recently-used on `LastUsedAt ??
+        // CreatedAt` — none of these has ever been used, so it is the oldest by creation.
+        Assert.NotNull(after.Single(t => t.Id == oldest.Id).RevokedAt);
+
+        var audit = await fixture.AuditRow(AuditActions.DeviceTokenRevoked, oldest.Id);
+        Assert.Equal(expert.User.Id, audit.ActorUserId);
+        Assert.Equal(AuditEntityKinds.DeviceToken, audit.EntityKind);
+        Assert.Contains("evicted", audit.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The browser side keeps the refusal, and the divergence is the point: a person is looking at
+    /// the push panel and can be told. Asserted here beside its twin so the two cannot drift apart
+    /// silently — a later "let us make these consistent" has to delete a test that says why.
+    /// </summary>
+    [Fact]
+    public async Task ABrowserSubscriptionAtItsCapIsStillRefused()
+    {
+        using var expert = await fixture.CreateMappedExpert();
+        var cap = fixture.Push.CurrentValue.MaxSubscriptionsPerUser;
+
+        for (var i = 0; i < cap; i++)
+        {
+            using var accepted = await expert.Client.PostAsJsonAsync(
+                "/api/push/subscriptions", PushFlows.Subscription());
+            Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        }
+
+        using var refused = await expert.Client.PostAsJsonAsync(
+            "/api/push/subscriptions", PushFlows.Subscription());
+
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-        Assert.Equal("too_many_device_tokens", await Error(refused));
-        Assert.Equal(cap, (await fixture.DeviceTokensOf(expert.User.Id)).Count);
+        Assert.Equal("too_many_subscriptions", await Error(refused));
+        Assert.Equal(cap, (await fixture.SubscriptionsOf(expert.User.Id)).Count);
+    }
+
+    /// <summary>
+    /// §9's trail for the handset-changing-hands event (slice 7.2). The shape is what makes it
+    /// answerable from the losing side: the actor is the **new** registrant, the entity is the row
+    /// that was taken away, and the detail names who held it.
+    /// </summary>
+    [Fact]
+    public async Task DisplacingAHandsetIsAudited()
+    {
+        using var first = await fixture.CreateMappedExpert();
+        using var second = await fixture.CreateMappedExpert();
+        var handset = PushFlows.NextDeviceToken();
+
+        using (var mine = await first.Client.PostAsJsonAsync(
+            "/api/push/device-tokens", PushFlows.DeviceTokenBody(handset)))
+        using (var theirs = await second.Client.PostAsJsonAsync(
+            "/api/push/device-tokens", PushFlows.DeviceTokenBody(handset)))
+        {
+            Assert.Equal(HttpStatusCode.OK, mine.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, theirs.StatusCode);
+        }
+
+        var displaced = Assert.Single(await fixture.DeviceTokensOf(first.User.Id));
+        var audit = await fixture.AuditRow(AuditActions.DeviceTokenDisplaced, displaced.Id);
+
+        Assert.Equal(second.User.Id, audit.ActorUserId);
+        Assert.Equal(AuditEntityKinds.DeviceToken, audit.EntityKind);
+        Assert.Contains(first.User.Id.ToString(), audit.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// **Registration audits fire on creation and revocation only, never on the refresh path.** The
+    /// shell re-registers on every launch, so auditing that would bury the events that matter under
+    /// one row per app open, per handset, per day. The `Assert.Single` inside
+    /// <c>AuditRow</c> is what enforces it.
+    /// </summary>
+    [Fact]
+    public async Task RegisteringIsAuditedOnce_AndReregisteringAddsNothing()
+    {
+        using var expert = await fixture.CreateMappedExpert();
+        var handset = PushFlows.NextDeviceToken();
+
+        for (var i = 0; i < 3; i++)
+        {
+            using var response = await expert.Client.PostAsJsonAsync(
+                "/api/push/device-tokens", PushFlows.DeviceTokenBody(handset));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        var row = Assert.Single(await fixture.DeviceTokensOf(expert.User.Id));
+        var audit = await fixture.AuditRow(AuditActions.DeviceTokenRegistered, row.Id);
+
+        Assert.Equal(expert.User.Id, audit.ActorUserId);
+        Assert.Contains(DevicePlatforms.Android, audit.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Unregistering: one audit row, and it commits with the delete rather than after it — the route
+    /// was an <c>ExecuteDelete</c> until slice 7.2, which runs outside the change tracker and would
+    /// have left the record of the deletion in a second transaction naming a row that was already
+    /// gone.
+    /// </summary>
+    [Fact]
+    public async Task UnregisteringIsAudited()
+    {
+        using var expert = await fixture.CreateMappedExpert();
+        var handset = PushFlows.NextDeviceToken();
+
+        using (var registered = await expert.Client.PostAsJsonAsync(
+            "/api/push/device-tokens", PushFlows.DeviceTokenBody(handset)))
+        {
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+        }
+
+        var row = Assert.Single(await fixture.DeviceTokensOf(expert.User.Id));
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/push/device-tokens")
+        {
+            Content = JsonContent.Create(new { token = handset }),
+        };
+        using var response = await expert.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await fixture.DeviceTokensOf(expert.User.Id));
+
+        var audit = await fixture.AuditRow(AuditActions.DeviceTokenRevoked, row.Id);
+        Assert.Contains("user", audit.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

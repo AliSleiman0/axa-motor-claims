@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Api.Infrastructure;
 using Api.Modules.Audit;
 using Api.Modules.Users;
 using Microsoft.Data.SqlClient;
@@ -131,6 +132,60 @@ public sealed class AuditLogTests(ApiFixture fixture)
             | System.Reflection.BindingFlags.DeclaredOnly);
         var method = Assert.Single(methods);
         Assert.Equal(nameof(AuditWriter.Append), method.Name);
+    }
+
+    // ---- slice 7.2: §9's "approval/rejection with comments **hash**" ----
+
+    /// <summary>
+    /// The detail carried a bare <c>HasComment</c> boolean until this slice, which answers no question
+    /// a claims dispute asks. A hash does: it shows that the comment on screen today is the comment
+    /// the officer wrote, without the trail becoming a second copy of the text.
+    /// </summary>
+    /// <remarks>
+    /// The expected value is computed from the <c>declaration_comment.body</c> **read back from the
+    /// database**, not from the string this test sent. Hashing its own input would assert the code's
+    /// arithmetic back to itself and could never go red (2.4's lesson) — and the thing actually worth
+    /// pinning is that the two agree about trimming, which is where they would first drift.
+    /// </remarks>
+    [Fact]
+    public async Task Approve_WithAComment_HashesExactlyTheStoredText()
+    {
+        using var garage = await fixture.CreateGarage();
+        using var officer = await fixture.CreateOfficer();
+        var visa = fixture.SeedClaim();
+        var declarationId = await garage.SubmittedDeclaration();
+
+        (await officer.UploadApprovalImage(declarationId)).EnsureSuccessStatusCode();
+        (await officer.Approve(declarationId, visa, "  PLACEHOLDER approved with conditions  "))
+            .EnsureSuccessStatusCode();
+
+        await using var db = fixture.CreateDbContext();
+        var stored = await db.DeclarationComments.AsNoTracking()
+            .Where(c => c.DeclarationId == declarationId)
+            .Select(c => c.Body)
+            .SingleAsync();
+
+        var audit = await fixture.AuditRow(AuditActions.DeclarationApproved, declarationId);
+
+        Assert.Contains(TokenHashing.Hash(stored), audit.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reject_WithoutAComment_RecordsANullHashAndNoCommentRow()
+    {
+        using var garage = await fixture.CreateGarage();
+        using var officer = await fixture.CreateOfficer();
+        var declarationId = await garage.SubmittedDeclaration();
+
+        (await officer.Reject(declarationId, "   ")).EnsureSuccessStatusCode();
+
+        Assert.Equal(0, await fixture.CommentCount(declarationId));
+
+        var audit = await fixture.AuditRow(AuditActions.DeclarationRejected, declarationId);
+
+        // Null rather than a hash of the empty string, for the same reason `AddComment` writes no
+        // row: there is nothing to attest to, and a hash of "" would look like evidence of a comment.
+        Assert.Contains("\"CommentSha256\":null", audit.Detail, StringComparison.Ordinal);
     }
 
     /// <summary>A login-success audit row to tamper with — created through the real flow.</summary>

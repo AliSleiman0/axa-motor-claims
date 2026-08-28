@@ -91,6 +91,62 @@
   display: none;
 }
 
+/*
+ * And on any narrow viewport, whatever the shell (browser-pass finding 7, slice 7.2).
+ *
+ * The rule above fixed the two field shells and left the four office ones — officer, admin, broker
+ * and the desktop expert — overflowing identically: the week-5 pass measured the officer header at
+ * scrollWidth 562 inside a 390 px shell, with Sign out's right edge clipped off at 562. Slice 5.2
+ * added the broker shell, so the affected population grew after the finding was written.
+ *
+ * Keyed on width rather than on shell because *this* is the narrow-versus-wide question the block
+ * above says it is not: an officer on a small laptop window or a phone browser is not a field user,
+ * but the header still does not fit, and losing the only way to sign out is the same failure either
+ * way. The two rules are complementary — one says "field shells never show it", this one says
+ * "nobody shows it when there is no room" — and neither subsumes the other.
+ *
+ * 480 px rather than 390: the measurement is of the *content*, and a header that overflows at 390
+ * has no room to spare at 420 either. Pinned by the device pass, not by vitest — jsdom does no
+ * layout, so a test here could only assert that a string exists in a stylesheet.
+ */
+@media (max-width: 480px) {
+  .app-header__phone {
+    display: none;
+  }
+
+  /*
+   * **And hiding the phone number is not enough on its own — measured, not assumed.** The browser
+   * pass repeated week 5's measurement with the rule above in place: the officer header fell from
+   * 562 to **451** inside a 390 px shell and the admin header from 540 to **429**, so Sign out was
+   * still clipped on both. The finding said "the fix is one selector"; it is three, and the two
+   * below are what actually keep the control on screen.
+   *
+   * The wordmark goes because the role chip beside it already says what this is and the browser tab
+   * carries the product name — and it goes **only on the office shells**, because on a field shell
+   * the wordmark and the role are the whole header (pass 1's phone artboards) and there is nothing
+   * else to lose.
+   *
+   * The navigation scrolls rather than shrinking, and `flex-wrap: nowrap` is the load-bearing half:
+   * with `overflow-x` alone the admin's five tabs **wrapped to five rows** and the header grew to
+   * 189 px tall — a worse failure than the one being fixed, and one that looks deliberate. With it,
+   * the admin header sits at exactly 390, Sign out's right edge at 366, and the nav scrolls 172 of
+   * its 465.
+   */
+  .app-shell:not(.app-shell--touch) .app-header__brand {
+    display: none;
+  }
+
+  .app-shell:not(.app-shell--touch) .desktop-nav {
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .app-shell:not(.app-shell--touch) .desktop-nav > * {
+    flex: 0 0 auto;
+  }
+}
+
 .app-main {
   flex: 1 1 auto;
   width: 100%;

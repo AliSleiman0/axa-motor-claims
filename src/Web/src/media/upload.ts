@@ -117,6 +117,15 @@ const UPLOAD_EXPLANATIONS: Record<string, string> = {
     'This declaration moved on while the file was uploading. Reopen it to see where it is now.',
   // Slice 5.3's two, for §9.1's caps. Added in the same commit as the server that returns them —
   // 4.2's note (7) and 5.1's note (8) were both this omission, a bare "(400)" for a week.
+  // Slice 7.2. All three exist server-side and had no sentence, so they fell through to the
+  // status-code fallback — which on a capture screen reads as "your photo failed" when in fact the
+  // request never carried one.
+  unknown_origin:
+    'This photo could not be sent because the app did not say how it was taken. Try again.',
+  not_multipart:
+    'This photo could not be sent because the upload was malformed. Try again.',
+  metadata_must_precede_file:
+    'This photo could not be sent because the upload was malformed. Try again.',
   too_many_files:
     'That is as many files as this form accepts. Remove one before adding another.',
   request_already_submitted:

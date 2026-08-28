@@ -154,6 +154,13 @@ public static class ExpertEndpoints
             }
 
             var items = await rows
+                // Bounded since slice 7.2, and composed **here** rather than on `rows` above: the
+                // ordering is applied before the optional search is, so a cap up there would take the
+                // newest two hundred assignments and *then* search inside them — an expert typing a
+                // plate they were assigned last year would be told it does not exist. The correlated
+                // media count below is left as it is for the same reason it is now affordable: it
+                // runs over at most `ListLimits.MaxRows` rows.
+                .Take(ListLimits.MaxRows)
                 .Select(x => new ExpertAssignmentListItemDto(
                     x.Assignment.Id,
                     x.Assignment.VisaNo,

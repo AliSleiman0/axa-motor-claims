@@ -360,6 +360,22 @@ public sealed partial class BrokerRequestService(
                     ct);
 
             db.ChangeTracker.Clear();
+
+            // **After the clear, and with its own save** (slice 7.2). Appended above, this row would
+            // be discarded by the line immediately before it and the failure would stay exactly as
+            // silent as it was — which is the trap both push endpoints carry in their own comments.
+            //
+            // Why it is worth recording at all: the compensating write above runs outside the change
+            // tracker and only logs, so the durable evidence was a `notification` row saying a send
+            // failed — not that this request had its claim taken and given back. B1's Resend button
+            // exists because of that state, and §9's trail should say how the request got into it.
+            // The recipient is named because a send that failed to the *wrong* desk and a send that
+            // failed to the right one are different problems.
+            audit.Append(
+                brokerUserId, AuditActions.BrokerEmailSendFailed, AuditEntityKinds.BrokerRequest,
+                request.Id, new { Recipient = recipient, Attachments = attachments.Count });
+
+            await db.SaveChangesAsync(ct);
             return false;
         }
 

@@ -136,5 +136,82 @@ public sealed class BrokerRetentionTests(ApiFixture fixture)
             (await response.Content.ReadFromJsonAsync<ErrorBody>())?.Error);
     }
 
+    // ---- slice 7.2: the abandoned Option 2 request (§7.3's second carried ticket) ----
+
+    /// <summary>
+    /// A customer who photographs their identity card and five sides of their car and then never
+    /// presses Send. <c>emailed_at</c> stays null for ever, so the branch above never matches, and
+    /// nothing else in §7.3 can see the rows: sweep 1 needs an outbox row a <c>PushTiming.Never</c>
+    /// bucket does not have, and sweep 2 spares any blob a live document row claims.
+    /// </summary>
+    [Fact]
+    public async Task AnAbandonedOptionTwoRequestsBlobsAreSweptOnceItsLinkHasLongExpired()
+    {
+        var link = await fixture.IssueLink();
+        using var customer = fixture.CreatePublicClient();
+
+        (await PublicLinkFlows.UploadPublicDocument(customer, link.Token)).EnsureSuccessStatusCode();
+
+        var document = Assert.Single(await fixture.BrokerDocumentRows(link.RequestId));
+        Assert.True(await fixture.BlobExists(document.BlobKey));
+
+        // A live link is not an abandonment — the customer may still be filling the form in.
+        await fixture.Sweep();
+        Assert.True(await fixture.BlobExists(document.BlobKey));
+
+        // Expired, but only just: still inside the retention window, which is what stops the sweep
+        // acting the moment a link lapses.
+        await fixture.ExpireLink(link.RequestId);
+        await fixture.Sweep();
+        Assert.True(await fixture.BlobExists(document.BlobKey));
+
+        await fixture.WithRetention(r => r.AbandonedRequestBlobDays = 0, () => fixture.Sweep());
+
+        Assert.False(await fixture.BlobExists(document.BlobKey));
+
+        var swept = Assert.Single(await fixture.BrokerDocumentRows(link.RequestId));
+        Assert.NotNull(swept.BlobDeletedAt);
+
+        var audit = await fixture.AuditRow(AuditActions.DocumentBlobDeleted, document.Id);
+        Assert.Contains("abandoned_request", audit.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// **The one the db-review caught, and the reason this sweep names states rather than keying on
+    /// <c>emailed_at</c> alone.** A <c>ready_to_send</c> request is a *completed* submission sitting
+    /// in B1 waiting for a human to press **Send email**. Nothing expires it, so its token lapses on
+    /// schedule — and a sweep that looked only at <c>emailed_at</c> would delete the attachments
+    /// while the button was still on screen. <c>Send</c> would then refuse
+    /// <c>409 attachments_unavailable</c> for ever, the customer's link is locked, and there is no
+    /// second copy of anything.
+    /// </summary>
+    [Fact]
+    public async Task ASubmissionWaitingForTheBrokerIsNeverSwept()
+    {
+        using var broker = await fixture.CreateBroker();
+        var (requestId, _) = await broker.ReadyToSendRequest(fixture);
+
+        var documents = await fixture.BrokerDocumentRows(requestId);
+        Assert.NotEmpty(documents);
+
+        await fixture.ExpireLink(requestId);
+        await fixture.WithRetention(
+            r =>
+            {
+                r.AbandonedRequestBlobDays = 0;
+                r.BrokerBlobDays = 0;
+            },
+            () => fixture.Sweep());
+
+        foreach (var document in documents)
+        {
+            Assert.True(await fixture.BlobExists(document.BlobKey));
+        }
+
+        // And the proof that it still matters: the broker can send, with everything attached.
+        (await broker.SendRequest(requestId)).EnsureSuccessStatusCode();
+        Assert.NotEmpty(fixture.Email.LastTo(fixture.RecipientFor())!.Attachments);
+    }
+
     private sealed record ErrorBody(string Error);
 }

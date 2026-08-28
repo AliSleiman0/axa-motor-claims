@@ -30,8 +30,20 @@ export interface OutboxRow {
   nextRetryAt: string
 }
 
+/**
+ * The two numbers behind the nav badge (slice 7.2 added `overdue`).
+ *
+ * They are counted separately server-side and summed here, which is the point rather than an
+ * accident. `failed` is a row that has given up and will sit there for ever. `overdue` is a
+ * `pending` row whose moment came and went and which nothing is claiming — the signature of a
+ * stopped worker, or of a backlog draining slower than it fills. Long-`pending` rows are on the
+ * *list* and in neither number: one is working through its backoff and clears itself, and a badge
+ * that rose and fell with the retry schedule is an alarm nobody would trust (slice 6.2's argument,
+ * kept).
+ */
 export interface OutboxFailedCount {
   failed: number
+  overdue: number
 }
 
 const BASE = '/api/admin/outbox'

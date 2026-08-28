@@ -65,6 +65,37 @@ public static class AuditActions
     // from thirty separate decisions.
     public const string OutboxPushRetried = "outbox_push_retried";
     public const string OutboxPushesRetried = "outbox_pushes_retried";
+
+    // ---- slice 7.2: the device registry (§8's tables, §9's trail) ----
+    //
+    // Registering, losing and taking over a device are all decisions about **who receives a claim
+    // popup carrying a visa number**, and until this slice none of them left a trace. The three fire
+    // on creation, displacement and revocation only — never on the refresh path, because the
+    // Capacitor shell re-registers its FCM token on every launch and auditing that would bury the
+    // events that matter under one row per app open, per handset, per day.
+    //
+    // device_token_displaced is the one worth the extra action rather than a Reason on the revoke:
+    // it is a handset changing hands. FCM's token identifies the *app install*, not the person, so
+    // signing out deletes nothing and a pooled field phone would otherwise keep delivering the
+    // previous holder's claims. The actor is the **new** registrant and the entity is the row that
+    // was taken away, which is the only shape that answers "why did A stop getting notifications".
+    public const string DeviceTokenRegistered = "device_token_registered";
+    public const string DeviceTokenRevoked = "device_token_revoked";
+    public const string DeviceTokenDisplaced = "device_token_displaced";
+    public const string PushSubscriptionRegistered = "push_subscription_registered";
+    public const string PushSubscriptionRemoved = "push_subscription_removed";
+
+    // §4's refresh-token rule: presenting an already-rotated token revokes the whole family. That is
+    // the app's only automatic "somebody may be replaying a stolen credential" signal, and it was
+    // silent — the user simply found themselves signed out. Actor is the token's owner, since the
+    // presenter is by definition unauthenticated.
+    public const string RefreshTokenFamilyRevoked = "refresh_token_family_revoked";
+
+    // §5.3's send failure. The compensating write that releases `emailed_at` runs outside the change
+    // tracker and logs, so the only durable record was a `notification` row saying the send failed —
+    // not that the claim was taken and given back. B1's Resend button exists because of this state;
+    // the trail should say how the request got into it.
+    public const string BrokerEmailSendFailed = "broker_email_send_failed";
 }
 
 /// <summary>Entity-kind strings for <see cref="AuditLog.EntityKind"/>.</summary>
@@ -87,4 +118,15 @@ public static class AuditEntityKinds
     /// `Next3OutboxMessage` (architecture rule 4), and a string is all it ever needs.
     /// </summary>
     public const string Next3Outbox = "next3_outbox";
+
+    /// <summary>
+    /// §8's two device tables (slice 7.2). Two kinds rather than one "device", because they are two
+    /// tables with different lifecycles — a browser subscription is revoked when the push service
+    /// says 404/410, an FCM token when the handset changes hands — and a support query that could
+    /// not tell them apart would be answering the wrong half of "which device did we notify".
+    /// </summary>
+    public const string DeviceToken = "device_token";
+
+    /// <inheritdoc cref="DeviceToken"/>
+    public const string PushSubscription = "push_subscription";
 }

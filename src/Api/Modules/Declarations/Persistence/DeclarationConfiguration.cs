@@ -40,6 +40,18 @@ public sealed class DeclarationConfiguration : IEntityTypeConfiguration<Declarat
             // and no timestamp would pass. Unreachable through the entity's private setters today,
             // which is exactly the argument that would retire this constraint; the constraint exists
             // because the entity will not always be the only writer.
+            //
+            // **The fourth clause, added in slice 7.2 on the db-review's insistence: a visa, if
+            // present, is not empty.** `NOT NULL` was doing all the work, and an empty string is not
+            // null. An `approved` row carrying `visa_no = ''` satisfied every biconditional above and
+            // is worse than the missing-visa case the third one rules out: its deferred documents are
+            // enqueued rather than stranded, so the push happens, addressed to a claim that does not
+            // exist — a photograph rejected at NEXT3's end, or worse, accepted under nothing.
+            //
+            // `LEN` rather than `DATALENGTH` or a `<> ''` comparison, and the difference matters:
+            // T-SQL ignores trailing spaces in an equality compare, so `[visa_no] <> ''` is *true*
+            // for a value of three spaces, while `LEN` also ignores them and therefore returns 0 —
+            // refusing an all-blank visa with the same predicate rather than needing a second one.
             table.HasCheckConstraint(
                 "CK_declaration_decision",
                 $"(CASE WHEN [state] IN ({decided}) THEN 1 ELSE 0 END) "
@@ -47,7 +59,8 @@ public sealed class DeclarationConfiguration : IEntityTypeConfiguration<Declarat
                 + $"AND (CASE WHEN [state] IN ({decided}) THEN 1 ELSE 0 END) "
                 + "= (CASE WHEN [decided_at] IS NOT NULL THEN 1 ELSE 0 END) "
                 + $"AND (CASE WHEN [state] IN ({linked}) THEN 1 ELSE 0 END) "
-                + "= (CASE WHEN [visa_no] IS NOT NULL THEN 1 ELSE 0 END)");
+                + "= (CASE WHEN [visa_no] IS NOT NULL THEN 1 ELSE 0 END) "
+                + "AND ([visa_no] IS NULL OR LEN([visa_no]) > 0)");
         });
 
         builder.HasKey(d => d.Id);
@@ -94,6 +107,12 @@ public sealed class DeclarationConfiguration : IEntityTypeConfiguration<Declarat
         // O1's inbox: every garage's submitted declarations, oldest first — an officer works a queue,
         // so the one that has been waiting longest is the one they want.
         builder.HasIndex(d => new { d.State, d.SubmittedAt });
+
+        // Slice 7.2's rejected-declaration retention sweep, which runs hourly and normally returns
+        // nothing: without this it reads every rejected declaration ever filed to find the few past
+        // the window. `(state, submitted_at)` above cannot serve it — a rejected row's `submitted_at`
+        // says when the garage filed it, not when the officer decided.
+        builder.HasIndex(d => new { d.State, d.DecidedAt });
 
         // Deliberately no FK to `claim` on visa_no, for the same reason expert_assignment has none:
         // §4 makes that cache disposable and deletable at any time, and a foreign key would turn a

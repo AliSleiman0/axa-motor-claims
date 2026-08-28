@@ -28,12 +28,40 @@ if (builder.Environment.IsDevelopment())
 
 builder.Configuration.AddEnvironmentVariables();
 
+// **The global request-body ceiling, which did not exist before slice 7.2.** Kestrel's default is
+// 30 MB, so an authenticated caller could push a 29 MB file all the way through TLS, the pipeline and
+// the multipart reader before `Media:MaxFileMb` refused it — paying for every byte of a request that
+// was never going to be accepted. One megabyte of headroom above the per-file cap covers the
+// multipart envelope (boundaries, the two metadata parts, `Content-Disposition` headers) so a legal
+// 15 MB file is never refused by the wrong limit with the wrong error.
+//
+// **Read once, at startup, and deliberately not reloadable.** Everything else in this app reads
+// options through `IOptionsMonitor` so `appsettings.Placeholders.json` can be edited live (§11's
+// week-4 demo depends on it); a Kestrel limit is fixed when the server is built, so a monitor here
+// would be a promise the server cannot keep. Raising `Media:MaxFileMb` therefore needs a restart.
+//
+// `/public/*` still lowers it per request through `PublicBodySizeMiddleware` and
+// `IHttpMaxRequestBodySizeFeature` — that feature can only lower the effective limit, never raise it,
+// so §9.1's much tighter `PublicLink:MaxFileMb` is unaffected by whatever this line says.
+builder.WebHost.ConfigureKestrel((context, kestrel) =>
+{
+    var maxFileMb = context.Configuration.GetValue<int?>("Media:MaxFileMb") ?? new MediaOptions().MaxFileMb;
+    kestrel.Limits.MaxRequestBodySize = (maxFileMb + 1L) * 1024 * 1024;
+});
+
 builder.Services.AddAxaMotorClaims(builder.Configuration);
 
 var app = builder.Build();
 
-// First, and before the two middlewares that short-circuit: the limiter answers its own 429 and the
-// body cap its own 413, so anything registered later would leave exactly those responses bare (§9).
+// Outermost, so it wraps everything below including the limiter (slice 7.2). A client that has gone
+// away turns an ordinary abort into an unhandled exception and a 503 in the log; the guard is
+// `RequestAborted`, never the exception's type. Deliberately not a global handler — with a live
+// client the exception propagates exactly as it did before, which §9.1's uniform surface relies on.
+app.UseMiddleware<CancelledRequestMiddleware>();
+
+// First among everything that writes a response, and before the two middlewares that short-circuit:
+// the limiter answers its own 429 and the body cap its own 413, so anything registered later would
+// leave exactly those responses bare (§9).
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // Before authentication: abuse of the public surface is shed before any work is done for it (§9.1).

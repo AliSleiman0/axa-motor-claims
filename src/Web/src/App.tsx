@@ -25,6 +25,7 @@ import BrokerRequestsPage from './pages/BrokerRequestsPage'
 import BrokerRequestPage from './pages/BrokerRequestPage'
 import NewBrokerRequestPage from './pages/NewBrokerRequestPage'
 import BrokerLinkPage from './pages/BrokerLinkPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 const queryClient = createQueryClient()
 
@@ -44,7 +45,16 @@ function AdminLayout() {
   if (!getTokens()) return <Navigate to="/login" replace />
 
   return (
-    <AppShell role="admin" tabCounts={{ '/admin/failed-pushes': failed.data?.failed ?? 0 }}>
+    // Summed, because the badge answers one question — "is anything not reaching AXA?" — and both
+    // numbers are a yes. Slice 7.2 added the second: without it A2 could show a clean queue while a
+    // stopped worker pushed nothing at all, which is precisely when somebody is asking where a
+    // photograph went.
+    <AppShell
+      role="admin"
+      tabCounts={{
+        '/admin/failed-pushes': (failed.data?.failed ?? 0) + (failed.data?.overdue ?? 0),
+      }}
+    >
       <Outlet />
     </AppShell>
   )
@@ -197,6 +207,16 @@ function App() {
             <Route path="/admin/:kind/new" element={<ProfileFormPage />} />
             <Route path="/admin/:kind/:id" element={<ProfileFormPage />} />
           </Route>
+
+          {/*
+            **Last, and outside every layout** (slice 7.2). Last because React Router matches the
+            most specific route regardless of order, but a `*` above a sibling still reads as if it
+            shadowed everything and the next person to add a route would move it; outside the layouts
+            because the paths that reach it include `/p/{token}`, which an anonymous customer opens
+            with no session — a not-found page behind a sign-in guard would send them to a login
+            screen for a link they mistyped.
+          */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

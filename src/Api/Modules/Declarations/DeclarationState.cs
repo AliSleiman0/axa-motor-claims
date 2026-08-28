@@ -54,6 +54,18 @@ public static class DeclarationStates
         Approved, RepairsInProgress, RepairDocsSubmitted,
     ];
 
+    /// <summary>
+    /// <see cref="Linked"/> as the enum, for LINQ (slice 7.2's re-queue sweep). Kept immediately
+    /// beside its string twin so the two cannot drift: one is what the check constraint tests, the
+    /// other is what the query tests, and they are the same claim about the same states.
+    /// </summary>
+    public static readonly DeclarationState[] LinkedStates =
+    [
+        DeclarationState.Approved,
+        DeclarationState.RepairsInProgress,
+        DeclarationState.RepairDocsSubmitted,
+    ];
+
     public static string ToDbValue(this DeclarationState state) => state switch
     {
         DeclarationState.Draft => Draft,

@@ -197,4 +197,52 @@ public sealed class BrokerSendTests(ApiFixture fixture)
         Assert.Equal(750m, detail.EstimatedPremium);
         Assert.NotNull(detail.SubmittedAt);
     }
+
+    /// <summary>
+    /// §9's trail for a send that failed (slice 7.2). It was the one compensating write in the
+    /// product with no durable record of its own: the claim on <c>emailed_at</c> is taken and given
+    /// back by an <c>ExecuteUpdate</c> that only logs, so all that survived was a `notification` row
+    /// saying an email failed — not that this request had reached `sent` and been rolled back to
+    /// undelivered. B1's **Resend** button exists because of that state; the trail should say how the
+    /// request got into it.
+    /// </summary>
+    /// <remarks>
+    /// **The row has to survive <c>ChangeTracker.Clear()</c>, and that is the whole test.** The
+    /// failure path clears the tracker before returning, so an audit row appended in the obvious
+    /// place — beside the log line — is silently discarded while the endpoint still answers 200. Both
+    /// push endpoints carry that warning in their own comments; this is the first place it was true.
+    /// </remarks>
+    [Fact]
+    public async Task AFailedSendIsAudited()
+    {
+        using var broker = await fixture.CreateBroker();
+        var (requestId, _) = await broker.ReadyToSendRequest(fixture);
+        var recipient = fixture.RecipientFor();
+
+        var original = fixture.Fake.CurrentValue;
+        try
+        {
+            fixture.Fake.CurrentValue = new FakeOptions { FailureRate = 1.0 };
+            (await broker.SendRequest(requestId)).EnsureSuccessStatusCode();
+        }
+        finally
+        {
+            fixture.Fake.CurrentValue = original;
+        }
+
+        var audit = await fixture.AuditRow(AuditActions.BrokerEmailSendFailed, requestId);
+
+        Assert.Equal(broker.User.Id, audit.ActorUserId);
+        Assert.Equal(AuditEntityKinds.BrokerRequest, audit.EntityKind);
+
+        // The recipient is named because a send that failed to the *wrong* desk and one that failed
+        // to the right one are different problems, and `email_recipient` has been nulled by the
+        // compensating write by the time anybody looks.
+        Assert.Contains(recipient, audit.Detail, StringComparison.Ordinal);
+        Assert.Null((await fixture.RequestRow(requestId)).EmailRecipient);
+
+        // And no success row was written, which is what makes the pair readable as a history.
+        Assert.Empty(await fixture.AuditRows(AuditActions.BrokerRequestEmailed, requestId));
+    }
+
 }

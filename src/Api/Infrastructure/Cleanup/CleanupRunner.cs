@@ -24,6 +24,7 @@ public sealed partial class CleanupRunner(IServiceScopeFactory scopes, ILogger<C
     {
         await using var scope = scopes.CreateAsyncScope();
         var tasks = scope.ServiceProvider.GetServices<ICleanupTask>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var results = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var task in tasks)
@@ -44,6 +45,18 @@ public sealed partial class CleanupRunner(IServiceScopeFactory scopes, ILogger<C
                 // the OTP purge, and the next pass retries anyway.
                 LogTaskFailed(logger, task.Name, ex);
                 results[task.Name] = 0;
+            }
+            finally
+            {
+                // **Every task in a pass shares this scope's DbContext, so a half-built batch belongs
+                // to nobody once its own task has stopped (slice 7.2, db-review).** A sweep that
+                // throws mid-loop leaves its staged changes in the tracker; the next task's own
+                // `SaveChanges` would then flush them inside *its* transaction — attributing one
+                // sweep's writes to another, and, if they are invalid, failing that sweep on every
+                // pass for ever with a log line naming the wrong task. Clearing here is cheaper and
+                // more obviously right than a scope each: after a successful task there is nothing
+                // left to clear, and after a failed one there is nothing worth keeping.
+                db.ChangeTracker.Clear();
             }
         }
 

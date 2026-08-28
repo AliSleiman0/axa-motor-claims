@@ -15,6 +15,7 @@ using Api.Modules.Expert;
 using Api.Modules.Media;
 using Api.Modules.Notifications;
 using Api.Modules.PublicSurface;
+using Api.Modules.Push;
 using Api.Modules.Users;
 using Api.Outbox;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -78,6 +79,12 @@ public static class ServiceRegistration
         services.AddScoped<ICleanupTask, MediaBlobCleanupTask>();
         services.AddScoped<ICleanupTask, BrokerMediaCleanupTask>();
         services.AddScoped<ICleanupTask, OtpChallengeCleanupTask>();
+        // Slice 7.2's three. Registered here beside the others, but each lives in the module that
+        // owns its data — the re-queue and the rejected-declaration sweep read declarations, the
+        // prune reads §8's device tables — which is what ICleanupTask's own doc comment asks for.
+        services.AddScoped<ICleanupTask, StrandedDeferredRequeueTask>();
+        services.AddScoped<ICleanupTask, RejectedDeclarationBlobCleanupTask>();
+        services.AddScoped<ICleanupTask, DeviceRegistryCleanupTask>();
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<ClaimCache>();

@@ -69,6 +69,22 @@ function view(overrides: Partial<PublicLinkView> = {}): PublicLinkView {
 
 let fetchMock: ReturnType<typeof vi.fn>
 
+/*
+ * **A file-level timeout, and this is the repo's first (slice 7.2).**
+ *
+ * P1 is the largest component in the product — six fields, a document list, five capture panels and
+ * a submit — and every test here mounts the whole page and drives it with `userEvent`. Against
+ * Vitest's 5 s default that is comfortable on a quiet machine and marginal on a busy one, which is
+ * the definition of a flake: it fails for a reason that has nothing to do with the assertion, and it
+ * fails on whoever's machine happens to be compiling something else.
+ *
+ * `vi.setConfig` rather than a third argument on every `it`, because the property belongs to the
+ * file rather than to any one case, and the per-test form has to be repeated (and remembered) on
+ * each new one. Nothing else in the suite needs it; the default stays 5 s everywhere else on
+ * purpose, because a slow test elsewhere is usually a real problem.
+ */
+vi.setConfig({ testTimeout: 15_000 })
+
 describe('P1 — the public customer form', () => {
   beforeEach(() => {
     vi.stubGlobal('URL', {

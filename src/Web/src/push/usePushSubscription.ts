@@ -3,13 +3,13 @@ import { detectNativeShell } from '../media/nativeShell'
 import { getVapidPublicKey, postSubscription, registerDeviceToken } from './api'
 import { acquireNativePushToken, type AcquirePushToken } from './nativeToken'
 import {
-  hasBrowserSubscription,
+  resyncSubscription,
   PUSH_EXPLANATIONS,
   PushError,
   readBrowserPushPermission,
   subscribeInBrowser,
   type PushFailure,
-  type ReadExistingSubscription,
+  type ResyncSubscription,
   type ReadPushPermission,
   type SubscribeToPush,
 } from './subscription'
@@ -20,7 +20,11 @@ export interface UsePushSubscriptionOptions {
   /** Reads the current permission without prompting. Injectable for the same reason. */
   readPermission?: ReadPushPermission
   /** Reads whether this browser is already subscribed. Silent — never prompts. */
-  readSubscription?: ReadExistingSubscription
+  /**
+   * Renamed from `readSubscription` in slice 7.2, because it no longer only reads. It re-posts what
+   * the browser holds and answers whether the **server** now has it — see `resyncSubscription`.
+   */
+  resync?: ResyncSubscription
   /**
    * Whether the app is running inside the Android shell (slice 6.3). Injectable for the same reason
    * everything else here is; production probes for the Capacitor bridge.
@@ -60,7 +64,7 @@ export interface UsePushSubscriptionResult {
 export function usePushSubscription({
   subscribe = subscribeInBrowser,
   readPermission = readBrowserPushPermission,
-  readSubscription = hasBrowserSubscription,
+  resync = resyncSubscription,
   shellIsNative = detectNativeShell() !== null,
   acquireToken = acquireNativePushToken,
 }: UsePushSubscriptionOptions = {}): UsePushSubscriptionResult {
@@ -88,15 +92,25 @@ export function usePushSubscription({
     // for a handset is "we do not know". So the shell always offers the button and pressing it
     // re-registers — which is an upsert server-side and therefore free. Deliberately *not* inferred
     // from the OS notification permission being granted: that would say "Notifications are on" while
-    // the server held no row, which is a defect already on 7.2's list for the browser and is not
-    // worth reproducing here.
+    // the server held no row, which is exactly the defect the line below now fixes for the browser.
     if (shellIsNative) return undefined
     if (permission !== 'granted') return undefined
 
     let cancelled = false
-    void readSubscription()
-      .then((already) => {
-        if (already && !cancelled) setEnabled(true)
+
+    // **Resync, not read (slice 7.2).** This asked the browser whether it held a subscription and
+    // believed the answer. But a browser's subscription outlives the server's record of it — a
+    // database restore, a re-created user, a rotated VAPID pair, or a second person signing in on the
+    // same profile — so "the browser is subscribed" and "AXA can notify you" are different facts, and
+    // the panel was reporting the first as the second. Re-posting what the browser holds makes them
+    // the same fact: the server's upsert is idempotent, so this is free when the row already exists.
+    //
+    // `setEnabled(true)` only **after** the POST resolves, which is the half that matters. A failed
+    // resync leaves the panel offering *Turn on notifications* — honest, and one press from correct —
+    // rather than claiming a state nothing confirmed.
+    void resync()
+      .then((synced) => {
+        if (synced && !cancelled) setEnabled(true)
       })
       // Swallowed on purpose: this only decides which of two labels to show, and a browser that
       // cannot answer should offer the button rather than an error the expert cannot act on.
@@ -105,7 +119,7 @@ export function usePushSubscription({
     return () => {
       cancelled = true
     }
-  }, [permission, readSubscription, shellIsNative])
+  }, [permission, resync, shellIsNative])
 
   function enable() {
     if (enabled || unsupported || inFlight.current) return

@@ -12,12 +12,51 @@ public sealed class RetentionOptions
     public int BlobDays { get; set; } = 7;
 
     /// <summary>
-    /// §7.3's broker-media window. **Not yet enforced** — the cleanup query deletes only documents
-    /// whose outbox row reads `sent`, and broker media has no outbox row at all (`push_status = n/a`),
-    /// so it is structurally excluded and simply survives. Slice 5.2/5.3 owns `broker_request`'s
-    /// terminal states and will add the second branch. Retaining too long is the safe side.
+    /// §7.3's broker-media window, enforced by <c>BrokerMediaCleanupTask</c> since slice 5.2. Broker
+    /// media has no outbox row at all (`push_status = n/a`), so it is structurally invisible to the
+    /// first sweep; this window is measured from `broker_request.emailed_at` instead — the moment the
+    /// documents left as attachments, which is the thing that licenses deleting them.
     /// </summary>
     public int BrokerBlobDays { get; set; } = 30;
+
+    /// <summary>
+    /// §7.3's rejected-declaration window (slice 7.2), measured from `decided_at`.
+    ///
+    /// Rejection is terminal with no resubmit edge (§5.2), so nothing ever moves those documents on:
+    /// they stay `deferred`, they never acquire an outbox row, the first sweep cannot see them and the
+    /// orphan sweep spares them because a live `document` row still claims the bytes. Left alone they
+    /// are a permanent store of accident photographs, which neither §7.3's "flat forever" sizing nor
+    /// §9's "the app is deliberately not a long-term PII store" survives.
+    ///
+    /// **Thirty days is a placeholder, not an answer.** How long AXA may keep a rejected claim's
+    /// photographs is #4/#22. What this slice buys is the mechanism; the number is one config edit.
+    /// </summary>
+    public int RejectedDeclarationBlobDays { get; set; } = 30;
+
+    /// <summary>
+    /// §7.3's abandoned-Option-2 window (slice 7.2), measured from the request's **newest public link
+    /// token's** `expires_at` — not from a state, because `expired` is computed in B1's projection and
+    /// never written, so there is no column a sweep could test.
+    ///
+    /// The case: a member of the public photographs their identity card and up to five sides of their
+    /// car, then never presses Send. `emailed_at` stays null for ever, so the broker sweep's predicate
+    /// never matches and those bytes sit in the transit container with nothing to move them on.
+    ///
+    /// **The window is also what protects a resendable failed send.** A submitted request whose email
+    /// failed has `emailed_at` null too and looks identical on that column alone; its token expires on
+    /// the same schedule, so waiting for the window to pass is what keeps B1's **Resend** working —
+    /// pinned by its own test rather than left as an inference. Placeholder value, #4/#22.
+    /// </summary>
+    public int AbandonedRequestBlobDays { get; set; } = 30;
+
+    /// <summary>
+    /// How long a revoked `device_token` / `push_subscription` row is kept before it is deleted
+    /// (slice 7.2). Revoked rows are kept at all so a `notification` row naming a device still
+    /// resolves to something, and pruned eventually because the registry is otherwise a table that
+    /// only grows — every OEM battery kill, every 410 from a push service and every handset that
+    /// changes hands adds one. Placeholder value, #4/#22.
+    /// </summary>
+    public int RevokedDeviceDays { get; set; } = 30;
 
     /// <summary>
     /// §7.3's "a blob without a row is garbage the cleanup job sweeps". The grace window matters: a

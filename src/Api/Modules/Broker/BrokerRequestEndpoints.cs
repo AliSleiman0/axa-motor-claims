@@ -124,6 +124,9 @@ public static class BrokerRequestEndpoints
             var rows = await db.BrokerRequests.AsNoTracking()
                 .Where(r => r.BrokerUserId == brokerUserId.Value)
                 .OrderByDescending(r => r.CreatedAt)
+                // Newest first, so the cap drops the oldest (7.2). Applied before the projection, so
+                // the two correlated subqueries below run over at most `ListLimits.MaxRows` rows.
+                .Take(ListLimits.MaxRows)
                 .Select(r => new
                 {
                     Request = r,

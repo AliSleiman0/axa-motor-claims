@@ -15,17 +15,40 @@ export default function ProfileFormPage() {
   const isNew = id === undefined
   const [values, setValues] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(!isNew)
 
+  // **The uncaught fetch, and the reason this page had no test until slice 7.2 — the two gaps
+  // coincided.** A failed load produced an unhandled rejection and an *empty form*: every field
+  // blank, the Save button live, and a PUT away from overwriting a real profile with nothing. The
+  // cancellation flag is `ProfileListPage`'s, which had one and this did not.
   useEffect(() => {
-    if (!kind || isNew) return
-    void api<Record<string, unknown>>(`${apiBase(kind)}/${id}`).then((detail) => {
-      const loaded: Record<string, string> = {
-        phone: String(detail.phone ?? ''),
-        displayName: String(detail.displayName ?? ''),
-      }
-      for (const field of kind.fields) loaded[field.name] = String(detail[field.name] ?? '')
-      setValues(loaded)
-    })
+    if (!kind || isNew) return undefined
+    // No `setLoading(true)` here — the initial value is already `!isNew`, and the lint rule
+    // (`react-hooks/set-state-in-effect`) forbids a synchronous set in an effect body.
+    let cancelled = false
+    api<Record<string, unknown>>(`${apiBase(kind)}/${id}`)
+      .then((detail) => {
+        if (cancelled) return
+        const loaded: Record<string, string> = {
+          phone: String(detail.phone ?? ''),
+          displayName: String(detail.displayName ?? ''),
+        }
+        for (const field of kind.fields) loaded[field.name] = String(detail[field.name] ?? '')
+        setValues(loaded)
+        setLoading(false)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setError(
+          e instanceof ApiError
+            ? `This profile could not be loaded (${e.status}). Nothing has been changed.`
+            : 'This profile could not be loaded. Nothing has been changed.',
+        )
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [kind, id, isNew])
 
   if (!kind) return <p className="muted">Unknown profile type.</p>
@@ -58,6 +81,7 @@ export default function ProfileFormPage() {
       <h2 className="page__title">
         {isNew ? 'New' : 'Edit'} — {kind.label}
       </h2>
+      {loading && <p className="muted">Loading profile…</p>}
       <form className="panel" onSubmit={submit}>
         <PhoneField
           id="profile-phone"

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Api.Infrastructure;
 using Api.Modules.Audit;
 using Api.Modules.Users;
 using Api.Outbox;
@@ -312,7 +313,107 @@ public sealed class OutboxAdminTests(ApiFixture fixture) : IDisposable
 
     private sealed record RetriedDto(int Retried);
 
-    private sealed record FailedCountDto(int Failed);
+    // ---- slice 7.2: the overdue arm, and the cap ----
+
+    /// <summary>
+    /// **6.2's recorded blind spot, closed.** Its predicate listed rows scheduled far *ahead*; a row
+    /// whose moment came and went was on neither the list nor the badge — which is precisely the
+    /// signature of a stopped worker job, or a backlog draining slower than it fills. So the screen
+    /// built to contradict "nothing has failed" could show a clean queue while nothing at all was
+    /// being pushed.
+    /// </summary>
+    [Fact]
+    public async Task AnOverduePendingRow_IsListedAndCounted()
+    {
+        await fixture.ClearQueueAndFailures();
+
+        // Signed in **before** the clock is read: Login advances the shared clock 61 seconds past
+        // the OTP resend throttle, and this test's whole subject is a window sixty seconds wide. The
+        // class doc names the hazard; here it is the difference between a pass and a lie.
+        await Admin();
+        var now = Now;
+
+        // Two polls behind: the worker has missed a beat entirely, not merely been slow.
+        var overdue = await Queue(
+            "PLACEHOLDER-VISA-A2-81",
+            Next3OutboxStatuses.Pending,
+            now.AddSeconds(-3 * fixture.Outbox.CurrentValue.PollSeconds));
+
+        Assert.Contains(overdue, (await List()).Select(r => r.Id));
+
+        var counts = await Counts();
+        Assert.Equal(1, counts.Overdue);
+
+        // And it is a *separate* number from `failed`, which is what keeps 6.2's badge argument
+        // intact: an alarm that rose and fell with the backoff schedule is one nobody trusts.
+        Assert.Equal(0, counts.Failed);
+    }
+
+    /// <summary>
+    /// The half a naive predicate breaks. Every row is enqueued with <c>next_retry_at = now</c>, so
+    /// at one poll of grace a queue that is working perfectly would flash rows overdue in the seconds
+    /// before the worker's next tick — and an alarm that fires during normal operation is worse than
+    /// no alarm at all.
+    /// </summary>
+    [Fact]
+    public async Task ARowDueThisPoll_IsOnNeitherTheListNorTheBadge()
+    {
+        await fixture.ClearQueueAndFailures();
+        await Admin();
+        var now = Now;
+        var justEnqueued = await Queue("PLACEHOLDER-VISA-A2-82", Next3OutboxStatuses.Pending, now);
+        var dueAMomentAgo = await Queue(
+            "PLACEHOLDER-VISA-A2-83", Next3OutboxStatuses.Pending, now.AddSeconds(-1));
+
+        var listed = (await List()).Select(r => r.Id).ToList();
+
+        Assert.DoesNotContain(justEnqueued, listed);
+        Assert.DoesNotContain(dueAMomentAgo, listed);
+        Assert.Equal(0, (await Counts()).Overdue);
+    }
+
+    /// <summary>
+    /// **The list stops at <see cref="ListLimits.MaxRows"/>, and Retry all deliberately does not.**
+    /// </summary>
+    /// <remarks>
+    /// The divergence is asserted rather than only commented, because it is the surprising half. A
+    /// cap inside the shared predicate would have made the *button* partial — an admin presses Retry
+    /// all during an outage, sees a 200, and is silently left with a backlog it never touched — which
+    /// is far worse than a truncated screen. So the screen truncates and the button covers everything
+    /// the predicate covers.
+    /// </remarks>
+    [Fact]
+    public async Task TheListStopsAtTheCap_ButRetryAllDoesNot()
+    {
+        await fixture.ClearQueueAndFailures();
+        await Admin();
+        var now = Now;
+        var total = ListLimits.MaxRows + 1;
+
+        for (var i = 0; i < total; i++)
+        {
+            await Queue($"PLACEHOLDER-VISA-A2-9{i:D3}", Next3OutboxStatuses.Failed, now);
+        }
+
+        Assert.Equal(ListLimits.MaxRows, (await List()).Count);
+
+        // The badge is not capped either: it is a count, and a number that stopped at two hundred
+        // would understate exactly the outage it exists to announce.
+        Assert.Equal(total, (await Counts()).Failed);
+
+        var response = await Post("/api/admin/outbox/retry-all");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var retried = await response.Content.ReadFromJsonAsync<RetriedDto>();
+        Assert.Equal(total, retried!.Retried);
+
+        // Two hundred and one rows is an unusual thing to leave in a table the whole serialized
+        // collection shares, so this test tidies up after itself rather than relying on whoever runs
+        // next to clear first.
+        await fixture.ClearQueueAndFailures();
+    }
+
+    private sealed record FailedCountDto(int Failed, int Overdue);
 
     /// <summary>
     /// One signed-in admin per test. Signing in advances the shared clock past the OTP resend
@@ -341,6 +442,9 @@ public sealed class OutboxAdminTests(ApiFixture fixture) : IDisposable
 
     private async Task<int> Count() =>
         (await (await Admin()).GetFromJsonAsync<FailedCountDto>("/api/admin/outbox/count"))!.Failed;
+
+    private async Task<FailedCountDto> Counts() =>
+        (await (await Admin()).GetFromJsonAsync<FailedCountDto>("/api/admin/outbox/count"))!;
 
     private async Task<HttpResponseMessage> Post(string path) =>
         await (await Admin()).PostAsync(path, null);

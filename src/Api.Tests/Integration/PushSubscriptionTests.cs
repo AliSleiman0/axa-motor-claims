@@ -1,3 +1,4 @@
+using Api.Modules.Audit;
 using System.Net;
 using System.Net.Http.Json;
 using Api.Integrations.Push;
@@ -260,4 +261,59 @@ public sealed class PushSubscriptionTests(ApiFixture fixture)
     }
 
     private sealed record VapidKeyDto(string PublicKey);
+
+    /// <summary>
+    /// §9's trail for §8's browser registry (slice 7.2), and the "once only" half is the rule that
+    /// matters: registration audits fire on creation and removal, never on the refresh path, or a
+    /// user who reloads the app all day buries the events worth reading.
+    /// </summary>
+    [Fact]
+    public async Task SubscribingIsAuditedOnce_AndResubscribingAddsNothing()
+    {
+        using var expert = await fixture.CreateMappedExpert();
+        var endpoint = PushFlows.NextEndpoint();
+
+        for (var i = 0; i < 3; i++)
+        {
+            (await expert.Client.PostAsJsonAsync(
+                "/api/push/subscriptions", PushFlows.Subscription(endpoint)))
+                .EnsureSuccessStatusCode();
+        }
+
+        var row = Assert.Single(await fixture.SubscriptionsOf(expert.User.Id));
+        var audit = await fixture.AuditRow(AuditActions.PushSubscriptionRegistered, row.Id);
+
+        Assert.Equal(expert.User.Id, audit.ActorUserId);
+        Assert.Equal(AuditEntityKinds.PushSubscription, audit.EntityKind);
+    }
+
+    /// <summary>
+    /// The delete and the record of it commit together — the route was an <c>ExecuteDelete</c> until
+    /// slice 7.2, which runs outside the change tracker and would have left §9's row in a second
+    /// transaction naming a subscription that was already gone.
+    /// </summary>
+    [Fact]
+    public async Task UnsubscribingIsAudited()
+    {
+        using var expert = await fixture.CreateMappedExpert();
+        var endpoint = PushFlows.NextEndpoint();
+
+        (await expert.Client.PostAsJsonAsync(
+            "/api/push/subscriptions", PushFlows.Subscription(endpoint)))
+            .EnsureSuccessStatusCode();
+
+        var row = Assert.Single(await fixture.SubscriptionsOf(expert.User.Id));
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/push/subscriptions")
+        {
+            Content = JsonContent.Create(new { endpoint }),
+        };
+        (await expert.Client.SendAsync(request)).EnsureSuccessStatusCode();
+
+        Assert.Empty(await fixture.SubscriptionsOf(expert.User.Id));
+
+        var audit = await fixture.AuditRow(AuditActions.PushSubscriptionRemoved, row.Id);
+        Assert.Contains("user", audit.Detail, StringComparison.Ordinal);
+    }
+
 }

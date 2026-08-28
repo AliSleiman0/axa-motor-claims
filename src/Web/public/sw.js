@@ -74,3 +74,38 @@ self.addEventListener('notificationclick', (event) => {
     }),
   )
 })
+
+/*
+ * The push service rotated this browser's subscription (slice 7.2).
+ *
+ * Browsers fire this when they invalidate a subscription and issue a new one — key rotation, a long
+ * idle period, storage pressure. Without a handler the old endpoint simply dies: every push to it
+ * comes back 410, the server revokes the row, and the expert's popups stop with nothing on screen to
+ * say so. Re-subscribing with the *old* options is what keeps the browser holding one at all.
+ *
+ * **Deliberate deviation, recorded rather than worked around: this cannot tell the server.** A
+ * service worker holds no bearer token — `api()`'s session lives in the page, not here — and minting
+ * one for a worker would put a long-lived credential somewhere §9 has no way to revoke. So the new
+ * subscription sits in the browser until the next time the app is opened, when
+ * `usePushSubscription`'s mount effect re-posts it. That is the same mechanism that fixes the
+ * "Notifications are on" lie, doing double duty; the gap is one app open wide, and the alternative
+ * is worse.
+ *
+ * `oldSubscription.options` rather than a fresh key fetch, for the same reason: fetching the VAPID
+ * key needs no auth today but does need the origin to be up, and a rotation that happens while the
+ * network is unavailable should still leave the browser subscribed to the key it was using.
+ */
+self.addEventListener('pushsubscriptionchange', (event) => {
+  const options = event.oldSubscription && event.oldSubscription.options
+
+  if (!options) {
+    return
+  }
+
+  event.waitUntil(
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: options.applicationServerKey,
+    }),
+  )
+})

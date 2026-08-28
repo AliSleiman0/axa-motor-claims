@@ -117,7 +117,7 @@ describe('the push panel in the native shell', () => {
 
     // A desktop browser is not subject to OEM battery management, and saying so there would be
     // instructions for a Settings screen that does not exist.
-    render(<PushPanel readPermission={() => 'granted'} readSubscription={() => Promise.resolve(true)} />)
+    render(<PushPanel readPermission={() => 'granted'} resync={() => Promise.resolve(true)} />)
     await waitFor(() => expect(screen.getByRole('status')).toBeDefined())
     expect(screen.queryByText(NATIVE_BATTERY_GUIDANCE)).toBeNull()
   })
@@ -127,7 +127,7 @@ describe('the push panel in the native shell', () => {
       <PushPanel
         shellIsNative
         readPermission={() => 'granted'}
-        readSubscription={() => Promise.resolve(true)}
+        resync={() => Promise.resolve(true)}
         acquireToken={vi.fn()}
       />,
     )

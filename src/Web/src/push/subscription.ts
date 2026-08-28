@@ -1,3 +1,4 @@
+import { postSubscription } from './api'
 import { urlBase64ToUint8Array } from './urlBase64'
 
 /** What the server needs in order to push to this browser (design.md §8, slice 3.4). */
@@ -57,23 +58,62 @@ export type ReadPushPermission = () => NotificationPermission | 'unsupported'
 export type ReadExistingSubscription = () => Promise<boolean>
 
 /**
+ * Re-registers whatever this browser already holds, and reports whether the server now has it.
+ * Silent — never prompts, so it is safe on mount.
+ */
+export type ResyncSubscription = () => Promise<boolean>
+
+/**
  * Is this browser already registered?
  *
  * `getRegistration()` rather than `ready`: `ready` never resolves when no worker has been registered,
  * so a browser that has never enabled notifications would hang here for ever instead of answering
  * "no" — and the panel would sit in its default state with no way to tell why.
  */
-export const hasBrowserSubscription: ReadExistingSubscription = async () => {
+export async function readBrowserSubscription(): Promise<BrowserSubscription | null> {
   if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
-    return false
+    return null
   }
 
   const registration = await navigator.serviceWorker.getRegistration()
   if (!registration?.pushManager) {
+    return null
+  }
+
+  const subscription = await registration.pushManager.getSubscription()
+  return subscription === null ? null : describe(subscription)
+}
+
+export const hasBrowserSubscription: ReadExistingSubscription = async () =>
+  (await readBrowserSubscription()) !== null
+
+/**
+ * **The fix for "Notifications are on" while the server holds no row** (browser-pass finding 8,
+ * `demo-fix-list` #16, slice 7.2).
+ *
+ * The panel used to trust `getSubscription()`: if the browser held one, it said notifications were
+ * on. But the browser's subscription outlives the server's record of it — a database restore, a
+ * re-created user, a rotated VAPID pair, or simply a second person signing in on the same profile
+ * all produce a browser that is subscribed and a server that has never heard of it. The user is then
+ * told the opposite of the truth, and the popup they are promised silently never arrives; §8's email
+ * fallback carries the claim instead, which is how it was found.
+ *
+ * **No `GET /api/push/subscriptions` is added and none exists.** Asking the server what it holds
+ * would need a new endpoint, a new authorization surface and a reconciliation rule; posting what the
+ * browser already has needs none of that, because the upsert is idempotent by unique index. If the
+ * server had the row, nothing changes; if it did not, it does now. That is the entire fix.
+ *
+ * Returns false when there is nothing to resync **or when the POST fails** — the caller then offers
+ * the button rather than claiming a state it could not confirm, which is the whole point.
+ */
+export const resyncSubscription: ResyncSubscription = async () => {
+  const existing = await readBrowserSubscription()
+  if (existing === null) {
     return false
   }
 
-  return (await registration.pushManager.getSubscription()) !== null
+  await postSubscription(existing)
+  return true
 }
 
 export const readBrowserPushPermission: ReadPushPermission = () => {

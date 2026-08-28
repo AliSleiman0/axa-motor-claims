@@ -54,7 +54,14 @@ public sealed class BrokerMediaCleanupTask(
 {
     public string Name => "broker_blobs";
 
-    public Task<int> Run(CancellationToken ct)
+    public async Task<int> Run(CancellationToken ct)
+    {
+        var swept = await SweepEmailedRequests(ct);
+        swept += await SweepAbandonedRequests(ct);
+        return swept;
+    }
+
+    private Task<int> SweepEmailedRequests(CancellationToken ct)
     {
         var settings = options.CurrentValue;
         var cutoff = time.GetUtcNow().UtcDateTime.AddDays(-settings.BrokerBlobDays);
@@ -72,6 +79,84 @@ public sealed class BrokerMediaCleanupTask(
         return sweeper.Sweep(
             due,
             document => new { document.BlobKey, Reason = "broker_retention", settings.BrokerBlobDays },
+            ct);
+    }
+
+    /// <summary>
+    /// The second branch (slice 7.2): an Option 2 request nobody ever sent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// §7.3 carried this as a ticket, and slice 5.3 turned it from hypothetical into real by giving
+    /// the public page an upload route; 6.1 widened it from one file to as many as six — an identity
+    /// card and five photographs of an identifiable car, plate included. A customer who photographs
+    /// all of that and then never presses Send leaves those bytes in the transit container with
+    /// nothing to move them on: sweep 1 needs an outbox row a <c>PushTiming.Never</c> bucket never
+    /// has, sweep 2 spares any blob a live row claims, and the branch above needs an
+    /// <c>emailed_at</c> that will never be written.
+    /// </para>
+    /// <para>
+    /// **Keyed on the newest token's <c>expires_at</c>, not on a state.** Option 2's `expired` is
+    /// computed in B1's projection and never persisted, so there is no column a sweep could test. The
+    /// token's expiry is the only durable fact that says the customer cannot come back — the link is
+    /// dead, and a broker who wants another one issues a new request with a new token.
+    /// </para>
+    /// <para>
+    /// **Pre-submission states only, and that restriction is the whole safety property.** The first
+    /// version of this branch keyed on <c>emailed_at == null</c> alone, and the db-review showed what
+    /// that destroys. A <c>ready_to_send</c> request is a *completed* submission — six fields, an
+    /// identity document, five photographs of a car — sitting in B1 waiting for a human to press
+    /// **Send email**. Nothing expires it, so its token lapses on schedule and the sweep would delete
+    /// the attachments while the button was still on screen; <c>BrokerRequestEmail.Attachments</c>
+    /// then refuses <c>409 attachments_unavailable</c> for ever, the customer's link is locked, and
+    /// there is no second copy of anything. Same for <c>sent</c> with a null <c>emailed_at</c>, which
+    /// is §5.3's failed send with **Resend** still offered.
+    /// </para>
+    /// <para>
+    /// So the predicate names the two states where nobody is waiting to act: <c>link_issued</c> and
+    /// <c>customer_in_progress</c>. Both mean the customer never finished, and neither can be reached
+    /// again once the token has lapsed. A resendable failed send is therefore protected outright
+    /// rather than for a window — stronger than the slice card asked for, and the direction the
+    /// retention rule should err in.
+    /// </para>
+    /// <para>
+    /// **What that leaves open, deliberately:** a submission the broker never reviews keeps its bytes
+    /// indefinitely. Expiring one needs an answer to "how long does a broker have?", which is the same
+    /// #4/#22 question as the window itself and not one to invent inside a sweep. Retaining too long
+    /// is the safe side; deleting a completed submission is not.
+    /// </para>
+    /// <para>
+    /// A request with no token at all (Option 1) can never enter this set: <c>Max</c> over an empty
+    /// sequence is null in SQL, and a null is not <c>&lt;=</c> anything. That is correct — Option 1's
+    /// documents are covered by the emailed branch, and one that was never submitted is a broker's own
+    /// draft on an authenticated screen, not a member of the public's identity card.
+    /// </para>
+    /// </remarks>
+    private Task<int> SweepAbandonedRequests(CancellationToken ct)
+    {
+        var settings = options.CurrentValue;
+        var cutoff = time.GetUtcNow().UtcDateTime.AddDays(-settings.AbandonedRequestBlobDays);
+
+        var due =
+            from document in db.Documents
+            where document.OwnerKind == DocumentOwnerKinds.BrokerRequest && document.BlobDeletedAt == null
+            join request in db.BrokerRequests on document.OwnerId equals request.Id
+            where request.EmailedAt == null
+                && (request.State == BrokerRequestState.LinkIssued
+                    || request.State == BrokerRequestState.CustomerInProgress)
+                && db.PublicLinkTokens
+                    .Where(token => token.BrokerRequestId == request.Id)
+                    .Max(token => (DateTime?)token.ExpiresAt) <= cutoff
+            select document;
+
+        return sweeper.Sweep(
+            due,
+            document => new
+            {
+                document.BlobKey,
+                Reason = "abandoned_request",
+                settings.AbandonedRequestBlobDays,
+            },
             ct);
     }
 }

@@ -43,7 +43,7 @@ describe('usePushSubscription', () => {
       usePushSubscription({
         subscribe,
         readPermission: () => 'granted',
-        readSubscription: () => Promise.resolve(true),
+        resync: () => Promise.resolve(true),
       }),
     )
 
@@ -57,14 +57,14 @@ describe('usePushSubscription', () => {
   })
 
   it('does not ask the service worker anything before permission is granted', async () => {
-    const readSubscription = vi.fn(() => Promise.resolve(false))
+    const resync = vi.fn(() => Promise.resolve(false))
 
-    renderHook(() => usePushSubscription({ readPermission: () => 'default', readSubscription }))
+    renderHook(() => usePushSubscription({ readPermission: () => 'default', resync }))
     await Promise.resolve()
 
     // A subscription cannot exist without permission, so asking is pointless work on first paint —
     // and on a browser that has never registered a worker the question can hang.
-    expect(readSubscription).not.toHaveBeenCalled()
+    expect(resync).not.toHaveBeenCalled()
   })
 
   it('still offers the button when the subscription probe fails', async () => {
@@ -72,7 +72,7 @@ describe('usePushSubscription', () => {
       usePushSubscription({
         subscribe: vi.fn(),
         readPermission: () => 'granted',
-        readSubscription: () => Promise.reject(new Error('service worker unavailable')),
+        resync: () => Promise.reject(new Error('service worker unavailable')),
       }),
     )
 
@@ -200,4 +200,45 @@ describe('usePushSubscription', () => {
 
     expect(subscribe).toHaveBeenCalledTimes(2)
   })
+
+  /**
+   * **The push lie, fixed** (browser-pass finding 8, `demo-fix-list` #16, slice 7.2).
+   *
+   * The mount effect used to ask the browser whether it held a subscription and believe the answer.
+   * A browser's subscription outlives the server's record of it — a database restore, a re-created
+   * user, a rotated VAPID pair, a second person signing in on the same profile — so the panel said
+   * "Notifications are on" while `push_subscription` held zero rows, and the popup silently never
+   * arrived. Re-posting what the browser holds makes the two facts one fact.
+   */
+  it('re-posts the browser subscription on mount and only then says notifications are on', async () => {
+    const resync = vi.fn(() => Promise.resolve(true))
+
+    const { result } = renderHook(() =>
+      usePushSubscription({ subscribe: vi.fn(), readPermission: () => 'granted', resync }),
+    )
+
+    await waitFor(() => expect(result.current.enabled).toBe(true))
+    expect(resync).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * The half that makes the fix honest. If the server did not accept the resync, nothing confirms
+   * that AXA can notify this browser — so the panel offers the button rather than repeating the
+   * claim it was just unable to verify. One press is all it costs, and the press is what the user
+   * would have had to do anyway.
+   */
+  it('leaves the button offered when the server does not accept the resync', async () => {
+    const { result } = renderHook(() =>
+      usePushSubscription({
+        subscribe: vi.fn(),
+        readPermission: () => 'granted',
+        resync: () => Promise.reject(new Error('401')),
+      }),
+    )
+
+    await waitFor(() => expect(result.current.pending).toBe(false))
+
+    expect(result.current.enabled).toBe(false)
+  })
+
 })

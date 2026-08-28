@@ -125,6 +125,8 @@ public static class GarageDeclarationEndpoints
             var items = await db.Declarations.AsNoTracking()
                 .Where(d => d.GarageUserId == garageUserId.Value)
                 .OrderByDescending(d => d.CreatedAt)
+                // Newest first, so the cap drops the oldest — the right end for a worklist (7.2).
+                .Take(ListLimits.MaxRows)
                 .Select(d => new DeclarationListItemDto(
                     d.Id,
                     d.State.ToDbValue(),

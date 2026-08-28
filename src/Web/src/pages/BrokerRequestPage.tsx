@@ -337,7 +337,19 @@ function Documents({ requestId, title = 'Documents' }: { requestId: string; titl
   if (error) return <AlertBanner>The documents could not be loaded.</AlertBanner>
 
   const documents = (data ?? []).filter((document) => !CAR_SHOT_BUCKETS.includes(document.bucket))
-  if (documents.length === 0) return null
+
+  // An empty state rather than `return null` (slice 7.2). A section that vanishes reads as a screen
+  // that has not finished loading, and on the one page whose job is "what is about to be emailed to
+  // AXA" the difference between "no documents" and "the list is missing" is the whole question. The
+  // car-photo panel beside it already renders "Not provided" per side for the same reason.
+  if (documents.length === 0) {
+    return (
+      <section className="panel">
+        <h3 className="panel__title">{title}</h3>
+        <p className="muted">No documents attached.</p>
+      </section>
+    )
+  }
 
   return (
     <section className="panel">

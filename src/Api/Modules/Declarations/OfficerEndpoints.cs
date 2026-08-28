@@ -86,6 +86,10 @@ public static class OfficerEndpoints
                 .Where(d => d.State == filter)
                 .OrderBy(d => d.SubmittedAt)
                 .ThenBy(d => d.CreatedAt)
+                // The only oldest-first list in the product, so the cap drops the *newest* — which is
+                // the right end here too: O1 is a queue somebody works down, and the row that has been
+                // waiting longest is the one that must never fall off the screen (7.2).
+                .Take(ListLimits.MaxRows)
                 .GroupJoin(
                     db.GarageProfiles.AsNoTracking(),
                     declaration => declaration.GarageUserId,

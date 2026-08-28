@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using System.Security.Claims;
 using Api.Infrastructure;
 using Api.Integrations.Push;
+using Api.Modules.Audit;
 using Api.Modules.Users;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +43,7 @@ public static class PushEndpoints
             Results.Ok(new VapidPublicKeyDto(options.Value.Vapid.PublicKey)));
 
         group.MapPost("/subscriptions", async (
-            SubscribeRequest? request, ClaimsPrincipal principal, AppDbContext db,
+            SubscribeRequest? request, ClaimsPrincipal principal, AppDbContext db, AuditWriter audit,
             IOptions<PushOptions> options, TimeProvider time, CancellationToken ct) =>
         {
             var userId = principal.GetUserId();
@@ -139,6 +140,21 @@ public static class PushEndpoints
             try
             {
                 await db.SaveChangesAsync(ct);
+
+                // **After the save, never before it** — the catch below clears the change tracker, so
+                // an audit row staged above would vanish while this endpoint still answered 200. Both
+                // upsert handlers carry that warning in their own words; this is the first slice with
+                // something to append, so it is now load-bearing rather than advisory.
+                //
+                // A second transaction, therefore, and deliberately: §9 wants the record of *which
+                // devices we notify*, and a registration that committed is a fact whether or not its
+                // audit row made it. The refresh branch above appends nothing — the Capacitor shell
+                // and every reload re-register, and auditing that would bury the events that matter.
+                audit.Append(
+                    userId, AuditActions.PushSubscriptionRegistered, AuditEntityKinds.PushSubscription,
+                    subscription.Id);
+                await db.SaveChangesAsync(ct);
+
                 return Results.Ok(new { id = subscription.Id });
             }
             catch (DbUpdateException)
@@ -183,7 +199,7 @@ public static class PushEndpoints
         // to 2048 characters, which is why it is not a query parameter already.
         group.MapDelete("/subscriptions", async (
             [FromBody] UnsubscribeRequest? request, ClaimsPrincipal principal, AppDbContext db,
-            CancellationToken ct) =>
+            AuditWriter audit, CancellationToken ct) =>
         {
             var userId = principal.GetUserId();
             if (userId is null)
@@ -201,9 +217,23 @@ public static class PushEndpoints
             // Scoped to the caller, so knowing someone else's endpoint buys nothing. Deleting rather
             // than revoking: the user asked to stop, which is different from the push service telling
             // us the browser is gone, and re-subscribing later should look like a fresh registration.
-            await db.Set<PushSubscription>()
-                .Where(s => s.UserId == userId.Value && s.EndpointHash == hash)
-                .ExecuteDeleteAsync(ct);
+            //
+            // A tracked delete since slice 7.2, where this was `ExecuteDeleteAsync`. That statement
+            // runs outside the change tracker, so the row would go in its own transaction and §9's
+            // audit row in another — and the id it names would already be gone if the second failed.
+            // One `SaveChanges` puts the delete and the record of it in one transaction, which is the
+            // whole reason `AuditWriter` joins the caller's rather than committing its own.
+            var subscription = await db.Set<PushSubscription>()
+                .SingleOrDefaultAsync(s => s.UserId == userId.Value && s.EndpointHash == hash, ct);
+
+            if (subscription is not null)
+            {
+                db.Set<PushSubscription>().Remove(subscription);
+                audit.Append(
+                    userId, AuditActions.PushSubscriptionRemoved, AuditEntityKinds.PushSubscription,
+                    subscription.Id, new { Reason = "user" });
+                await db.SaveChangesAsync(ct);
+            }
 
             // Always 204: whether a row was there is not the caller's business, and telling them would
             // make this endpoint answer "does this endpoint belong to someone" for any endpoint.
@@ -229,7 +259,8 @@ public static class PushEndpoints
     {
         group.MapPost("/device-tokens", async (
             RegisterDeviceTokenRequest? request, ClaimsPrincipal principal, AppDbContext db,
-            IOptions<PushOptions> options, TimeProvider time, CancellationToken ct) =>
+            AuditWriter audit, IOptions<PushOptions> options, TimeProvider time,
+            CancellationToken ct) =>
         {
             var userId = principal.GetUserId();
             if (userId is null)
@@ -287,9 +318,31 @@ public static class PushEndpoints
             // resolve and "this expert stopped getting popups on the 14th" stays answerable. Run on
             // every registration, so the handset always belongs to whoever signed in last — and A
             // getting it back is just A registering again.
-            await db.Set<DeviceToken>()
+            // Tracked rather than ExecuteUpdate since slice 7.2, and committed here on its own: §9
+            // wants this event recorded, the audit row needs the displaced row's **id and previous
+            // owner**, and an ExecuteUpdate neither yields them nor shares a transaction with the
+            // append. Its own SaveChanges — not the insert's below — because a registration that then
+            // loses a race must not un-revoke a handset it has already taken over.
+            var displaced = await db.Set<DeviceToken>()
                 .Where(t => t.TokenHash == hash && t.UserId != userId.Value && t.RevokedAt == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+                .ToListAsync(ct);
+
+            if (displaced.Count > 0)
+            {
+                foreach (var previous in displaced)
+                {
+                    previous.RevokedAt = now;
+
+                    // The actor is the **new** registrant and the entity is the row taken away, which
+                    // is the only shape that answers "why did this expert stop getting popups" from
+                    // the other side of the event.
+                    audit.Append(
+                        userId, AuditActions.DeviceTokenDisplaced, AuditEntityKinds.DeviceToken,
+                        previous.Id, new { PreviousUserId = previous.UserId });
+                }
+
+                await db.SaveChangesAsync(ct);
+            }
 
             var existing = await db.Set<DeviceToken>()
                 .SingleOrDefaultAsync(t => t.UserId == userId.Value && t.TokenHash == hash, ct);
@@ -301,15 +354,34 @@ public static class PushEndpoints
                 return Results.Ok(new { id = existing.Id });
             }
 
-            // Counted after the upsert branch, so re-registering a handset the user already has is
-            // never refused by the cap — which matters more here than for browsers, because the
-            // shell re-registers on launch and FCM rotates tokens on its own schedule.
+            // Read after the upsert branch, so re-registering a handset the user already has is never
+            // affected by the cap — which matters more here than for browsers, because the shell
+            // re-registers on launch and FCM rotates tokens on its own schedule.
             var live = await db.Set<DeviceToken>()
-                .CountAsync(t => t.UserId == userId.Value && t.RevokedAt == null, ct);
+                .Where(t => t.UserId == userId.Value && t.RevokedAt == null)
+                .ToListAsync(ct);
 
-            if (live >= options.Value.MaxDeviceTokensPerUser)
+            // **At the cap a handset evicts rather than being refused (slice 7.2), and this is the
+            // one place that deliberately diverges from the subscription route above.** A 400 is only
+            // useful to something that can act on it. A browser subscription is created by a person
+            // pressing a button on a screen that can show them the refusal; an FCM registration is
+            // fired by the shell on every launch with nobody watching, so a refused handset is an
+            // expert whose popups silently never start — the §8 failure this registry exists to
+            // prevent — and it never recovers, because the next launch is refused identically.
+            //
+            // Least-recently-used, on LastUsedAt ?? CreatedAt: the row we have least reason to believe
+            // is a phone somebody is holding. Revoked rather than deleted, like a displacement, and
+            // staged into the insert's transaction below on purpose — if that insert loses its race
+            // the row already existed, no eviction was needed, and clearing the tracker correctly
+            // discards this one too.
+            var overBy = live.Count - options.Value.MaxDeviceTokensPerUser + 1;
+
+            foreach (var evicted in live.OrderBy(t => t.LastUsedAt ?? t.CreatedAt).Take(Math.Max(0, overBy)))
             {
-                return Results.BadRequest(new { error = "too_many_device_tokens" });
+                evicted.RevokedAt = now;
+                audit.Append(
+                    userId, AuditActions.DeviceTokenRevoked, AuditEntityKinds.DeviceToken, evicted.Id,
+                    new { Reason = "evicted" });
             }
 
             var device = new DeviceToken
@@ -327,6 +399,16 @@ public static class PushEndpoints
             try
             {
                 await db.SaveChangesAsync(ct);
+
+                // After the save, for the reason the subscription route spells out and this handler's
+                // own catch has warned about since 6.3: ChangeTracker.Clear() below would discard
+                // anything staged before it while the endpoint still answered 200. The eviction above
+                // is the deliberate exception — it belongs to the write it accompanies.
+                audit.Append(
+                    userId, AuditActions.DeviceTokenRegistered, AuditEntityKinds.DeviceToken,
+                    device.Id, new { Platform = platform });
+                await db.SaveChangesAsync(ct);
+
                 return Results.Ok(new { id = device.Id });
             }
             catch (DbUpdateException)
@@ -362,7 +444,7 @@ public static class PushEndpoints
         // than this one route failing at request time.
         group.MapDelete("/device-tokens", async (
             [FromBody] UnregisterDeviceTokenRequest? request, ClaimsPrincipal principal,
-            AppDbContext db, CancellationToken ct) =>
+            AppDbContext db, AuditWriter audit, CancellationToken ct) =>
         {
             var userId = principal.GetUserId();
             if (userId is null)
@@ -380,9 +462,20 @@ public static class PushEndpoints
             // Scoped to the caller, so knowing someone else's token buys nothing. Deleting rather
             // than revoking: the user asked to stop, which is different from FCM telling us the
             // install is gone, and re-enabling later should look like a fresh registration.
-            await db.Set<DeviceToken>()
-                .Where(t => t.UserId == userId.Value && t.TokenHash == hash)
-                .ExecuteDeleteAsync(ct);
+            //
+            // Tracked since slice 7.2, for the subscription route's reason: the delete and §9's record
+            // of it commit in one transaction rather than in two.
+            var device = await db.Set<DeviceToken>()
+                .SingleOrDefaultAsync(t => t.UserId == userId.Value && t.TokenHash == hash, ct);
+
+            if (device is not null)
+            {
+                db.Set<DeviceToken>().Remove(device);
+                audit.Append(
+                    userId, AuditActions.DeviceTokenRevoked, AuditEntityKinds.DeviceToken, device.Id,
+                    new { Reason = "user" });
+                await db.SaveChangesAsync(ct);
+            }
 
             // Always 204, for the subscription route's reason: whether a row was there is not the
             // caller's business, and saying would make this endpoint answer "does this token belong

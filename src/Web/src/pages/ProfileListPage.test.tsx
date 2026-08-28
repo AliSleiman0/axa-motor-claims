@@ -32,9 +32,9 @@ const INACTIVE = {
   next3Id: 'PLACEHOLDER-EXP-03',
 }
 
-describe('A1 — the profile list', () => {
-  let calls: string[]
+let calls: string[]
 
+describe('A1 — the profile list', () => {
   beforeEach(() => {
     localStorage.clear()
     calls = []
@@ -143,7 +143,98 @@ describe('A1 — the profile list', () => {
     expect(await screen.findByText('Invite sent.')).toBeDefined()
     expect(calls).toContain(`POST /api/admin/users/${INVITED.id}/invite`)
   })
+
+  // ---- slice 7.2: the two states that did not exist, and the two failures nobody saw ----
+
+  /**
+   * Before the first response `rows` was `[]`, so the page rendered an empty table with headers —
+   * indistinguishable from "there are no experts", which is an answer an administrator would act on
+   * by inviting somebody who already exists.
+   */
+  it('says it is loading before the first response arrives', async () => {
+    let release: (value: Response) => void = () => undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>((resolve) => (release = resolve))),
+    )
+
+    show()
+
+    expect(screen.getByText(/Loading experts/i)).toBeDefined()
+
+    release(new Response(JSON.stringify([ACTIVE]), { status: 200 }))
+    await screen.findByText(ACTIVE.displayName)
+  })
+
+  it('says the list is empty rather than showing bare headers', async () => {
+    stub([])
+
+    show()
+
+    expect(await screen.findByText(/No experts yet/i)).toBeDefined()
+  })
+
+  /**
+   * **Both handlers swallowed their failures**, and the invite one was the worse of the pair:
+   * `setNotice` sat after the `await`, so a rejected request produced no notice, no banner, no
+   * console line and no change on screen at all. The administrator pressed the button and nothing
+   * happened — which is also how it would look if it had worked.
+   */
+  it('says so when a deactivate fails, instead of doing nothing', async () => {
+    const user = userEvent.setup()
+    stub([ACTIVE], { postStatus: 500 })
+    show()
+
+    await user.click(await findDeactivate(ACTIVE.displayName))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }))
+
+    const banner = await screen.findByRole('alert')
+    expect(banner.textContent).toContain(ACTIVE.displayName)
+    expect(banner.textContent).toContain('500')
+  })
+
+  it('says so when a re-sent invite fails, instead of doing nothing', async () => {
+    const user = userEvent.setup()
+    stub([INVITED], { postStatus: 500 })
+    show()
+
+    await screen.findByText(INVITED.displayName)
+    const invited = screen.getByText(INVITED.displayName).closest('tr')!
+    await user.click(within(invited).getByRole('button', { name: 'Re-send invite' }))
+
+    const banner = await screen.findByRole('alert')
+    expect(banner.textContent).toContain(INVITED.displayName)
+
+    // And it does not claim the opposite while it is at it.
+    expect(screen.queryByText('Invite sent.')).toBeNull()
+  })
+
+  it('explains a failed load in a sentence rather than a status code', async () => {
+    stub([], { getStatus: 503 })
+
+    show()
+
+    const banner = await screen.findByRole('alert')
+    expect(banner.textContent).toContain('could not be loaded')
+    expect(banner.textContent).toContain('503')
+  })
 })
+
+function stub(
+  rows: unknown[],
+  { getStatus = 200, postStatus = 200 }: { getStatus?: number; postStatus?: number } = {},
+) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${String(url)}`)
+      if (init?.method === 'POST') {
+        return Promise.resolve(new Response('', { status: postStatus }))
+      }
+      return Promise.resolve(new Response(JSON.stringify(rows), { status: getStatus }))
+    }),
+  )
+}
 
 async function findDeactivate(displayName: string) {
   const row = (await screen.findByText(displayName)).closest('tr')!

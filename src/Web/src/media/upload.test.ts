@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '../api/client'
 import { clearTokens, setTokens } from '../api/tokens'
-import { uploadDocument } from './upload'
+import { describeUploadError, uploadDocument } from './upload'
 
 const PATH = '/public/PLACEHOLDER-token-0001/documents'
 
@@ -77,4 +78,21 @@ describe('uploadDocument carries credentials only when it should', () => {
     // add one back.
     expect(headersOf(0).has('Content-Type')).toBe(false)
   })
+
+  /**
+   * Three codes the server has always returned and the map had no sentence for (slice 7.2), so they
+   * fell through to the status-code fallback — which on a capture screen reads as "your photo
+   * failed" when in fact the request never carried one.
+   */
+  it.each([
+    ['unknown_origin'],
+    ['not_multipart'],
+    ['metadata_must_precede_file'],
+  ])('explains %s rather than showing a status code', (code) => {
+    const message = describeUploadError(new ApiError(400, JSON.stringify({ error: code })))
+
+    expect(message).not.toContain('400')
+    expect(message.endsWith('.')).toBe(true)
+  })
+
 })

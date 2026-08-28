@@ -3,59 +3,59 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-27 (slice 7.1) — start here.** **Week 7 has started: 7.1 ☑.**
-Week 6 is on `main` (`5cf363a`); **slice 7.1 is complete and UNCOMMITTED**, awaiting the developer's
-test-diff review — 6 new files, 11 modified (5 of them docs). **721 xUnit (717 pass, +14, 4
+**Status as of 2026-08-27 (slice 7.2) — start here.** **Week 7: 7.1 ☑, 7.2 ☑; 7.3 is next and last.**
+Week 6 and slice 7.1 are on `main` (`a5baf62`); **slice 7.2 is complete and UNCOMMITTED** on branch
+`slice/7.2-hardening`, awaiting the developer's test-diff review. **756 xUnit (752 pass, +31, 4
 environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`, and the two
-FCM live tests). No migration, no `src/Web` change**, so `npm test` was not run and there is no
-browser pass: this slice ships no UI.
+FCM live tests) and 547 web (+19); `npm run build` lint-clean.** One migration
+(`TightenDeclarationCheckAndAddSweepIndexes`, applied locally and db-reviewed). A Chrome pass was
+run; the narrow-iPhone pass was **not**, and the week-6 checklist line stays unticked.
 
-**7.1 is design.md §9.1 turned from prose into tests, plus the two absences that exposed.** The
-limiter is now proven under concurrent load (exactly the permitted number of twenty-five simultaneous
-callers get through, the rest are refused with a usable `Retry-After`), the upload-versus-submit race
-is actually raced, token expiry is pinned at the HTTP boundary as well as as a pure rule, and a 429
-for a live link is proven byte-identical to one for a token that never existed. The API also sends
-security response headers for the first time — it sent **none** before — from a
-`SecurityHeadersMiddleware` registered ahead of everything, and CORS is now deliberately absent with
-a test that goes red if a permissive default arrives.
+**7.2 is the buffer drained.** Two new middlewares (cancelled requests, a global Kestrel body cap),
+three new sweeps (stranded-deferred re-queue, rejected-declaration blobs, abandoned Option 2),
+seven new audit actions plus the comments **hash**, a tightened `CK_declaration_decision`, three
+indexes, a 200-row cap on every list, A2's overdue arm and badge, device-token eviction and
+retention, and the four week-5 browser-pass leftovers. Nothing here is new product: every item is a
+gap somebody already wrote down.
 
-**The test diff is 239 insertions and exactly two deletions, and both are one helper.**
-`PublicLinkNotFoundUniformityTests.Describe` compared only the body and the *content* headers, so a
-**response** header that varied by failure mode was invisible to the test whose entire job is to see
-differences. It now folds in `response.Headers` minus `Date`/`Server`. Strictly a superset; the three
-facts above it keep their names and bodies. Read that one first.
+**The db-review found two HIGH-severity bugs and neither was in the migration** — the seventh
+migration slice running for CLAUDE.md's "review the findings on the *new code*". (1) The
+abandoned-Option-2 sweep, keyed on `emailed_at IS NULL` exactly as the card specified, also matched a
+**`ready_to_send`** request: a customer's completed submission — identity document, five car
+photographs — sitting in B4 waiting for a human to press Send. Nothing expires one, so the sweep
+would have deleted the attachments while the button was still on screen, after which Send refuses
+`409 attachments_unavailable` for ever and the customer's link is locked. It now names the two
+pre-submission states, which protects a resendable failed send outright rather than for a window.
+(2) The re-queue sweep was a read-then-write with no claim, so two API replicas both enqueue and one
+photograph reaches NEXT3 twice; `document.push_status` is now the EF concurrency token, verified by
+removing it.
 
-**The card's own race mechanism was built, measured, does not work, and would have passed.** A gated
-multipart body stalls nothing: `TestServer` materialises the whole request body before dispatching,
-so the gate opened and closed on the client while the server had not started, and the upload answered
-**404 from `Resolve`** on an already-locked token — the asserted status code, reached without the
-concurrency token ever being consulted. Two measurements caught it (the response had not arrived, so
-it *looked* in flight; no blob was ever written, so the handler had not run), and a megabyte of body
-to force backpressure changed neither. The stall moved to a test-only `IBlobStore` decorator that
-stops the upload inside `Put` — which is in any case *exactly* §5.3's window. **Removing the guard
-then fails the test with `201 Created`**: the file lands after the broker's review, carried by no
-email, and swept on the send's clock. Bytes a customer watched upload, destroyed silently.
+**The browser pass found two defects that 547 web tests could not see.** The card's one-line 390 px
+fix is **not enough**: with the phone number hidden the officer header still measured 451 and the
+admin 429 inside a 390 px shell, so Sign out stayed clipped. It takes three rules — the wordmark
+also goes on the office shells, and the navigation scrolls with `flex-wrap: nowrap`, without which
+the admin's five tabs wrapped to five rows and the header grew to 189 px tall. And A2 rendered an
+**overdue** row as amber "Still trying — next attempt due now", which is reassurance on precisely
+the row that needs somebody to act; it is now red "Not moving — overdue, nothing is picking it up".
 
-**`/security-review` found no vulnerability at any severity and five observations; two are fixed, three
-recorded.** Fixed as doc comments, because both are traps for the *next* card: Kestrel fires
-`OnStarting` **last-registered-first**, so 7.3's HTML carve-out must live inside `Apply` or it will be
-silently overwritten; and `Apply` assigns rather than merges, so a future inline CSP would be
-discarded with nothing going red. Recorded for 7.2/7.3: `form-action` and `base-uri` do not fall back
-to `default-src` (but bite only on HTML, which this API does not serve until 7.3), HSTS carries no
-`includeSubDomains` (§10's single host makes that a deployment decision), and **an app-faulted 500 is
-the one response that gets no headers at all** — Kestrel skips `OnStarting` when the application
-threw, and the only fix is the global exception handler 7.2's card explicitly reserves. One review
-claim is wrong and matters before 7.2 acts on it: it says the fixture boots in Development so that
-path cannot be tested, but `ApiFixture` forces `ASPNETCORE_ENVIRONMENT=Production` (3.4's fix). The
-gap is untested, not untestable.
+**Next actions, in order.** (1) Review 7.2's test diff and commit it — the three deliberate changes
+to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction), `PublicUploadTests`'
+table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
+`readSubscription` (renamed `resync`, because it no longer only reads). (2) The client package is
+**sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice. (3) Slice 7.3 —
+UAT prep: the test environment, CI, the image, the seed, the runbook, and `/code-review ultra` over
+the whole tree. It inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers,
+because Kestrel skips `OnStarting` when the application threw — the fix is the global handler 7.2
+deliberately declined to add) and the CSP HTML carve-out. (4) The one open week-6 milestone box: the
+**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset.
 
-**Next actions, in order.** (1) Review 7.1's test diff and commit it — the deliberate change is the
-widened `Describe`, and the two new test-only seams worth reading are `GatingBlobStore` and
-`PublicRateLimitLoadTests`' dedicated address block. (2) The client package is **sent**; the chase is
-AXA's acknowledgement + the demo debrief + the 30% invoice. (3) Slice 7.2 — the buffer drained, and
-it now carries one more ticket (the app-faulted 500's bare headers) alongside A2's overdue rows and
-the retention family. (4) The one open week-6 milestone box: the **narrow-iPhone** pass, folded into
-7.2 by the 2026-08-26 decision.
+**Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
+limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry
+pinned at the HTTP boundary, and a 429 for a live link proven byte-identical to one for a token that
+never existed — plus the API's first security response headers and a CORS decision with a test
+behind it. Merged to `main` as `a5baf62`. Its own card's race mechanism was built, measured and
+found not to work (`TestServer` materialises a request body before dispatching), which is why the
+stall now lives in a test-only `IBlobStore` decorator.
 
 **Previous status (2026-08-26, slice 6.3):** **Week 6 is complete: 6.1 ☑, 6.2 ☑, 6.3a ☑, 6.3 ☑.** 6.1 and 6.2 are on `main` (`f624a40`); **slice 6.3 is complete and since merged to `main` (`f13a24e`)** from branch
 `slice/6.3-android` — 70 changed paths. **707 xUnit (704

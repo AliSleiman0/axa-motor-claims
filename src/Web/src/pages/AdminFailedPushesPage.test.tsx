@@ -173,6 +173,47 @@ describe('A2 — failed pushes', () => {
     expect(await screen.findByText(/Could not load the queue \(503\)\./)).toBeDefined()
     expect(screen.queryByText('Nothing failed.')).toBeNull()
   })
+  /**
+   * **The screen has three states, not two, and the browser pass is what caught it.** A `pending`
+   * row is listed for either of two opposite reasons — its next attempt is far *ahead* (working
+   * through a backoff, will clear itself) or far *behind* (nothing is claiming it, will not). Both
+   * rendered as amber "Still trying / next attempt due now", so the row that needs somebody to act
+   * was the one reassuring them, which is the failure A2 exists to prevent one level down.
+   */
+  it('says an overdue row is not moving, rather than that it is still trying', async () => {
+    stubFetch([{ ...STILL_TRYING, nextRetryAt: futureIso(-20 * 60 * 1000) }], { overdue: 1 })
+
+    show()
+
+    expect(await screen.findByText('Not moving')).toBeDefined()
+    expect(screen.getByText(/nothing is picking it up/i)).toBeDefined()
+    expect(screen.queryByText('Still trying')).toBeNull()
+    expect(screen.queryByText(/next attempt due now/i)).toBeNull()
+
+    // And the button stops saying it is bringing an attempt forward, because there is no schedule
+    // left to bring anything forward from.
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
+  })
+
+  /**
+   * **The badge counts overdue rows too (slice 7.2).**
+   *
+   * 6.2 counted `failed` alone, and recorded the consequence as a known blind spot: a `pending` row
+   * that is due in the *past* and not being claimed — a stopped worker, or a backlog draining slower
+   * than it fills — appeared on neither the list nor the badge. So the one number in the admin
+   * chrome could read zero while nothing at all was reaching AXA, which is the exact moment somebody
+   * is asking where a photograph went. Long-`pending` rows are still deliberately uncounted, because
+   * they clear themselves and a badge that flickered with the retry schedule is one nobody trusts.
+   */
+  it('sums failed and overdue in the badge', async () => {
+    stubFetch([FAILED], { overdue: 2 })
+
+    show(<CountProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('count').textContent).toBe('3')
+    })
+  })
 })
 
 function futureIso(ms: number): string {
@@ -182,7 +223,11 @@ function futureIso(ms: number): string {
 
 function stubFetch(
   rows: unknown[],
-  { retryStatus = 200, retryBody = '' }: { retryStatus?: number; retryBody?: string } = {},
+  {
+    retryStatus = 200,
+    retryBody = '',
+    overdue = 0,
+  }: { retryStatus?: number; retryBody?: string; overdue?: number } = {},
 ) {
   vi.stubGlobal(
     'fetch',
@@ -194,17 +239,22 @@ function stubFetch(
         return Promise.resolve(new Response(retryBody, { status: retryStatus }))
       }
       if (path.endsWith('/count')) {
-        return Promise.resolve(new Response(JSON.stringify({ failed: rows.length }), { status: 200 }))
+        return Promise.resolve(
+          new Response(JSON.stringify({ failed: rows.length, overdue }), { status: 200 }),
+        )
       }
       return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
     }),
   )
 }
 
-/** Stands in for the badge `AdminLayout` renders, so the count key has an observer. */
+/**
+ * Stands in for the badge `AdminLayout` renders, so the count key has an observer — and it sums the
+ * two numbers exactly as `App.tsx` does, because that sum is the behaviour slice 7.2 added.
+ */
 function CountProbe() {
   const { data } = useOutboxFailedCount()
-  return <span data-testid="count">{data?.failed ?? ''}</span>
+  return <span data-testid="count">{(data?.failed ?? 0) + (data?.overdue ?? 0)}</span>
 }
 
 function show(extra?: ReactNode) {

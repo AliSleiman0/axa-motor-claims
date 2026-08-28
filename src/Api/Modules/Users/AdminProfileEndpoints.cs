@@ -59,7 +59,8 @@ public static class AdminProfileEndpoints
 
     private static void MapExperts(RouteGroupBuilder group)
     {
-        group.MapGet("/", (AppDbContext db, CancellationToken ct) => ListExperts(db).ToListAsync(ct));
+        group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
+            Ordered(await ListExperts(db).ToListAsync(ct), e => e.DisplayName));
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
         {
@@ -122,7 +123,8 @@ public static class AdminProfileEndpoints
 
     private static void MapGarages(RouteGroupBuilder group)
     {
-        group.MapGet("/", (AppDbContext db, CancellationToken ct) => ListGarages(db).ToListAsync(ct));
+        group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
+            Ordered(await ListGarages(db).ToListAsync(ct), g => g.DisplayName));
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
         {
@@ -195,7 +197,8 @@ public static class AdminProfileEndpoints
 
     private static void MapClaimOfficers(RouteGroupBuilder group)
     {
-        group.MapGet("/", (AppDbContext db, CancellationToken ct) => ListClaimOfficers(db).ToListAsync(ct));
+        group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
+            Ordered(await ListClaimOfficers(db).ToListAsync(ct), o => o.DisplayName));
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
         {
@@ -247,7 +250,8 @@ public static class AdminProfileEndpoints
 
     private static void MapBrokers(RouteGroupBuilder group)
     {
-        group.MapGet("/", (AppDbContext db, CancellationToken ct) => ListBrokers(db).ToListAsync(ct));
+        group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
+            Ordered(await ListBrokers(db).ToListAsync(ct), b => b.DisplayName));
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
         {
@@ -321,11 +325,40 @@ public static class AdminProfileEndpoints
             .Join(db.BrokerProfiles, u => u.Id, p => p.UserId, (u, p) => new BrokerDto(
                 u.Id, u.Phone, u.DisplayName, u.Status.ToDbValue(), p.IrisCode, p.Email));
 
+    /// <summary>
+    /// The four profile CRUDs' shared source. The list path is ordered and capped since slice 7.2;
+    /// the by-id path is neither, because it returns one row.
+    /// </summary>
+    /// <remarks>
+    /// The ordering here is not the one A1 displays — it is what makes *which* two hundred rows the
+    /// cap keeps deterministic, which an unordered <c>Take</c> leaves to the query plan. The display
+    /// order is applied by <see cref="Ordered{T}"/> after materialisation, because these DTOs project
+    /// <c>Status.ToDbValue()</c>, which is client-evaluated: EF allows that only in a final
+    /// projection, so nothing can be ordered on the server *after* it.
+    /// </remarks>
     private static IQueryable<AppUser> Users(AppDbContext db, UserRole role, Guid? id)
     {
         var users = db.Users.AsNoTracking().Where(u => u.Role == role);
-        return id is null ? users : users.Where(u => u.Id == id);
+
+        return id is null
+            ? users.OrderBy(u => u.DisplayName).Take(ListLimits.MaxRows)
+            : users.Where(u => u.Id == id);
     }
+
+    /// <summary>
+    /// A1's display order: by name, case-insensitively, over at most <see cref="ListLimits.MaxRows"/>
+    /// rows (slice 7.2).
+    /// </summary>
+    /// <remarks>
+    /// These four lists had no <c>ORDER BY</c> at all — whatever SQL Server returned was the order an
+    /// admin saw, which is tolerable while it is also the whole table and not once a cap can drop the
+    /// tail. Alphabetical because A1 is a list somebody scans for a person by name; the four other
+    /// worklists in the product are newest-first because they are queues, and this one is not.
+    /// Sorted in memory rather than in SQL so the comparison is a stated one rather than whatever
+    /// collation the database happens to carry — nothing in this codebase configures one.
+    /// </remarks>
+    private static List<T> Ordered<T>(List<T> rows, Func<T, string> name) =>
+        rows.OrderBy(name, StringComparer.OrdinalIgnoreCase).ToList();
 
     private static Task<AppUser?> FindUser(AppDbContext db, Guid id, UserRole role, CancellationToken ct) =>
         db.Users.SingleOrDefaultAsync(u => u.Id == id && u.Role == role, ct);

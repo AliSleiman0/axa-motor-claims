@@ -75,7 +75,17 @@ public sealed class PublicUploadTests(ApiFixture fixture) : IDisposable
         Assert.Null(document.DocType);
         Assert.Null(document.OutboxMessageId);
         Assert.Equal(DocumentPushStatuses.NotApplicable, document.PushStatus);
-        Assert.Empty(await db.Set<Next3OutboxMessage>().AsNoTracking().ToListAsync());
+
+        // **Narrowed in slice 7.2, deliberately.** This read `Assert.Empty(...ToListAsync())` over the
+        // whole `next3_outbox` table, which is a claim about the run rather than about this upload:
+        // every suite in the serialized collection shares that table, so the assertion held only
+        // while this class happened to run before any of them. Adding a class that seeds two hundred
+        // rows turned it red without anything about the public surface changing. What the comment
+        // above says — and what §7.1's `PushTiming.Never` actually promises — is that *this document*
+        // has no push, which is what is asserted now.
+        Assert.Empty(await db.Set<Next3OutboxMessage>().AsNoTracking()
+            .Where(m => m.Payload.Contains(document.Id.ToString()))
+            .ToListAsync());
     }
 
     /// <summary>
