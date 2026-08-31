@@ -3,7 +3,20 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-27 (slice 7.2) — start here.** **Week 7: 7.1 ☑, 7.2 ☑; 7.3 is next and last.**
+**Status as of 2026-08-27 (slice 7.2) — start here.** **Week 7: 7.1 ☑, 7.2 ☑; 7.3–7.6 are next.**
+**2026-08-31 update:** the client's clarification-question answers + a revised BRD landed
+(`docs/client-answers-2026-08-31/`) — real, though the calendar position is still early (week 1–2 of
+the actual client-facing engagement, not week 7; slice numbers here track build progress, not
+elapsed contract time, see `docs/build-playbook.md`'s week-7 header). Three slices were inserted
+ahead of the original UAT-prep card, which is **renumbered 7.3 → 7.6** to make room: **7.3** absorbs
+the resolved answers into the docs (no code), **7.4** builds the Oracle-poll `IAssignmentSource`
+adapter the client actually specified, **7.5** builds the NEXT3 master-data sync adapter — both
+unit-tested against fakes, `Next3:Mode`/`AssignmentSource` staying `fake` until real credentials
+arrive. Two items from the answers are recorded as pending change requests, not built: a
+claim-officer `Role`/manager-override-of-rejection (BRD v2) and a per-profile capture-only override
+(Q12) — both break or extend rules already load-bearing elsewhere (§5.2's terminal-rejection
+invariant, §7.1's global kill-switch), so they need pricing/confirmation before code, per
+`docs/scope-decisions.md`.
 Week 6 and slice 7.1 are on `main` (`a5baf62`); **slice 7.2 is reviewed and merged to `main`
 (`c65d027`)** from branch `slice/7.2-hardening` — 74 changed paths. **756 xUnit (752 pass, +31, 4
 environment-skipped — the NEXT3 sandbox, the Azurite half of `BlobStoreContractTests`, and the two
@@ -43,11 +56,14 @@ to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction),
 table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
 `readSubscription` (renamed `resync`, because it no longer only reads). (2) The client package is
 **sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice. (3) Slice 7.3 —
-UAT prep: the test environment, CI, the image, the seed, the runbook, and `/code-review ultra` over
-the whole tree. It inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers,
-because Kestrel skips `OnStarting` when the application threw — the fix is the global handler 7.2
-deliberately declined to add) and the CSP HTML carve-out. (4) The one open week-6 milestone box: the
-**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset.
+absorb the 2026-08-31 client answers into the docs (no code). (4) Slices 7.4 and 7.5 — the
+Oracle-poll assignment-source adapter and the NEXT3 master-data sync adapter, both behind existing
+ports and fake-tested. (5) Slice 7.6 (the original 7.3) — UAT prep: the test environment, CI, the
+image, the seed, the runbook, and `/code-review ultra` over the whole tree. It inherits one ticket
+from 7.1 (an app-faulted 500 still gets no security headers, because Kestrel skips `OnStarting` when
+the application threw — the fix is the global handler 7.2 deliberately declined to add) and the CSP
+HTML carve-out. (6) The one open week-6 milestone box: the **narrow-iPhone** pass, plus reviewing the
+new `docs/rollout-notes.md` against a handset.
 
 **Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
 limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry
