@@ -3,7 +3,7 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-27 (slice 7.2) — start here.** **Week 7: 7.1 ☑, 7.2 ☑; 7.3–7.6 are next.**
+**Status as of 2026-08-31 (slice 7.3) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑; 7.4–7.6 are next.**
 **2026-08-31 update:** the client's clarification-question answers + a revised BRD landed
 (`docs/client-answers-2026-08-31/`) — real, though the calendar position is still early (week 1–2 of
 the actual client-facing engagement, not week 7; slice numbers here track build progress, not
@@ -51,19 +51,39 @@ the admin's five tabs wrapped to five rows and the header grew to 189 px tall. A
 **overdue** row as amber "Still trying — next attempt due now", which is reassurance on precisely
 the row that needs somebody to act; it is now red "Not moving — overdue, nothing is picking it up".
 
+**Slice 7.3 done, 2026-08-31 — docs only, zero code.** The 2026-08-31 client answers
+(`docs/client-answers-2026-08-31/`) are absorbed: `docs/open-questions.md` closes fourteen of eighteen
+clarification-question rows outright (API-only integration #5, arrival field mapping minus GPS #6,
+master-data mechanism #8, clarity approach #9, damage-diagram simplicity #11, no-create-visa-API #16,
+real claim volumes #20, NEXT3-observed dedupe #32, Oracle-poll assignment mechanism #34, two
+environments #41, expert-claim linkage query #42, no photo limits/fraud-detection-out-of-scope #43)
+and adds real information to others still open (#7's WhatsApp OTP option, #10's audio storage shape,
+#44 reframed as a change request). `design.md` §12/Appendix A and the §1 volumes line are updated to
+match (`#36` — NEXT3's DB engine — is now moot, since #5 confirmed API-only). Two items from BRD v2 +
+Q12 are recorded in `docs/scope-decisions.md` as **pending change requests, deliberately not built**:
+claim-officer `Role`/manager-override-of-rejection (tangles with §5.2's terminal-rejection invariant,
+load-bearing for 7.2's `RejectedDeclarationBlobCleanupTask` and `CK_declaration_decision`), and a
+per-profile capture-only override (today's `Broker.AllowUpload` is one global switch; this is a schema
++ admin-UI addition). Both need pricing before code. Offline mode and fraud/tamper detection are now
+confirmed-out-of-scope rows in `scope-decisions.md`, both with a standalone-estimate note back to the
+client. Full detail in `docs/build-playbook.md`'s 7.3 Notes.
+
 **Next actions, in order.** (1) Review 7.2's test diff and commit it — the three deliberate changes
 to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction), `PublicUploadTests`'
 table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
 `readSubscription` (renamed `resync`, because it no longer only reads). (2) The client package is
-**sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice. (3) Slice 7.3 —
-absorb the 2026-08-31 client answers into the docs (no code). (4) Slices 7.4 and 7.5 — the
-Oracle-poll assignment-source adapter and the NEXT3 master-data sync adapter, both behind existing
-ports and fake-tested. (5) Slice 7.6 (the original 7.3) — UAT prep: the test environment, CI, the
-image, the seed, the runbook, and `/code-review ultra` over the whole tree. It inherits one ticket
-from 7.1 (an app-faulted 500 still gets no security headers, because Kestrel skips `OnStarting` when
-the application threw — the fix is the global handler 7.2 deliberately declined to add) and the CSP
-HTML carve-out. (6) The one open week-6 milestone box: the **narrow-iPhone** pass, plus reviewing the
-new `docs/rollout-notes.md` against a handset.
+**sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice — and now also the
+reconciliation note 7.3's card asked drafted but not sent (Q2/Q4 read + the GPS gap), at the
+developer's discretion. (3) Slices 7.4 and 7.5 — the Oracle-poll assignment-source adapter (now with a
+concrete query to build against, `uat-visa-event-trigger.sql`) and the NEXT3 master-data sync adapter,
+both behind existing ports and fake-tested; `Next3:Mode`/`AssignmentSource` stay `fake`. (4) Slice 7.6
+(the original 7.3) — UAT prep: the test environment, CI, the image, the seed, the runbook, and
+`/code-review ultra` over the whole tree. It inherits one ticket from 7.1 (an app-faulted 500 still
+gets no security headers, because Kestrel skips `OnStarting` when the application threw — the fix is
+the global handler 7.2 deliberately declined to add) and the CSP HTML carve-out. (5) The one open
+week-6 milestone box: the **narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md`
+against a handset. (6) The two pending change requests (BRD v2's manager-override + Q12's per-profile
+capture-only exception) need pricing and client confirmation before either is scheduled.
 
 **Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
 limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry
