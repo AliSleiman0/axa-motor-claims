@@ -304,7 +304,7 @@ public interface INext3Client
 
 **Fake contract** (the fake is a deliverable, not a stub): implements the full interface against seeded in-memory/SQL data; configurable failure injection (`Fake:FailureRate`, `Fake:LatencyMs`) so retry, backoff, and the failed-push screen are demonstrable without NEXT3; selectable per environment by config (`Next3:Mode = fake | real`) **all the way to handover** — UAT can run on it if the sandbox slips, and that fact goes in the status report, not under the rug. Nothing outside `INext3Client`/`IAssignmentSource` may know which implementation is live; no feature code calls NEXT3 directly.
 
-**Assignment delivery (#34):** one abstraction, `IAssignmentSource`, emitting `AssignmentReceived(visaNo, expertNext3Id, next3AssignmentRef)` into a single idempotent handler (dedupe on `next3_assignment_ref`; a replayed webhook or overlapping poll is a no-op). Three sources: **webhook receiver** (preferred — HMAC-signed with a shared secret, replay-windowed), **poller** (worker polls on an interval), **fake** (injects synthetic assignments for demo/UAT). #34's answer flips a config value and touches one adapter; nothing downstream changes.
+**Assignment delivery (#34):** one abstraction, `IAssignmentSource`, emitting `AssignmentReceived(visaNo, expertNext3Id, next3AssignmentRef)` into a single idempotent handler (dedupe on `next3_assignment_ref`; a replayed poll or overlapping delivery is a no-op). **Resolved 2026-08-31, built slice 7.4 (2026-09-01):** the client rules out a webhook and gives the app direct Oracle DB access instead — `OraclePollAssignmentSource` polls a query (shaped like `docs/client-answers-2026-08-31/uat-visa-event-trigger.sql`) every `Next3:AssignmentPollSeconds` (default 15, per the client's own answer) via `OraclePollWorker`/`OraclePollRunner`, the same schedule-vs-behavior split §6.3's outbox uses. Query execution sits behind `IAssignmentQuerySource` so the poll orchestration is unit-tested against a fake; the real `OracleAssignmentQuerySource` (`Oracle.ManagedDataAccess.Core`) is built and wired but unexercised until real credentials land — see §12 #34. `fake` (injects synthetic assignments for demo/UAT) remains the default in every environment. Selected by `Next3:AssignmentSource`; nothing downstream of `IAssignmentSource` changed.
 
 ### 6.3 The outbox
 
@@ -562,7 +562,7 @@ Placeholder strategy: every unresolved value is a named key in **one config file
 | 31 | Who builds NEXT3's endpoints, budgeted/scheduled? | Fake covers ~through week 3 | Decides whether "they'll provide endpoints" means two weeks or two months — schedule risk #1, above InfoSec |
 | 32 | ~~NEXT3 `clientRef` dedupe~~ | **Resolved 2026-08-31, observed rather than formally documented**: NEXT3 already rejects a duplicate file submission today ("the file is already received" — client answer Q3). clientRef still sent on both writes always; **no client-side sent-log** (corrected slice 3.3 — see §6.3). `docs/next3-openapi.yaml` makes it a *required* parameter and states the dedupe as a requirement on NEXT3, which this answer supports rather than changes | Nothing — the outbox design already assumed NEXT3-side dedupe on `clientRef`; the answer strengthens the assumption rather than requiring rework |
 | 33 | NEXT3 availability windows | Backoff ceiling 6 h, config knob | Retune backoff; maintenance windows into the runbook |
-| 34 | ~~Assignment webhook vs poll~~ | **Resolved 2026-08-31: direct Oracle poll, ~15s interval** (client answer Q4) — the app is given DB access (username/password/hostname/port/service name) and runs a query against `CARS_NOTIFICATION`/`CARS_LOSS_TOWING` (`docs/client-answers-2026-08-31/uat-visa-event-trigger.sql` is the reference shape) identifying new/updated claims. The client's own alternative — a DB trigger inserting into a middleware/app database — is explicitly **not recommended** by the client itself. **No webhook.** `IAssignmentSource` exists with the fake built and active; the poll adapter is built in slice 7.4 behind the existing port | Slice 7.4 builds the Oracle-poll `IAssignmentSource` adapter, unit-tested against a fake data source; `Next3:AssignmentSource` stays `fake` until real connection details land. The single idempotent handler and its `next3_assignment_ref` dedupe are unchanged (slice 2.1) |
+| 34 | ~~Assignment webhook vs poll~~ | **Resolved 2026-08-31: direct Oracle poll, ~15s interval** (client answer Q4) — the app is given DB access (username/password/hostname/port/service name) and runs a query against `CARS_NOTIFICATION`/`CARS_LOSS_TOWING` (`docs/client-answers-2026-08-31/uat-visa-event-trigger.sql` is the reference shape) identifying new/updated claims. The client's own alternative — a DB trigger inserting into a middleware/app database — is explicitly **not recommended** by the client itself. **No webhook.** **Adapter built, slice 7.4 (2026-09-01):** `OraclePollAssignmentSource` + `OraclePollWorker`/`OraclePollRunner` (§6.2/§6.3's schedule-vs-behavior split) selected by `Next3:AssignmentSource = oracle-poll`, unit-tested against a fake `IAssignmentQuerySource` — `AssignmentHandler`'s existing dedupe (slice 2.1) is untouched and unre-proven. `OracleAssignmentQuerySource` (the real query, `Oracle.ManagedDataAccess.Core`) is built and wired but **completely unexercised** — no live Oracle connection anywhere in the test suite, same "real but untested against a live target" treatment slice 3.3 gave `RealNext3Client` ahead of the NEXT3 sandbox | Nothing structural — only a config flip (`Next3:AssignmentSource=oracle-poll`) plus real values under `Next3:Oracle:*` and a live-connection verification pass once Oracle credentials exist. The single idempotent handler and its `next3_assignment_ref` dedupe are unchanged (slice 2.1) |
 | 35 / 36 | Mandated DB platform; NEXT3's engine | Azure SQL assumed (their shop). **#36 is now moot** — #5 confirmed API-only integration 2026-08-31, so NEXT3's own DB engine never becomes this app's concern | #35 contrary answer = real rework, raise immediately |
 | 37 | Azure resource-group access | Dev subscription until granted | Deploy target switch; **request in week 1 — often slower than API credentials** |
 | 38 | WAF requirement | §9.1 controls stand alone; no WAF budgeted | Front Door Premium ~$330/mo on AXA's bill if required |
@@ -612,10 +612,20 @@ All placeholders live in `appsettings.Placeholders.json`, loaded last in configu
     },
     "ArrivalFieldMap": "PLACEHOLDER",        // (#6)
     "ArrivalTimeZone": "PLACEHOLDER-IANA-ZONE", // (#6) which clock §6.1's "date, time" are in
-    "AssignmentSource": "fake"               // fake | poll (#34, resolved 2026-08-31: Oracle poll,
-                                              // ~15s interval, no webhook — see §12 #34; poll
-                                              // adapter built slice 7.4, stays fake in every
-                                              // environment until real Oracle connection details land)
+    "AssignmentSource": "fake",              // fake | webhook | poll | oracle-poll (#34, resolved
+                                              // 2026-08-31: Oracle poll, no webhook — see §12 #34.
+                                              // oracle-poll is the real, built adapter (slice 7.4);
+                                              // webhook and bare poll stay unsupported. Stays fake in
+                                              // every environment until real Oracle credentials land)
+    "Oracle": {                              // (#34) direct Oracle connection, validated only when
+                                              // AssignmentSource = oracle-poll (slice 7.4)
+      "Host": "PLACEHOLDER-oracle-host",
+      "Port": 1521,
+      "ServiceName": "PLACEHOLDER-oracle-service",
+      "Username": "PLACEHOLDER-oracle-user",
+      "Password": "PLACEHOLDER-oracle-password"
+    },
+    "AssignmentPollSeconds": 15               // the client's own answer: "every 15 seconds" (#34)
   },
   // Bound to `BrokerOptions` and validated in **every** environment since slice 5.2
   // (`BrokerOptionsValidator` + `ValidateOnStart`), unlike the Next3 and Push validators which run

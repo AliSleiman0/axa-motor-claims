@@ -14,6 +14,15 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Rule6_OnlyComposition_MayReference_OracleAssignmentQuerySource()
+    {
+        var result = ArchitectureRules.OnlyDiRegistrationReferencesOracleAssignmentQuerySource(
+            ArchitectureRules.ApiAssembly, ArchitectureRules.CompositionNamespace);
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Fact]
     public void Rule2_PublicModule_DoesNotReference_Next3_Or_UserTypes()
     {
         var result = ArchitectureRules.PublicModuleIsIsolated(

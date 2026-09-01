@@ -322,12 +322,35 @@ public static class ServiceRegistration
         services.AddSingleton<IAssignmentSource>(sp => assignmentSource switch
         {
             "fake" => sp.GetRequiredService<FakeAssignmentSource>(),
-            // Both are designed (§6.2) but unbuilt: which one is real is #34, and the answer is a
-            // config flip plus one adapter. Failing loudly beats silently delivering no assignments.
+            "oracle-poll" => sp.GetRequiredService<OraclePollAssignmentSource>(),
+            // #34 is resolved (2026-08-31): the client rules out a webhook and gives the app a
+            // direct Oracle poll instead — 'oracle-poll' above. 'webhook' and bare 'poll' stay
+            // deliberately unsupported rather than repurposed, so a stale config value fails loudly
+            // instead of silently meaning something different than it used to.
             "webhook" or "poll" => throw new InvalidOperationException(
-                $"Next3:AssignmentSource '{assignmentSource}' is not implemented yet (#34)."),
+                $"Next3:AssignmentSource '{assignmentSource}' is not implemented (#34 chose "
+                + "'oracle-poll' instead)."),
             _ => throw new InvalidOperationException(
-                $"Unknown Next3:AssignmentSource '{assignmentSource}'. Expected 'webhook', 'poll' or 'fake'."),
+                $"Unknown Next3:AssignmentSource '{assignmentSource}'. Expected 'webhook', 'poll', "
+                + "'oracle-poll' or 'fake'."),
         });
+
+        // Registered only in this mode, not unconditionally like OutboxWorker/CleanupWorker: those
+        // two loops do real work in every environment, but Next3:AssignmentSource stays 'fake'
+        // everywhere until real Oracle connection details land (#34), so an always-registered
+        // OraclePollWorker would just be a permanently idle background loop — worse than not
+        // registering it at all.
+        if (string.Equals(assignmentSource, "oracle-poll", StringComparison.Ordinal))
+        {
+            services.AddSingleton<IValidateOptions<Next3Options>, Next3OracleOptionsValidator>();
+            services.AddOptions<Next3Options>()
+                .Bind(configuration.GetSection(Next3Options.SectionName))
+                .ValidateOnStart();
+
+            services.AddSingleton<OraclePollAssignmentSource>();
+            services.AddSingleton<IAssignmentQuerySource, OracleAssignmentQuerySource>();
+            services.AddSingleton<OraclePollRunner>();
+            services.AddHostedService<OraclePollWorker>();
+        }
     }
 }

@@ -32,6 +32,19 @@ public sealed class Next3Options
     public Next3OAuthOptions OAuth { get; } = new();
 
     /// <summary>
+    /// Direct Oracle DB connection details for assignment delivery (#34, resolved 2026-08-31: the
+    /// client's own answer rules out a webhook and gives the app read access to poll instead — see
+    /// design.md §6.2). Unused while <c>Next3:AssignmentSource</c> is anything but `oracle-poll`.
+    /// </summary>
+    public Next3OracleOptions Oracle { get; } = new();
+
+    /// <summary>
+    /// How often <see cref="OraclePollWorker"/> polls (#34). Default matches the client's own
+    /// answer — "every 15 seconds".
+    /// </summary>
+    public int AssignmentPollSeconds { get; set; } = 15;
+
+    /// <summary>
     /// **Config-ready, not exercised.** If #1 answers "mutual TLS", the certificate is loaded from
     /// here and attached to the handler — a change confined to <c>AddPorts</c>. Nothing in this slice
     /// reads it, and saying so is better than a half-built path that looks supported.
@@ -75,4 +88,23 @@ public static class Next3AuthModes
 {
     public const string ApiKey = "apikey";
     public const string OAuth = "oauth";
+}
+
+/// <summary>
+/// Direct Oracle connection details (#34), used only when `Next3:AssignmentSource` is
+/// `oracle-poll` — see <see cref="Next3Options.Oracle"/> and <see cref="Next3OracleOptionsValidator"/>.
+/// Every value is a PLACEHOLDER until real credentials arrive; never a real credential in this
+/// file, same treatment as <see cref="Next3OAuthOptions"/>.
+/// </summary>
+public sealed class Next3OracleOptions
+{
+    public string Host { get; set; } = string.Empty;
+
+    public int Port { get; set; } = 1521;
+
+    public string ServiceName { get; set; } = string.Empty;
+
+    public string Username { get; set; } = string.Empty;
+
+    public string Password { get; set; } = string.Empty;
 }

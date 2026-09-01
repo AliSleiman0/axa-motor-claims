@@ -27,6 +27,16 @@ public static class ArchitectureRules
             .ShouldNot().HaveDependencyOn(typeof(RealNext3Client).FullName!)
             .GetResult();
 
+    // Rule 6: same as rule 1, for the Oracle-poll adapter's real query source (slice 7.4, #34) — no
+    // feature module reaches around IAssignmentQuerySource to call OracleAssignmentQuerySource
+    // directly; only the DI registration may.
+    public static TestResult OnlyDiRegistrationReferencesOracleAssignmentQuerySource(Assembly assembly, string allowedNamespace) =>
+        Types.InAssembly(assembly)
+            .That().DoNotResideInNamespace(allowedNamespace)
+            .And().DoNotHaveName(nameof(OracleAssignmentQuerySource))
+            .ShouldNot().HaveDependencyOn(typeof(OracleAssignmentQuerySource).FullName!)
+            .GetResult();
+
     // Rule 2: nothing in the public module namespace references INext3Client or profile/user types.
     public static TestResult PublicModuleIsIsolated(Assembly assembly, string publicNamespace) =>
         Types.InAssembly(assembly)

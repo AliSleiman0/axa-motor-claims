@@ -139,6 +139,14 @@ public sealed class PortSelectionTests
     }
 
     [Fact]
+    public void AssignmentSource_OraclePoll_ResolvesOraclePollAdapter()
+    {
+        var source = Resolve<IAssignmentSource>(("Next3:AssignmentSource", "oracle-poll"));
+
+        Assert.IsType<OraclePollAssignmentSource>(source);
+    }
+
+    [Fact]
     public void AssignmentSource_Unknown_Throws()
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>

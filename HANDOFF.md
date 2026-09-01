@@ -3,7 +3,7 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-08-31 (slice 7.3) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑; 7.4–7.6 are next.**
+**Status as of 2026-09-01 (slice 7.4) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑, 7.4 ☑; 7.5–7.6 are next.**
 **2026-08-31 update:** the client's clarification-question answers + a revised BRD landed
 (`docs/client-answers-2026-08-31/`) — real, though the calendar position is still early (week 1–2 of
 the actual client-facing engagement, not week 7; slice numbers here track build progress, not
@@ -68,22 +68,40 @@ per-profile capture-only override (today's `Broker.AllowUpload` is one global sw
 confirmed-out-of-scope rows in `scope-decisions.md`, both with a standalone-estimate note back to the
 client. Full detail in `docs/build-playbook.md`'s 7.3 Notes.
 
+**Slice 7.4 done, 2026-09-01 — the Oracle-poll `IAssignmentSource` adapter.** `OraclePollAssignmentSource`
++ `OraclePollWorker`/`OraclePollRunner` (the same schedule-vs-behavior split as the outbox worker),
+behind `Next3:AssignmentSource = oracle-poll`, unit-tested against a fake `IAssignmentQuerySource` —
+758 xUnit (+6), no migration. `AssignmentHandler`'s existing dedupe (slice 2.1) is untouched and not
+re-proven; the new tests prove the poll loop delivers a replayed row to the handler unchanged and
+isolates one row's delivery failure from the rest of the batch. `OracleAssignmentQuerySource` — the
+real Oracle-connecting implementation (`Oracle.ManagedDataAccess.Core` 23.26.300) — is built and
+wired, mirroring slice 3.3's `RealNext3Client` precedent, but **completely unexercised**: no live
+Oracle connection anywhere in the test suite, and `Next3:AssignmentSource` stays `fake` in every
+environment including CI. One correction: slice 7.3's design.md Appendix A comment said `poll`
+where the playbook card's own prompt says `oracle-poll` — fixed here; bare `webhook`/`poll` remain
+deliberately unsupported. A sixth architecture rule (`Api.Composition`-only reference to
+`OracleAssignmentQuerySource`) mirrors rule 1's `RealNext3Client` treatment. Full detail in
+`docs/build-playbook.md`'s 7.4 Notes and `docs/scope-decisions.md`'s dated row.
+
 **Next actions, in order.** (1) Review 7.2's test diff and commit it — the three deliberate changes
 to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction), `PublicUploadTests`'
 table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
-`readSubscription` (renamed `resync`, because it no longer only reads). (2) The client package is
+`readSubscription` (renamed `resync`, because it no longer only reads). (2) Review and commit 7.4's
+diff (this session's work is uncommitted — see the working tree). (3) The client package is
 **sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice — and now also the
 reconciliation note 7.3's card asked drafted but not sent (Q2/Q4 read + the GPS gap), at the
-developer's discretion. (3) Slices 7.4 and 7.5 — the Oracle-poll assignment-source adapter (now with a
-concrete query to build against, `uat-visa-event-trigger.sql`) and the NEXT3 master-data sync adapter,
-both behind existing ports and fake-tested; `Next3:Mode`/`AssignmentSource` stay `fake`. (4) Slice 7.6
-(the original 7.3) — UAT prep: the test environment, CI, the image, the seed, the runbook, and
-`/code-review ultra` over the whole tree. It inherits one ticket from 7.1 (an app-faulted 500 still
-gets no security headers, because Kestrel skips `OnStarting` when the application threw — the fix is
-the global handler 7.2 deliberately declined to add) and the CSP HTML carve-out. (5) The one open
-week-6 milestone box: the **narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md`
-against a handset. (6) The two pending change requests (BRD v2's manager-override + Q12's per-profile
-capture-only exception) need pricing and client confirmation before either is scheduled.
+developer's discretion. (4) Slice 7.5 — the NEXT3 master-data sync adapter, behind its existing port
+and fake-tested; `Next3:Mode` stays `fake`. (5) Slice 7.6 (the original 7.3) — UAT prep: the test
+environment, CI, the image, the seed, the runbook, and `/code-review ultra` over the whole tree. It
+inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers, because Kestrel
+skips `OnStarting` when the application threw — the fix is the global handler 7.2 deliberately
+declined to add) and the CSP HTML carve-out. (6) The one open week-6 milestone box: the
+**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset. (7) The two
+pending change requests (BRD v2's manager-override + Q12's per-profile capture-only exception) need
+pricing and client confirmation before either is scheduled. (8) When real Oracle credentials arrive:
+`OracleAssignmentQuerySource` needs a live-connection verification pass before anyone trusts it — the
+column names, join shape and connection-string format were read off the client's SQL by eye and
+nothing has proven them against the real schema yet.
 
 **Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
 limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry
