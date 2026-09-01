@@ -148,6 +148,16 @@ public sealed class RealNext3Client(
         return experts is null ? [] : [.. experts.Select(e => e.ToExpert())];
     }
 
+    public async Task<IReadOnlyList<Next3Garage>> GetGarages(CancellationToken ct)
+    {
+        using var response = await Send(() => Plain(HttpMethod.Get, "garages"), ct);
+
+        await EnsureAccepted(response, nameof(GetGarages), ct);
+
+        var garages = await response.Content.ReadFromJsonAsync<List<Next3GarageDto>>(JsonFormat, ct);
+        return garages is null ? [] : [.. garages.Select(g => g.ToGarage())];
+    }
+
     private static Task<HttpRequestMessage> Plain(HttpMethod method, string path) =>
         Task.FromResult(new HttpRequestMessage(method, path));
 

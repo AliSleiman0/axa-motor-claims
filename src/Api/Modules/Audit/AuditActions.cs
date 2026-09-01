@@ -11,6 +11,12 @@ public static class AuditActions
     public const string UserDeactivated = "user_deactivated";
     public const string InviteIssued = "invite_issued";
 
+    // §6.1/#7 master-data sync (slice 7.5). No actor: NEXT3's own list changing, not a user acting
+    // — same convention as assignment_received/assignment_unmapped_expert above.
+    public const string SupplierSyncCreated = "supplier_sync_created";
+    public const string SupplierSyncBlocked = "supplier_sync_blocked";
+    public const string SupplierSyncUnblocked = "supplier_sync_unblocked";
+
     // §5.1's expert flow. assignment_received and assignment_unmapped_expert have no actor: NEXT3
     // sent them, not a user.
     public const string AssignmentReceived = "assignment_received";

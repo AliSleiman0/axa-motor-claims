@@ -20,14 +20,24 @@ public static class AdminUserEndpoints
             Guid id, ClaimsPrincipal principal, AppDbContext db, TokenService tokens, AuditWriter audit,
             TimeProvider time, CancellationToken ct) =>
         {
-            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == id, ct);
-            if (user is null)
+            // Bounded retry, not a 500 or a 409 back to the admin: since slice 7.5, AppUser.Status
+            // is a concurrency token two writers can race on (this endpoint and MasterDataSyncTask —
+            // db-review finding). An admin's deactivation is the authoritative one of the two — it
+            // must win regardless of which side raced it — so a lost race here just means "read the
+            // now-current row and try again", up to a small bound in case of a genuinely stuck loop.
+            for (var attempt = 0; attempt < 3; attempt++)
             {
-                return Results.NotFound();
-            }
+                var user = await db.Users.SingleOrDefaultAsync(u => u.Id == id, ct);
+                if (user is null)
+                {
+                    return Results.NotFound();
+                }
 
-            if (user.Status != UserStatus.Inactive)
-            {
+                if (user.Status == UserStatus.Inactive)
+                {
+                    return Results.Ok();
+                }
+
                 var now = time.GetUtcNow().UtcDateTime;
                 user.Status = UserStatus.Inactive;
                 user.InactivatedAt = now;
@@ -35,13 +45,21 @@ public static class AdminUserEndpoints
                 await tokens.RevokeAll(id, ct);
                 await RevokeDevices(db, audit, principal.GetUserId(), id, now, ct);
                 audit.Append(principal.GetUserId(), AuditActions.UserDeactivated, AuditEntityKinds.AppUser, id);
-                // One SaveChanges = one transaction: status flip, profile flag, token
-                // revocations, device revocations, and audit rows commit together. A repeat
-                // deactivate is a no-op 200 and writes no audit row.
-                await db.SaveChangesAsync(ct);
+
+                try
+                {
+                    // One SaveChanges = one transaction: status flip, profile flag, token
+                    // revocations, device revocations, and audit rows commit together.
+                    await db.SaveChangesAsync(ct);
+                    return Results.Ok();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    db.ChangeTracker.Clear();
+                }
             }
 
-            return Results.Ok();
+            return Results.Conflict(new { error = "concurrent_update" });
         });
 
         group.MapPost("/{id:guid}/invite", async (
@@ -94,7 +112,12 @@ public static class AdminUserEndpoints
     /// handset the person themselves turned off.
     /// </para>
     /// </remarks>
-    private static async Task RevokeDevices(
+    /// <summary>
+    /// Internal rather than private since slice 7.5: <see cref="MasterDataSyncTask"/> shares this
+    /// for the same session-hygiene reasons a sync-block is a deactivation in every way but who
+    /// triggered it.
+    /// </summary>
+    internal static async Task RevokeDevices(
         AppDbContext db, AuditWriter audit, Guid? actorUserId, Guid userId, DateTime now,
         CancellationToken ct)
     {

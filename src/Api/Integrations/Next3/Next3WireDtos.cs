@@ -34,9 +34,14 @@ internal sealed record Next3ClaimSummaryDto(
     public ClaimSummary ToClaimSummary() => new(VisaNo, PlateNo, InsuredName, CarMakeModel, AccidentDate);
 }
 
-internal sealed record Next3ExpertDto(string Id, string Name, string Mobile, bool Active)
+internal sealed record Next3ExpertDto(string Id, string Name, string Mobile, string Email, bool Active)
 {
-    public Next3Expert ToExpert() => new(Id, Name, Mobile, Active);
+    public Next3Expert ToExpert() => new(Id, Name, Mobile, Email, Active);
+}
+
+internal sealed record Next3GarageDto(string Id, string Name, string Mobile, string Email, bool Active)
+{
+    public Next3Garage ToGarage() => new(Id, Name, Mobile, Email, Active);
 }
 
 /// <summary>

@@ -119,8 +119,10 @@ public class Next3ClientContractTests
         await client.UploadDocument(knownVisa, document, documentRef, ct);
         await client.UploadDocument(knownVisa, document, documentRef, ct);
 
-        // 6. Master data comes back as a list, never null — the seed job iterates it without a guard.
+        // 6. Master data comes back as a list, never null — the sync job (slice 7.5) iterates it
+        //    without a guard.
         Assert.NotNull(await client.GetExperts(ct));
+        Assert.NotNull(await client.GetGarages(ct));
 
         // 7. **Only the fake can prove the replay stored nothing the second time.** NEXT3 exposes no
         //    read-back of what a claim holds, so against the sandbox this assertion is impossible and

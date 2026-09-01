@@ -53,10 +53,15 @@ export const PROFILE_STATUS_LABELS: Record<string, string> = {
   invited: 'Invited',
   active: 'Active',
   inactive: 'Inactive',
+  // #7/#8, slice 7.5 — the NEXT3 master-data sync dropped this supplier from its active list.
+  // Distinct from admin-driven `inactive`, and toned like `invited`: both are waiting on an
+  // external event to resolve on their own, unlike `inactive`'s deliberate, quiet neutral.
+  sync_blocked: 'Sync blocked',
 }
 
 export const PROFILE_STATUS_TONES: Record<string, Tone> = {
   invited: 'warn',
   active: 'ok',
   inactive: 'neutral',
+  sync_blocked: 'warn',
 }

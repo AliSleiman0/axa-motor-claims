@@ -45,6 +45,14 @@ public sealed class Next3Options
     public int AssignmentPollSeconds { get; set; } = 15;
 
     /// <summary>
+    /// How often the master-data sync (`Api.Modules.Users.MasterDataSyncTask`, #7/#8, slice 7.5)
+    /// re-polls NEXT3's expert/garage list. Default matches the client's own answer — "once per
+    /// day". Hour-scale rather than the assignment poll's second-scale, so it self-throttles inside
+    /// the shared `CleanupWorker` loop instead of needing its own bespoke schedule.
+    /// </summary>
+    public int MasterDataSyncIntervalHours { get; set; } = 24;
+
+    /// <summary>
     /// **Config-ready, not exercised.** If #1 answers "mutual TLS", the certificate is loaded from
     /// here and attached to the handler — a change confined to <c>AddPorts</c>. Nothing in this slice
     /// reads it, and saying so is better than a half-built path that looks supported.

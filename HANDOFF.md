@@ -3,7 +3,7 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-09-01 (slice 7.4) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑, 7.4 ☑; 7.5–7.6 are next.**
+**Status as of 2026-09-01 (slice 7.5) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑, 7.4 ☑, 7.5 ☑; 7.6 is next and is the last card in week 7.**
 **2026-08-31 update:** the client's clarification-question answers + a revised BRD landed
 (`docs/client-answers-2026-08-31/`) — real, though the calendar position is still early (week 1–2 of
 the actual client-facing engagement, not week 7; slice numbers here track build progress, not
@@ -83,25 +83,38 @@ deliberately unsupported. A sixth architecture rule (`Api.Composition`-only refe
 `OracleAssignmentQuerySource`) mirrors rule 1's `RealNext3Client` treatment. Full detail in
 `docs/build-playbook.md`'s 7.4 Notes and `docs/scope-decisions.md`'s dated row.
 
+**Slice 7.5 done, 2026-09-01 — the NEXT3 master-data sync.** `MasterDataSyncTask` (a singleton
+`ICleanupTask`, the only one in the codebase — its own doc comment explains why) reconciles
+`expert_profile`/`garage_profile` daily against `INext3Client.GetExperts`/the new `GetGarages`: a
+new in-network supplier gets a profile + SMS invite, a dropped/NEXT3-inactive one blocks login via
+a new **`SyncBlocked`** status, a reappearing one unblocks. 768 xUnit (+10), one migration
+(`AddSyncBlockedUserStatus`, db-reviewed across two rounds — the first found a real lost-update
+race between the sync task and `AdminUserEndpoints.Deactivate` on `app_user.status`, fixed by
+making `status` the EF concurrency token, same treatment as `declaration.state`/`document.push_status`).
+`SyncBlocked` (not a reuse of `Inactive`) is the one place this slice goes beyond the card's literal
+words — confirmed with the developer — and it's a correctness fix: the sync task now can never
+silently undo an admin's own deactivation. Two-line web polish included (`tones.ts`) so the new
+status renders properly on the admin profile list. Full detail in `docs/build-playbook.md`'s 7.5
+Notes and `docs/scope-decisions.md`'s three dated rows.
+
 **Next actions, in order.** (1) Review 7.2's test diff and commit it — the three deliberate changes
 to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction), `PublicUploadTests`'
 table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
 `readSubscription` (renamed `resync`, because it no longer only reads). (2) Review and commit 7.4's
-diff (this session's work is uncommitted — see the working tree). (3) The client package is
+and 7.5's diffs (this session's work is uncommitted — see the working tree). (3) The client package is
 **sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice — and now also the
 reconciliation note 7.3's card asked drafted but not sent (Q2/Q4 read + the GPS gap), at the
-developer's discretion. (4) Slice 7.5 — the NEXT3 master-data sync adapter, behind its existing port
-and fake-tested; `Next3:Mode` stays `fake`. (5) Slice 7.6 (the original 7.3) — UAT prep: the test
-environment, CI, the image, the seed, the runbook, and `/code-review ultra` over the whole tree. It
-inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers, because Kestrel
-skips `OnStarting` when the application threw — the fix is the global handler 7.2 deliberately
-declined to add) and the CSP HTML carve-out. (6) The one open week-6 milestone box: the
-**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset. (7) The two
+developer's discretion. (4) Slice 7.6 (the original 7.3, and the last card in week 7) — UAT prep:
+the test environment, CI, the image, the seed, the runbook, and `/code-review ultra` over the whole
+tree. It inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers, because
+Kestrel skips `OnStarting` when the application threw — the fix is the global handler 7.2
+deliberately declined to add) and the CSP HTML carve-out. (5) The one open week-6 milestone box: the
+**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset. (6) The two
 pending change requests (BRD v2's manager-override + Q12's per-profile capture-only exception) need
-pricing and client confirmation before either is scheduled. (8) When real Oracle credentials arrive:
-`OracleAssignmentQuerySource` needs a live-connection verification pass before anyone trusts it — the
-column names, join shape and connection-string format were read off the client's SQL by eye and
-nothing has proven them against the real schema yet.
+pricing and client confirmation before either is scheduled. (7) When real Oracle/NEXT3 credentials
+arrive: both `OracleAssignmentQuerySource` (slice 7.4) and the real `GetExperts`/`GetGarages` path
+(slice 7.5) need a live-connection verification pass before anyone trusts them — neither has ever
+been exercised against a real endpoint.
 
 **Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
 limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry

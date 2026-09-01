@@ -38,7 +38,7 @@ The client returned answers to the clarification-questions workbook (`docs/clien
 | 5 | Document upload: an API endpoint, or a shared directory + DB insert? | Upload pipeline | **Resolved 2026-08-31: API only** — see Resolved section above |
 | 6 | Exact writable fields for the "Expert Arrived" update — field names, endpoint, date/time/location format | Expert module | **Resolved 2026-08-31, except GPS** — see Resolved section above |
 | 7 | Does AXA have an SMS gateway for OTP, or do we procure one? Who pays? Which countries? | Login — week 1 | TBC — client raised WhatsApp OTP as an option 2026-08-31 (registration-only use), and needs to check whether its existing SMS account is still active |
-| 8 | The master-data extract (NEXT3 ID + name + phone) — when, what format, one-time or synced? **Covers experts, garages AND claim officers** — all four profiles carry a NEXT3 identity (manager review, 2026-08-19). | Onboarding | **Resolved 2026-08-31** — see Resolved section above |
+| 8 | The master-data extract (NEXT3 ID + name + phone) — when, what format, one-time or synced? **Covers experts, garages AND claim officers** — all four profiles carry a NEXT3 identity (manager review, 2026-08-19). | Onboarding | **Resolved 2026-08-31, built 2026-09-01 (slice 7.5)** — see Resolved section above; `MasterDataSyncTask` reconciles experts/garages daily (claim officers/brokers confirmed not sourced from NEXT3) |
 
 ## Needed by week 3
 

@@ -8,6 +8,7 @@ using Api.Integrations.Sms;
 using Api.Modules.Broker;
 using Api.Modules.Media;
 using Api.Modules.PublicSurface;
+using Api.Modules.Users;
 using Api.Outbox;
 using Api.Tests.Integrations;
 using Microsoft.AspNetCore.Hosting;
@@ -123,6 +124,13 @@ public sealed class ApiFixture : IAsyncLifetime
 
     /// <summary>§7.3's sweeps, driven a pass at a time for exactly the same reason.</summary>
     public CleanupRunner Cleanup => Services.GetRequiredService<CleanupRunner>();
+
+    /// <summary>
+    /// #7/#8's NEXT3 master-data sync (slice 7.5) — a singleton `ICleanupTask` (its own doc comment
+    /// explains why), resolved directly so tests can drive <c>Run</c> without going through
+    /// <see cref="Cleanup"/>'s whole-pass sweep of every registered task.
+    /// </summary>
+    public MasterDataSyncTask MasterDataSync => Services.GetRequiredService<MasterDataSyncTask>();
 
     /// <summary>
     /// The transit buffer the booted app actually writes to. <c>Blob:Mode</c> stays `fake`, so the

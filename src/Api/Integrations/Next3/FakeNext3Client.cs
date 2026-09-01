@@ -17,6 +17,7 @@ public sealed class FakeNext3Client(FakeBehavior behavior) : INext3Client
 {
     private readonly ConcurrentDictionary<string, ClaimDetail> _claims = SeedClaims();
     private readonly ConcurrentDictionary<string, Next3Expert> _experts = SeedExperts();
+    private readonly ConcurrentDictionary<string, Next3Garage> _garages = SeedGarages();
 
     // The idempotency guard the outbox (slice 2.2) is written against: a clientRef is consumed only
     // by a *successful* push, so a retry after a timeout that actually succeeded is a silent no-op,
@@ -107,8 +108,31 @@ public sealed class FakeNext3Client(FakeBehavior behavior) : INext3Client
         return [.. _experts.Values.OrderBy(e => e.Next3Id, StringComparer.Ordinal)];
     }
 
+    public async Task<IReadOnlyList<Next3Garage>> GetGarages(CancellationToken ct)
+    {
+        await behavior.Apply(nameof(GetGarages), ct);
+        return [.. _garages.Values.OrderBy(g => g.Next3Id, StringComparer.Ordinal)];
+    }
+
     /// <summary>Adds or replaces a seeded claim — lets a test set up the claim its scenario needs.</summary>
     internal void Seed(ClaimDetail claim) => _claims[claim.VisaNo] = claim;
+
+    /// <summary>Adds or replaces a seeded expert — slice 7.5's sync tests need specific rows.</summary>
+    internal void Seed(Next3Expert expert) => _experts[expert.Next3Id] = expert;
+
+    /// <summary>Adds or replaces a seeded garage — slice 7.5's sync tests need specific rows.</summary>
+    internal void Seed(Next3Garage garage) => _garages[garage.Next3Id] = garage;
+
+    /// <summary>
+    /// Drops a seeded expert — simulates a supplier dropping out of NEXT3's network entirely
+    /// (slice 7.5's sync tests), as opposed to <see cref="Seed(Next3Expert)"/> with `Active: false`,
+    /// which simulates NEXT3 marking it inactive while still in network. The two are the same fact
+    /// to the sync task (`MasterDataSyncTask`) but distinct NEXT3 answers worth testing separately.
+    /// </summary>
+    internal void RemoveExpert(string next3Id) => _experts.TryRemove(next3Id, out _);
+
+    /// <summary>Drops a seeded garage — see <see cref="RemoveExpert"/>.</summary>
+    internal void RemoveGarage(string next3Id) => _garages.TryRemove(next3Id, out _);
 
     private bool AlreadySent(string clientRef) => _sentClientRefs.ContainsKey(clientRef);
 
@@ -150,14 +174,36 @@ public sealed class FakeNext3Client(FakeBehavior behavior) : INext3Client
     {
         Next3Expert[] experts =
         [
-            new("PLACEHOLDER-EXP-01", "PLACEHOLDER Expert One", "+999000002001", true),
-            new("PLACEHOLDER-EXP-02", "PLACEHOLDER Expert Two", "+999000002002", true),
+            new("PLACEHOLDER-EXP-01", "PLACEHOLDER Expert One", "+999000002001",
+                "expert-one@example.invalid", true),
+            new("PLACEHOLDER-EXP-02", "PLACEHOLDER Expert Two", "+999000002002",
+                "expert-two@example.invalid", true),
             // One inactive, so the §4 expert seed/sync job has a non-trivial case to handle (#8).
-            new("PLACEHOLDER-EXP-03", "PLACEHOLDER Expert Three", "+999000002003", false),
+            new("PLACEHOLDER-EXP-03", "PLACEHOLDER Expert Three", "+999000002003",
+                "expert-three@example.invalid", false),
         ];
 
         return new ConcurrentDictionary<string, Next3Expert>(
             experts.Select(e => KeyValuePair.Create(e.Next3Id, e)),
+            StringComparer.Ordinal);
+    }
+
+    private static ConcurrentDictionary<string, Next3Garage> SeedGarages()
+    {
+        Next3Garage[] garages =
+        [
+            new("PLACEHOLDER-GAR-01", "PLACEHOLDER Garage One", "+999000003001",
+                "garage-one@example.invalid", true),
+            new("PLACEHOLDER-GAR-02", "PLACEHOLDER Garage Two", "+999000003002",
+                "garage-two@example.invalid", true),
+            // One inactive, same reason SeedExperts keeps one — the sync job (slice 7.5) needs a
+            // non-trivial case to reconcile from the very first run.
+            new("PLACEHOLDER-GAR-03", "PLACEHOLDER Garage Three", "+999000003003",
+                "garage-three@example.invalid", false),
+        ];
+
+        return new ConcurrentDictionary<string, Next3Garage>(
+            garages.Select(g => KeyValuePair.Create(g.Next3Id, g)),
             StringComparer.Ordinal);
     }
 }

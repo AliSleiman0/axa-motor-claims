@@ -117,6 +117,17 @@ public sealed class FakeNext3ClientTests
     }
 
     [Fact]
+    public async Task GetGarages_ReturnsSeeds_IncludingAnInactiveOne()
+    {
+        var client = NewClient();
+
+        var garages = await client.GetGarages(CancellationToken.None);
+
+        Assert.Equal(3, garages.Count);
+        Assert.Contains(garages, g => !g.Active);
+    }
+
+    [Fact]
     public async Task PushToUnknownVisa_ThrowsNonTransient()
     {
         // Not a FakeTransientException: retrying will never make an unknown visa exist, so the

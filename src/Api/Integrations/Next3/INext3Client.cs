@@ -12,6 +12,8 @@ public interface INext3Client
     Task UploadDocument(string visaNo, DocumentPush doc, string clientRef, CancellationToken ct);
 
     Task<IReadOnlyList<Next3Expert>> GetExperts(CancellationToken ct);
+
+    Task<IReadOnlyList<Next3Garage>> GetGarages(CancellationToken ct);
 }
 
 /// <summary>Claim fields NEXT3 owns (design.md §6.1 "Claim details"; cached in `claim` per §4).</summary>
@@ -60,8 +62,24 @@ public sealed record DocumentPush(
     string ContentType,
     string BlobKey);
 
-/// <summary>Expert master data (§6.1 "Expert list"); seeds `expert_profile` per §4.</summary>
-public sealed record Next3Expert(string Next3Id, string Name, string Mobile, bool Active);
+/// <summary>
+/// Expert master data (§6.1 "Expert list"); seeds `expert_profile` per §4. `Email` added slice 7.5
+/// (Q7's answer supplies `CRT_EMAIL`) — `expert_profile.Email` is required, and the sync job's
+/// create branch has no other source for it.
+/// </summary>
+public sealed record Next3Expert(string Next3Id, string Name, string Mobile, string Email, bool Active);
+
+/// <summary>
+/// Garage master data (§6.1 "Garage list"; #7, resolved 2026-08-31, slice 7.5). Same shape as
+/// <see cref="Next3Expert"/> deliberately — the client's own reference query
+/// (`docs/client-answers-2026-08-31/suppliers-list.sql`) returns identical columns for both
+/// branches, tagged only by an `'EXPERT'`/`'GARAGE'` literal — but kept as its own type rather than
+/// reused, because "an expert" and "a garage" reusing one DTO would read as a modelling mistake the
+/// moment the two master-data shapes diverge (CLAUDE.md: three similar lines beat a premature
+/// abstraction, and a type used for two conceptually different things is the DTO-level version of
+/// premature).
+/// </summary>
+public sealed record Next3Garage(string Next3Id, string Name, string Mobile, string Email, bool Active);
 
 /// <summary>
 /// The two NEXT3 folder names the BRD itself names (design.md §5.1, §5.2). Not client-configurable

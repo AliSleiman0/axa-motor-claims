@@ -85,6 +85,12 @@ public static class ServiceRegistration
         services.AddScoped<ICleanupTask, StrandedDeferredRequeueTask>();
         services.AddScoped<ICleanupTask, RejectedDeclarationBlobCleanupTask>();
         services.AddScoped<ICleanupTask, DeviceRegistryCleanupTask>();
+        // Singleton, not scoped like the rows above — MasterDataSyncTask's own doc comment explains
+        // why (its once/day self-throttle needs an instance field that survives across passes).
+        // Registered as its own concrete type too (same shape as OutboxProcessor/CleanupRunner), so
+        // tests can resolve and drive it directly rather than only through IEnumerable<ICleanupTask>.
+        services.AddSingleton<MasterDataSyncTask>();
+        services.AddSingleton<ICleanupTask>(sp => sp.GetRequiredService<MasterDataSyncTask>());
         services.AddPublicRateLimiting();
         services.AddScoped<PublicLinkTokenService>();
         services.AddScoped<ClaimCache>();
