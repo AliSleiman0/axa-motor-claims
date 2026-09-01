@@ -14,6 +14,7 @@ using Api.Tests.Integrations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -159,9 +160,15 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // CI has no LocalDB: point this env var at a SQL container there (design.md §10).
+        // CI has no LocalDB: TEST_DB_CONNECTION_TEMPLATE (slice 7.6) points this at a real SQL
+        // Server service container there instead — a template string carrying a literal
+        // "{database}" token, substituted per-run so the whole serialized collection still gets
+        // its own throwaway database. Falls back to LocalDB, so every existing local workflow
+        // (`dotnet test` with nothing set) is completely unchanged.
         var dbName = $"AxaMotorClaims_Test_{Guid.NewGuid():N}";
-        _connectionString = $"Server=(localdb)\\MSSQLLocalDB;Database={dbName};Integrated Security=true";
+        var template = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION_TEMPLATE")
+            ?? "Server=(localdb)\\MSSQLLocalDB;Database={database};Integrated Security=true";
+        _connectionString = template.Replace("{database}", dbName, StringComparison.Ordinal);
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", _connectionString);
 
         // **Production, so the suite is hermetic against the developer's own machine.** Added slice
@@ -194,12 +201,17 @@ public sealed class ApiFixture : IAsyncLifetime
             // production database will not be running. Matching it here is the cheap half of that
             // gap; the expensive half (a real Azure SQL run) belongs to §10's test environment.
             // Suppressed rather than worked around: a database name cannot be a SQL parameter, so
-            // EF1003 has no safe alternative to offer here. dbName is `AxaMotorClaims_Test_` plus a
-            // Guid this method generated four lines above — it never leaves this process and holds
-            // nothing but hex digits and underscores.
+            // EF1003 has no safe alternative to offer here. The name comes from the connection
+            // string's own InitialCatalog, not the bare `dbName` variable — slice 7.6 found that the
+            // two can differ: TEST_DB_CONNECTION_TEMPLATE lets the `{database}` token be wrapped or
+            // renamed on its way into the template, and this statement must target whatever database
+            // was actually created, not what this method happened to call it four lines above. Still
+            // holds nothing but hex digits, underscores and whatever literal characters the template
+            // itself contributes — the template is operator-supplied config, not request input.
+            var actualDatabaseName = new SqlConnectionStringBuilder(_connectionString).InitialCatalog;
 #pragma warning disable EF1003
             await db.Database.ExecuteSqlRawAsync(
-                "ALTER DATABASE [" + dbName + "] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE");
+                "ALTER DATABASE [" + actualDatabaseName + "] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE");
 #pragma warning restore EF1003
         }
 

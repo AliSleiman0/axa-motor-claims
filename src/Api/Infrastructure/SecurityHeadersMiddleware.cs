@@ -26,27 +26,29 @@ namespace Api.Infrastructure;
 /// </para>
 /// <para>
 /// The CSP is the strictest one that fits what this API serves today — JSON, and document bytes the
-/// browser fetches through the authorized client and renders from a <c>blob:</c> URL (slice 4.2), so
-/// nothing depends on a directly-navigated response being allowed to load subresources.
-/// **Slice 7.3 carves out HTML** when the SPA moves in behind the same origin; its card says so.
+/// browser fetches through the authorized client and renders from a <c>blob:</c> URL (slice 4.2).
+/// **Slice 7.6 carves out HTML**, now that the SPA moves in behind the same origin (design.md §10):
+/// a page under `default-src 'none'` cannot load itself, so an HTML response keeps only
+/// `frame-ancestors 'none'`, and everything else keeps the full policy unchanged.
 /// </para>
 /// <para>
-/// **Two notes for whoever writes that carve-out** (both from 7.1's <c>/security-review</c>). Kestrel
-/// runs <c>OnStarting</c> callbacks **last-registered-first**, so this one — registered before
-/// everything — runs *after* any callback a later middleware or endpoint adds, and would silently
-/// overwrite it. The carve-out therefore belongs **inside <see cref="Apply"/>**, keyed on the
-/// response's content type, not in a second callback further down the pipeline. And
-/// <see cref="Apply"/> assigns rather than merges, which is right for the one overlap that exists
-/// today (<c>DocumentContent</c>'s identical <c>nosniff</c>) but means a future handler setting its
-/// own <c>Content-Security-Policy</c> inline would have it discarded with nothing going red.
+/// **The carve-out lives inside <see cref="Apply"/>, keyed on the response's content type — exactly
+/// where 7.1's `/security-review` said it had to.** Kestrel runs <c>OnStarting</c> callbacks
+/// **last-registered-first**, so this callback — registered before everything — runs *after* any
+/// callback a later middleware or endpoint adds, and would silently overwrite a second one further
+/// down the pipeline. <see cref="Apply"/> still assigns rather than merges, which is right for the
+/// one overlap that exists today (<c>DocumentContent</c>'s identical <c>nosniff</c>) but means a
+/// future handler setting its own <c>Content-Security-Policy</c> inline would have it discarded with
+/// nothing going red.
 /// </para>
 /// <para>
-/// **What the policy deliberately does not carry yet.** <c>form-action</c> and <c>base-uri</c> do not
-/// fall back to <c>default-src</c>, so <c>'none'</c> here does not cover them — but neither directive
-/// bites on anything but an HTML document, and this API serves none until 7.3. They belong to the
-/// same card as the carve-out. <c>Strict-Transport-Security</c> likewise carries no
-/// <c>includeSubDomains</c>: §10 describes a single host, and asserting a policy over sibling
-/// subdomains AXA may already be using is a deployment decision rather than a code one.
+/// **What the HTML policy deliberately does not carry.** This is the narrowest carve-out that makes
+/// the SPA loadable, not a general-purpose SPA CSP — no <c>script-src</c>/<c>style-src</c>/
+/// <c>connect-src</c> allow-list, no <c>form-action</c>/<c>base-uri</c> fallback from
+/// <c>default-src</c>. A real SPA-appropriate policy is its own later card, recorded rather than
+/// improvised here. <c>Strict-Transport-Security</c> likewise carries no <c>includeSubDomains</c>:
+/// §10 describes a single host, and asserting a policy over sibling subdomains AXA may already be
+/// using is a deployment decision rather than a code one.
 /// </para>
 /// </remarks>
 public sealed class SecurityHeadersMiddleware(RequestDelegate next)
@@ -58,7 +60,7 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
         context.Response.OnStarting(
             static state =>
             {
-                Apply(((HttpContext)state).Response.Headers);
+                Apply((HttpContext)state);
                 return Task.CompletedTask;
             },
             context);
@@ -66,8 +68,13 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
         return next(context);
     }
 
-    private static void Apply(IHeaderDictionary headers)
+    /// <summary>Internal rather than private so the HTML/non-HTML branch is directly unit-testable
+    /// on a constructed <c>DefaultHttpContext</c> — there is no `wwwroot` in any test host to route
+    /// a real HTML response through (design.md §10, decision 3's same accepted gap).</summary>
+    internal static void Apply(HttpContext context)
     {
+        var headers = context.Response.Headers;
+
         // The response means what it says it means: no sniffing a JSON error body into HTML, and no
         // sniffing a customer's uploaded file into a script.
         headers.XContentTypeOptions = "nosniff";
@@ -75,7 +82,14 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
         // Clickjacking, twice over. `X-Frame-Options` for what still only understands that, and the
         // CSP directive beside it for everything current.
         headers.XFrameOptions = "DENY";
-        headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
+
+        // HTML is the SPA itself (slice 7.6, design.md §10) — default-src 'none' would stop the page
+        // loading its own script and stylesheet, so it keeps only the clickjacking directive.
+        // Everything else (JSON, document bytes) keeps the original strict policy unchanged.
+        var isHtml = context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true;
+        headers.ContentSecurityPolicy = isHtml
+            ? "frame-ancestors 'none'"
+            : "default-src 'none'; frame-ancestors 'none'";
 
         // §9.1's public page carries a live 256-bit credential in its URL. A referrer header would
         // hand that token to any third-party host the page ever touched.

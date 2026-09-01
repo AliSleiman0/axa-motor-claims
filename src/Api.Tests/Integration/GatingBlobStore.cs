@@ -73,6 +73,8 @@ internal sealed class GatingBlobStore(InMemoryBlobStore inner) : IBlobStore
 
     public Task<IReadOnlyList<BlobItem>> List(string prefix, CancellationToken ct) =>
         inner.List(prefix, ct);
+
+    public Task<bool> ContainerExists(CancellationToken ct) => inner.ContainerExists(ct);
 }
 
 /// <summary>One armed stall: wait for <see cref="Reached"/>, do something, then <see cref="Release"/>.</summary>

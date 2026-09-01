@@ -447,5 +447,7 @@ public sealed class RealNext3ClientTests
 
         public Task<IReadOnlyList<BlobItem>> List(string prefix, CancellationToken ct) =>
             inner.List(prefix, ct);
+
+        public Task<bool> ContainerExists(CancellationToken ct) => inner.ContainerExists(ct);
     }
 }

@@ -48,6 +48,14 @@ public interface IBlobStore
     /// is garbage the cleanup job sweeps" — and by nothing else; this is not a browse surface.
     /// </summary>
     Task<IReadOnlyList<BlobItem>> List(string prefix, CancellationToken ct);
+
+    /// <summary>
+    /// Whether the transit container itself exists and is reachable — added slice 7.6 for
+    /// `/health/ready` (design.md §10). Distinct from any single blob's existence: a healthy
+    /// deployment's container always exists, so this answers "is storage actually there," not
+    /// "does this file happen to be."
+    /// </summary>
+    Task<bool> ContainerExists(CancellationToken ct);
 }
 
 /// <summary>

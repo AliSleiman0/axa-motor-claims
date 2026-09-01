@@ -1,0 +1,182 @@
+name: CI
+
+# design.md §10 (slice 7.6): every merge -> build + tests -> container image -> ACR -> deploy to
+# test, automatically. Production promotion is a separate, tag-triggered job that references a
+# GitHub Environment deliberately not created this week (design.md §11 — week 8's), so it cannot
+# fire by accident even though its job definition already exists below.
+#
+# Reviewed and written this slice; NOT pushed to the remote this slice — see HANDOFF.md and
+# docs/scope-decisions.md for why that is a deliberate, separate decision from writing it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    # A real SQL Server, not LocalDB — CI has no LocalDB, and the fixture genuinely needs real SQL
+    # Server semantics (READPAST, RCSI, migrations) that a lighter substitute cannot honestly stand
+    # in for (ApiFixture.cs's own comment has said so since before this workflow existed).
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SQL_SA_PASSWORD || 'PLACEHOLDER-Ci-Only-Pw1!' }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${{ secrets.CI_SQL_SA_PASSWORD || 'PLACEHOLDER-Ci-Only-Pw1!' }}' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: dotnet test
+        env:
+          # {database} substituted per test-database, per run (ApiFixture.cs, slice 7.6). This is
+          # what actually exercises TEST_DB_CONNECTION_TEMPLATE for the first time outside a
+          # developer's own manual verification.
+          TEST_DB_CONNECTION_TEMPLATE: "Server=localhost,1433;Database={database};User Id=sa;Password=${{ secrets.CI_SQL_SA_PASSWORD || 'PLACEHOLDER-Ci-Only-Pw1!' }};TrustServerCertificate=true;Connection Timeout=30;"
+        run: dotnet test --nologo --logger "console;verbosity=normal"
+
+  test-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/Web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/Web/package-lock.json
+
+      - run: npm ci
+      # Chains tsc -b, eslint --max-warnings 0, and vite build — a lint or type failure fails this
+      # step, not a separate one (src/Web/package.json's own "build" script).
+      - run: npm run build
+      - run: npm test
+
+  package:
+    needs: [test-api, test-web]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ACR
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        id: image
+        run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/axamotorclaims:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  deploy-test:
+    needs: [package]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # design.md §10's stated order: the migration bundle runs against the test database BEFORE
+      # the new image goes live. MigrateAsync stays absent everywhere in the application itself —
+      # this is the one mechanism, in both environments, and it runs here, not on container start.
+      - name: Open a temporary SQL firewall rule for this runner
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          az sql server firewall-rule create \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server "${{ secrets.AZURE_SQL_SERVER_NAME }}" \
+            --name "ci-runner-temp" \
+            --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP"
+          # NOTE if this step is ever replaced with "Allow Azure services" (0.0.0.0-0.0.0.0) instead
+          # of a scoped per-run rule: that widens the SQL firewall to every Azure tenant's outbound
+          # IPs, not just this runner. Flagged here so the looseness is a decision, not a default.
+
+      - name: Build and run the EF migration bundle against the test database
+        run: |
+          dotnet ef migrations bundle --project src/Api --self-contained -r linux-x64 -o ./efbundle
+          ./efbundle --connection "${{ secrets.AZURE_SQL_CONNECTION_STRING_TEST }}"
+
+      - name: Remove the temporary SQL firewall rule
+        if: always()
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server "${{ secrets.AZURE_SQL_SERVER_NAME }}" \
+            --name "ci-runner-temp" --yes
+
+      - name: Point the test Container App at the new image
+        run: |
+          az containerapp update \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets.AZURE_CONTAINER_APP_NAME }}" \
+            --image "${{ needs.package.outputs.image }}"
+
+      - name: Deploy smoke
+        run: |
+          BASE="${{ secrets.AZURE_TEST_BASE_URL }}"
+          # §9.1's uniform surface: an invalid public token is a 404, not a 500 or an auth prompt.
+          curl -sf -o /dev/null -w "%{http_code}" "$BASE/p/x" | grep -q "^200$"
+          curl -s -o /dev/null -w "%{http_code}" "$BASE/api/nonsense" | grep -q "^404$"
+          curl -sf -o /dev/null -w "%{http_code}" "$BASE/health/ready" | grep -q "^200$"
+
+  # Tag-triggered production promotion (design.md §10: "redeploys the same image digest — no
+  # rebuild between environments"). References the 'production' GitHub Environment, which is
+  # deliberately not created this slice (week 8) — so this job cannot run yet no matter what is
+  # tagged; GitHub refuses to start a job against an Environment that does not exist.
+  promote-production:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Re-point the production Container App at the already-built, already-tested image
+        run: |
+          az containerapp update \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP_PROD }}" \
+            --name "${{ secrets.AZURE_CONTAINER_APP_NAME_PROD }}" \
+            --image "${{ secrets.AZURE_LAST_GOOD_TEST_IMAGE }}"

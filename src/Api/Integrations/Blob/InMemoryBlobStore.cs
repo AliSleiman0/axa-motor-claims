@@ -60,5 +60,9 @@ public sealed class InMemoryBlobStore(TimeProvider time) : IBlobStore
     /// <summary>The stored bytes — test observability for "was this actually the file we sent?".</summary>
     internal byte[]? Read(string key) => _blobs.TryGetValue(key, out var blob) ? blob.Content : null;
 
+    // Fake mode has no container to check — always healthy, matching every other §6.2 fake's
+    // "nothing here should ever fail a readiness probe" shape.
+    public Task<bool> ContainerExists(CancellationToken ct) => Task.FromResult(true);
+
     private sealed record StoredBlob(byte[] Content, string ContentType, DateTime CreatedAt);
 }

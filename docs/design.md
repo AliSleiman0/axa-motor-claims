@@ -502,7 +502,16 @@ The project's largest attack surface: a public, unauthenticated page collecting 
 
 ## 10. Environments, CI/CD, migrations
 
-Nothing on this exists in any prior document — this section is net-new and deliberately minimal.
+**Built, slice 7.6 (2026-09-01).** Every artifact this section describes now exists in the repo:
+root `Dockerfile` + `.dockerignore`; `.github/workflows/ci.yml`; `scripts/provision-azure.ps1`;
+`scripts/uat-seed.ps1`; `docs/runbook.md`. What follows is no longer a recommendation, it is what
+those files do — **with one honest caveat**: this slice's session had no `az login` and no running
+Docker daemon, so the Dockerfile and CI workflow are reviewed and locally-verifiable-in-part (the
+health endpoint, static serving, the EF migration bundle mechanism, the fixture's
+`TEST_DB_CONNECTION_TEMPLATE` substitution — all actually run and green) but the container has
+never actually been built, and the CI workflow has never actually run against the repo's GitHub
+Actions. `docs/scope-decisions.md` records exactly which pieces still need the developer's own
+`az login`, a running Docker Desktop, and a deliberate decision to push the workflow.
 
 **Environments: two** — recommendation on record (#41; AXA's call, roughly doubles the Azure figure, though test's scale-to-zero keeps the true delta to ~$20–40/month):
 
@@ -514,11 +523,17 @@ Nothing on this exists in any prior document — this section is net-new and del
 | Senders | fakes (email/SMS to log) | real |
 | Purpose | demos, UAT, fixes approved without touching live claims | live |
 
-**CI/CD (GitHub Actions, trunk-based on `main`):** every merge → build + tests → container image → ACR → **deploy to test** automatically. **Production promotion = pushing a git tag, which redeploys the *same image digest*** — no rebuild between environments. Rollback = re-point to the previous digest. Capacitor builds: Android on the GitHub runner; iOS on Codemagic's personal-tier free macOS minutes (per HANDOFF §4 — confirm the build actually runs there before week 6; store accounts AXA's, CI account the developer's).
+**CI/CD (GitHub Actions, trunk-based on `main`):** every merge → build + tests → container image → ACR → **deploy to test** automatically. **Production promotion = pushing a git tag, which redeploys the *same image digest*** — no rebuild between environments. Rollback = re-point to the previous digest. Capacitor builds: Android on the GitHub runner; iOS on Codemagic's personal-tier free macOS minutes (per HANDOFF §4 — confirm the build actually runs there before week 6; store accounts AXA's, CI account the developer's). **`.github/workflows/ci.yml`** (slice 7.6) is exactly this: `test-api` (a real `mcr.microsoft.com/mssql/server` service container, not LocalDB — see the fixture-lane note below) and `test-web` run on every push/PR; `package` (Docker build → ACR) and `deploy-test` (see migrations, next) run only on `main`; `promote-production` is tag-triggered and references a GitHub Environment (`production`) deliberately not created this slice, so it cannot fire no matter what is tagged, until week 8 creates that Environment on purpose.
 
-**EF Core migrations:** generated migration bundle executed as a pipeline step **before** the new revision goes live; production never auto-migrates on startup. Test may migrate on startup for speed. Never hand-edit a generated migration's applied history.
+**EF Core migrations:** generated migration bundle executed as a pipeline step **before** the new revision goes live; production never auto-migrates on startup. Test may migrate on startup for speed. Never hand-edit a generated migration's applied history. `deploy-test` runs `dotnet ef migrations bundle` against the test database, through a temporary SQL firewall rule scoped to the runner's own IP (opened and closed around the bundle run — the workflow comments the risk if "Allow Azure services" is ever substituted instead, which would widen the firewall to every Azure tenant's outbound IPs).
 
-**Secrets:** Container Apps secrets/env vars (single tenant; no Key Vault ceremony unless #21 demands it). All accounts in AXA's name on AXA's card from day one.
+**Secrets:** Container Apps secrets/env vars (single tenant; no Key Vault ceremony unless #21 demands it). All accounts in AXA's name on AXA's card from day one. **`scripts/provision-azure.ps1`** (slice 7.6) writes the real credentials (`ConnectionStrings__Default`, `Auth__Jwt__SigningKey`, `Blob__ConnectionString`, the VAPID pair) as Container Apps *secrets* and everything else (`Blob__Mode`, `Push__Mode`, `Push__Vapid__Subject`, `Auth__AppBaseUrl`, `Next3__Mode`) as plain environment variables — **no `appsettings.Test.json`**, deliberately: a Test-scoped JSON file loaded between the placeholder file and the environment would resurrect slice 3.4's override-ordering bug (a placeholder silently winning over a real value). Every AXA-specific resource name in that script is a parameter with a generated default, so #37's eventual answer is a parameter change, never a script rewrite.
+
+**The test fixture, `ApiFixture.cs` (slice 7.6):** `TEST_DB_CONNECTION_TEMPLATE`, an env var carrying a connection-string template with a literal `{database}` token, lets CI point the exact same fixture every local `dotnet test` already uses at a real SQL Server service container instead of LocalDB — falling back to the LocalDB template when unset, so every existing local workflow is unchanged. Found and fixed in the same slice: the RCSI-setting `ALTER DATABASE` statement inside `InitializeAsync` had been using the bare generated database-name variable rather than the name that actually ended up in the (possibly template-transformed) connection string — invisible until a template that wraps or renames the `{database}` token was actually tried.
+
+**`/health` and `/health/ready`, `src/Api/Infrastructure/HealthEndpoints.cs` (slice 7.6):** liveness stays the same unconditional 200 the API always answered; readiness checks `AppDbContext.Database.CanConnectAsync` and, only when `Blob:Mode = azure`, a new `IBlobStore.ContainerExists` port method (added this slice — `InMemoryBlobStore` answers `true` unconditionally, `AzureBlobStore` makes a live `BlobContainerClient.ExistsAsync` call every time, not a cached one). Both checks are wrapped so a thrown exception counts as "not ready" rather than crashing the endpoint itself.
+
+**The SPA moves in, `Program.cs` (slice 7.6):** `UseDefaultFiles`/`UseStaticFiles`, gated on `wwwroot/index.html` actually existing at boot — true only inside the published container image (the Dockerfile's third stage copies the web build there), false for `dotnet run` from source and for every test host, so dev and the whole suite are structurally unaffected. The constrained fallback (`StaticFallbackRoute.RouteTemplate`, `src/Api/Infrastructure/StaticFallbackRoute.cs`) serves `index.html` for every route except `/api`, `/auth`, `/public`, which keep their existing 404s — §9.1's uniform surface is untouched. `SecurityHeadersMiddleware`'s CSP gets a content-type-conditional carve-out in the same slice: an HTML response gets `frame-ancestors 'none'` alone (the full strict `default-src 'none'` would stop the SPA loading its own script/stylesheet); everything else keeps the original policy.
 
 ---
 

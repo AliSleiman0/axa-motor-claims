@@ -1,0 +1,28 @@
+# Keeps the build context small and the two build stages honest about what they actually need
+# (design.md §10, slice 7.6) — neither stage should ever see the other's source tree or either
+# one's build output.
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+
+.git/
+.github/
+
+# Android/Capacitor native projects — irrelevant to the API/web image, and large.
+src/Web/android/
+src/Web/ios/
+
+# Local dev artifacts, secrets, and anything that should never leave a developer machine.
+**/*.user
+**/appsettings.Development.json
+**/appsettings.Local.json
+.vs/
+.vscode/
+*.log
+
+# Docs, scripts, and planning material — none of it belongs inside the runtime image.
+docs/
+scripts/
+*.md

@@ -48,6 +48,11 @@ public class BlobStoreContractTests
 
         try
         {
+            // Slice 7.6's readiness check: the container itself is reachable, independent of any
+            // one blob's presence. Triggers the same lazy create-if-not-exists as every other
+            // method here, so this is safe to assert first.
+            Assert.True(await store.ContainerExists(ct));
+
             Assert.False(await store.Exists(key, ct));
 
             // Absent is null, not an exception (slice 3.3). RealNext3Client is the first reader, and

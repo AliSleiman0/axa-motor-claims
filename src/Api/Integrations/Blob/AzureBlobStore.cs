@@ -97,4 +97,15 @@ public sealed class AzureBlobStore : IBlobStore
 
         return items;
     }
+
+    /// <summary>
+    /// A live check, not a cached one: <c>_container.Value</c> only caches the lightweight client
+    /// reference (and, once, the create-if-missing round trip), so <c>ExistsAsync</c> below is a
+    /// real network call every time — the point of a readiness probe.
+    /// </summary>
+    public async Task<bool> ContainerExists(CancellationToken ct)
+    {
+        var container = await _container.Value;
+        return await container.ExistsAsync(ct);
+    }
 }

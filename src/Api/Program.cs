@@ -71,10 +71,26 @@ app.UseWhen(
         PublicRateLimiting.PathPrefix, StringComparison.OrdinalIgnoreCase),
     branch => branch.UseMiddleware<PublicBodySizeMiddleware>());
 
+// **The SPA, slice 7.6 (design.md §10).** Gated on `wwwroot/index.html` actually existing at boot,
+// checked once here rather than per-request: true only in the published container image (the
+// Dockerfile copies the web build there), false for `dotnet run` from source and for every
+// `ApiFixture`-booted test — so dev and the whole test suite are structurally unchanged, not just
+// incidentally so. `UseStaticFiles`/`UseDefaultFiles` before auth: the SPA's own assets are public.
+// `WebRootPath` is null under `WebApplicationFactory`'s test host (no wwwroot resolution happens
+// there at all), not merely a path that fails to exist — `Path.Combine` throws on a null argument
+// rather than returning false, so the null check has to come first.
+var wwwrootIndexExists = app.Environment.WebRootPath is { } webRootPath
+    && File.Exists(Path.Combine(webRootPath, "index.html"));
+if (wwwrootIndexExists)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapHealthEndpoints();
 app.MapMediaConfigEndpoints();
 app.MapAuthEndpoints();
 app.MapRoleEndpoints();
@@ -90,6 +106,16 @@ app.MapDevAssignmentEndpoints();
 app.MapBrokerLinkEndpoints();
 app.MapBrokerRequestEndpoints();
 app.MapPublicEndpoints();
+
+// The constrained fallback (slice 7.6, design.md §10): `/p/:token` and every other SPA route serve
+// `index.html`; `/api`, `/auth` and `/public` unknowns keep their existing 404s untouched — §9.1's
+// uniform surface must not start answering differently just because a wwwroot now exists. The regex
+// is pinned in isolation (`StaticFallbackRegexTests`) since there is no `wwwroot` in any test host
+// to route a real request through here.
+if (wwwrootIndexExists)
+{
+    app.MapFallbackToFile(StaticFallbackRoute.RouteTemplate, "index.html");
+}
 
 await AdminSeeder.Seed(app.Services);
 

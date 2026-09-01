@@ -3,7 +3,7 @@
 **Project:** AXA Middle East — Mobile Application for Motor Claim Management
 **Developer:** solo (Ali Sleiman)
 **Commitment:** 2 months, $5,000 fixed, developer handles everything
-**Status as of 2026-09-01 (slice 7.5) — start here.** **Week 7: 7.1 ☑, 7.2 ☑, 7.3 ☑, 7.4 ☑, 7.5 ☑; 7.6 is next and is the last card in week 7.**
+**Status as of 2026-09-01 (slice 7.6) — start here.** **Week 7 is complete: 7.1 ☑, 7.2 ☑, 7.3 ☑, 7.4 ☑, 7.5 ☑, 7.6 ☑.**
 **2026-08-31 update:** the client's clarification-question answers + a revised BRD landed
 (`docs/client-answers-2026-08-31/`) — real, though the calendar position is still early (week 1–2 of
 the actual client-facing engagement, not week 7; slice numbers here track build progress, not
@@ -97,24 +97,68 @@ silently undo an admin's own deactivation. Two-line web polish included (`tones.
 status renders properly on the admin profile list. Full detail in `docs/build-playbook.md`'s 7.5
 Notes and `docs/scope-decisions.md`'s three dated rows.
 
+**Slice 7.6 done, 2026-09-01 — UAT prep, and week 7 is now complete.** design.md §10 stopped being
+prose: root `Dockerfile` + `.dockerignore`, `.github/workflows/ci.yml`, `scripts/provision-azure.ps1`,
+`scripts/uat-seed.ps1`, `docs/runbook.md` all exist for real, plus the code §10 depends on —
+`HealthEndpoints.cs` (`/health` liveness, `/health/ready` checking the DB and, in `azure` mode, a
+new `IBlobStore.ContainerExists`), the SPA static-serving + constrained fallback in `Program.cs`
+(gated on `wwwroot/index.html` existing, so dev and every test are structurally unaffected), the
+`SecurityHeadersMiddleware` CSP carve-out for HTML, and `ApiFixture`'s `TEST_DB_CONNECTION_TEMPLATE`.
+792 xUnit (788 pass, +20, 4 environment-skipped — unchanged skip set), 547 web unchanged. No
+migration (`IBlobStore.ContainerExists` is an interface method, no schema change).
+
+**Two real bugs found by actually running the verification steps, not by reasoning about the code.**
+(1) `ApiFixture`'s RCSI `ALTER DATABASE` statement used the bare generated database-name variable
+instead of the name that actually landed in the (possibly template-transformed) connection string —
+invisible under LocalDB, caught only because the fixture-lane verification deliberately stress-tested
+a `{database}` token *wrapped* in a larger name rather than assuming trivial substitution. (2)
+`Program.cs`'s `wwwroot/index.html` check threw `ArgumentNullException` under
+`WebApplicationFactory`'s test host, where `WebRootPath` is genuinely `null` rather than merely a
+missing path — took down 487 of 792 tests in one run before the null guard was added. Both fixed;
+full detail in `docs/build-playbook.md`'s 7.6 Notes.
+
+**This session had no `az login` and no running Docker daemon — recorded honestly, not blurred.**
+Confirmed with the developer before implementation: the CI workflow is written and reviewed but
+**not pushed** (a deliberate, separate decision — the repo has a real GitHub remote and `gh` is
+authenticated, so pushing it is genuinely one command away whenever that decision is made), and
+`scripts/provision-azure.ps1` is written and reviewed but **not run** (needs the developer's own
+`az login`). What *was* verified in-session: the EF migration bundle mechanism (built and ran for
+real, no cloud needed), `TEST_DB_CONNECTION_TEMPLATE` in both directions, `uat-seed.ps1`'s exact API
+call sequence (exercised non-interactively against a live local `dotnet run` instance, since the
+script itself is interactive via `Read-Host`), and both scripts' syntax + a literal-hardcoding check.
+`/code-review ultra` was not attempted at all — it is a system-level constraint, not a session one:
+no agent can launch it.
+
+**What the developer needs to do to actually stand up the test environment**, in the order the card
+itself specifies: (1) start Docker Desktop and run `docker build` / `docker run` against the new
+`Dockerfile` — readiness should honestly 503 with no reachable SQL Server. (2) `az login`
+(and `az account set --subscription ...` if more than one) and run `scripts/provision-azure.ps1`
+with the real secrets (`-SqlAdminPassword`, `-JwtSigningKey`, the VAPID pair, a real
+`-VapidSubject`/`-AppBaseUrl` — none of these have defaults, on purpose). (3) Review
+`.github/workflows/ci.yml` and push it when ready; the `package`/`deploy-test` jobs need repo
+secrets (`ACR_LOGIN_SERVER`/`ACR_USERNAME`/`ACR_PASSWORD`, `AZURE_CREDENTIALS`,
+`AZURE_RESOURCE_GROUP`, `AZURE_SQL_SERVER_NAME`, `AZURE_SQL_CONNECTION_STRING_TEST`,
+`AZURE_CONTAINER_APP_NAME`, `AZURE_TEST_BASE_URL`) configured in the repo first, which only exist
+once step 2 has actually provisioned something. (4) Run `scripts/uat-seed.ps1` against the live
+environment once it answers `/health`. (5) Run `/code-review ultra` — the card's closing step,
+entirely the developer's to trigger.
+
 **Next actions, in order.** (1) Review 7.2's test diff and commit it — the three deliberate changes
 to existing tests are `DeviceTokenTests`' cap test (a `400` became an eviction), `PublicUploadTests`'
 table-wide `Assert.Empty` (narrowed to the document under test), and `usePushSubscription`'s injected
-`readSubscription` (renamed `resync`, because it no longer only reads). (2) Review and commit 7.4's
-and 7.5's diffs (this session's work is uncommitted — see the working tree). (3) The client package is
-**sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice — and now also the
-reconciliation note 7.3's card asked drafted but not sent (Q2/Q4 read + the GPS gap), at the
-developer's discretion. (4) Slice 7.6 (the original 7.3, and the last card in week 7) — UAT prep:
-the test environment, CI, the image, the seed, the runbook, and `/code-review ultra` over the whole
-tree. It inherits one ticket from 7.1 (an app-faulted 500 still gets no security headers, because
-Kestrel skips `OnStarting` when the application threw — the fix is the global handler 7.2
-deliberately declined to add) and the CSP HTML carve-out. (5) The one open week-6 milestone box: the
-**narrow-iPhone** pass, plus reviewing the new `docs/rollout-notes.md` against a handset. (6) The two
-pending change requests (BRD v2's manager-override + Q12's per-profile capture-only exception) need
-pricing and client confirmation before either is scheduled. (7) When real Oracle/NEXT3 credentials
-arrive: both `OracleAssignmentQuerySource` (slice 7.4) and the real `GetExperts`/`GetGarages` path
-(slice 7.5) need a live-connection verification pass before anyone trusts them — neither has ever
-been exercised against a real endpoint.
+`readSubscription` (renamed `resync`, because it no longer only reads). (2) Review and commit
+7.4/7.5/7.6's diffs (this session's work is uncommitted — see the working tree). (3) The client
+package is **sent**; the chase is AXA's acknowledgement + the demo debrief + the 30% invoice — and
+now also the reconciliation note 7.3's card asked drafted but not sent (Q2/Q4 read + the GPS gap), at
+the developer's discretion. (4) The five steps above to actually stand up the test environment —
+none of them blocked on anything else in this list. (5) The two pending change requests (BRD v2's
+manager-override + Q12's per-profile capture-only exception) need pricing and client confirmation
+before either is scheduled. (6) When real Oracle/NEXT3 credentials arrive: `OracleAssignmentQuerySource`
+(slice 7.4) and the real `GetExperts`/`GetGarages` path (slice 7.5) both need a live-connection
+verification pass before anyone trusts them. (7) Week 8 — the original scope-letter/status-report
+cadence, plus production provisioning (`provision-azure.ps1 -EnvName production`, deliberately gated
+behind `-IUnderstandThisIsProduction`) and the `promote-production` CI job's GitHub Environment,
+neither of which exists yet by design.
 
 **Previous status (2026-08-27, slice 7.1):** design.md §9.1 turned from prose into tests — the
 limiter proven under concurrent load, the upload-versus-submit race actually raced, token expiry
